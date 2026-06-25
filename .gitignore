@@ -35,3 +35,9 @@ out/
 
 ### VS Code ###
 .vscode/
+
+.env
+
+/src/main/resources/application.yaml
+
+gradle/wrapper/gradle-wrapper.jar
