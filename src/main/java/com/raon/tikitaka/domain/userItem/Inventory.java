@@ -4,6 +4,7 @@ import com.raon.tikitaka.domain.product.Product;
 import com.raon.tikitaka.domain.user.Users;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
@@ -13,6 +14,7 @@ import lombok.NoArgsConstructor;
                 @UniqueConstraint(name = "uk_inventory_user_product", columnNames = {"user_id", "product_id"})
         }
 )
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Inventory {
 

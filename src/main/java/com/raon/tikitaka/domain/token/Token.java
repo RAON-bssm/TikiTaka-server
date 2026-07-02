@@ -3,6 +3,7 @@ package com.raon.tikitaka.domain.token;
 import com.raon.tikitaka.domain.enums.LoginProvider;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "token")
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Token {
 

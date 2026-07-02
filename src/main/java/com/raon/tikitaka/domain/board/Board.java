@@ -3,11 +3,13 @@ package com.raon.tikitaka.domain.board;
 import com.raon.tikitaka.domain.match.Match;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "board")
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Board {
 

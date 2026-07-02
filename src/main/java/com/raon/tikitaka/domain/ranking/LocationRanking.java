@@ -2,6 +2,7 @@ package com.raon.tikitaka.domain.ranking;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
 @Table(name = "location_ranking", indexes = {
         @Index(name = "idx_location_ranking", columnList = "location_rank")
 })
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LocationRanking {
 
