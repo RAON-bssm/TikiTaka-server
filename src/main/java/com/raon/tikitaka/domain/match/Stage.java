@@ -2,6 +2,7 @@ package com.raon.tikitaka.domain.match;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "stage")
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Stage {
 

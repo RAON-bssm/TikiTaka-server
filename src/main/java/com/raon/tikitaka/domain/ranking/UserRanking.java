@@ -2,6 +2,7 @@ package com.raon.tikitaka.domain.ranking;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
@@ -11,6 +12,7 @@ import java.util.UUID;
 @Table(name = "user_ranking", indexes = {
         @Index(name = "idx_user_ranking", columnList = "user_rank")
 })
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserRanking {
 

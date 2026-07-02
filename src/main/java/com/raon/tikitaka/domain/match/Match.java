@@ -5,10 +5,12 @@ import com.raon.tikitaka.domain.enums.MatchType;
 import com.raon.tikitaka.domain.location.Location;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "match")
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Match {
 

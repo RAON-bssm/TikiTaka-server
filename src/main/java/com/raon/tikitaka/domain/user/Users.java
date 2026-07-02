@@ -4,6 +4,7 @@ import com.raon.tikitaka.domain.enums.UserRole;
 import com.raon.tikitaka.domain.location.Location;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users")
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Users {
 

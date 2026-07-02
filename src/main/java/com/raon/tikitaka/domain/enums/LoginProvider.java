@@ -1,7 +1,9 @@
 package com.raon.tikitaka.domain.enums;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+@Getter
 @RequiredArgsConstructor
 public enum LoginProvider {
     KAKAO("카카오 로그인"),

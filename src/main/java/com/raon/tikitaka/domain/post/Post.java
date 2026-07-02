@@ -4,6 +4,7 @@ import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.user.Users;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "post")
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Post {
 
