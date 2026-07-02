@@ -4,10 +4,12 @@ import com.raon.tikitaka.domain.product.Product;
 import com.raon.tikitaka.domain.user.Users;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "equipment")
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Equipment {
 

@@ -4,11 +4,13 @@ package com.raon.tikitaka.domain.product;
 import com.raon.tikitaka.domain.enums.ProductType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "product")
+@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Product {
 
