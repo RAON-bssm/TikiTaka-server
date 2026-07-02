@@ -1,21 +1,27 @@
 package com.raon.tikitaka.domain.board;
 
-
+import com.raon.tikitaka.domain.match.Match;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "board")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Board {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long board_id;
+    @Column(name = "board_id")
+    private Long boardId;
 
-    //@JoinColumn(name = "match_id", nullable = false)
-    //private Match match;   match 불러와야하는데 아직 안만들어서 보류
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "match_id", nullable = false, unique = true)
+    private Match match;
 
+    @Column(name = "is_active", nullable = false)
     @ColumnDefault("true")
-    @Column(nullable = false)
-    private boolean is_active;
+    private boolean isActive;
+
 }
