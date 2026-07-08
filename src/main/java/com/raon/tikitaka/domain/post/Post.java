@@ -56,4 +56,24 @@ public class Post {
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public static Post create(Users author, Board board, String content, String postImage) {
+        Post post = new Post();
+        post.userId = author;
+        post.board = board;
+        post.content = content;
+        post.postImage = postImage;
+        post.isActive = true;
+        post.createdAt = LocalDateTime.now();
+        post.updatedAt = LocalDateTime.now();
+        return post;
+    }
+
+    public void updateContent(String content) {
+        this.content = content;
+    }
+
+    public void deactivate() {
+        this.isActive = false;
+    }
 }
