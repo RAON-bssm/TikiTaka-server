@@ -5,12 +5,18 @@ services:
       dockerfile: Dockerfile
     image: demo:local
     ports:
-      - "8080:8080"
+      - "8090:8090"
     environment:
       TZ: Asia/Seoul
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DATABASE_NAME}
       SPRING_DATASOURCE_USERNAME: ${DATABASE_USER}
       SPRING_DATASOURCE_PASSWORD: ${DATABASE_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME}
+
+
     depends_on:
       db:
         condition: service_healthy
