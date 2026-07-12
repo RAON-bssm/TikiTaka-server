@@ -1,6 +1,7 @@
 package com.raon.tikitaka.adapter.post.out;
 
 import com.raon.tikitaka.adapter.board.out.BoardJpaRepository;
+import com.raon.tikitaka.adapter.user.out.UserJpaRepository;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.post.Post;
