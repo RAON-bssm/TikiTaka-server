@@ -28,4 +28,11 @@ public class StorageService implements StorageUseCase {
     public URL issueViewUrl(String key) {
         return storagePort.issueViewUrl(key, VIEW_URL_EXPIRATION);
     }
+
+    @Override
+    public String uploadImage(byte[] content, String fileName, String contentType) {
+        String key = UUID.randomUUID() + "-" + fileName;
+        storagePort.upload(key, content, contentType);
+        return key;
+    }
 }

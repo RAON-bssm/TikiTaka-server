@@ -57,12 +57,14 @@ public class Post {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public static Post create(Users author, Board board, String content, String postImage) {
+    public static Post create(Users author, Board board, String content, String postImage, Integer score, String aiReview) {
         Post post = new Post();
         post.userId = author;
         post.board = board;
         post.content = content;
         post.postImage = postImage;
+        post.score = score;
+        post.aiReview = aiReview;
         post.isActive = true;
         post.createdAt = LocalDateTime.now();
         post.updatedAt = LocalDateTime.now();

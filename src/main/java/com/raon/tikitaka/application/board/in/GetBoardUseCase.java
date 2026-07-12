@@ -7,4 +7,6 @@ import java.util.List;
 public interface GetBoardUseCase {
 
     List<Board> getBoards();
+
+    String getMission(Long boardId);
 }
