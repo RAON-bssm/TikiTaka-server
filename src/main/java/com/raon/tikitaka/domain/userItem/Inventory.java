@@ -1,7 +1,7 @@
 package com.raon.tikitaka.domain.userItem;
 
 import com.raon.tikitaka.domain.product.Product;
-import com.raon.tikitaka.domain.user.Users;
+import com.raon.tikitaka.domain.user.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -25,7 +25,7 @@ public class Inventory {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private Users userId;
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
