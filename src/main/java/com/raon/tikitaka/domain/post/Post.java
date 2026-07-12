@@ -1,7 +1,7 @@
 package com.raon.tikitaka.domain.post;
 
 import com.raon.tikitaka.domain.board.Board;
-import com.raon.tikitaka.domain.user.User;
+import com.raon.tikitaka.domain.user.Users;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -24,7 +24,7 @@ public class Post {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private Users userId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id", nullable = false)
