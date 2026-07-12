@@ -5,7 +5,7 @@ import com.raon.tikitaka.application.inventory.out.InventoryRepositoryPort;
 import com.raon.tikitaka.application.user.out.EquipmentRepositoryPort;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.product.Product;
-import com.raon.tikitaka.domain.user.User;
+import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.domain.userItem.Equipment;
 import com.raon.tikitaka.domain.userItem.Inventory;
 import jakarta.persistence.EntityNotFoundException;
@@ -29,7 +29,7 @@ public class EquipmentService implements EquipItemUseCase {
 
     @Override
     public void equip(UUID userId, List<Long> productIds) {
-        User user = userRepositoryPort.findByIdWithLocations(userId)
+        Users user = userRepositoryPort.findByIdWithLocations(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 
         Map<Long, Product> ownedProducts = inventoryRepositoryPort.findAllByUserIdWithProduct(userId).stream()
