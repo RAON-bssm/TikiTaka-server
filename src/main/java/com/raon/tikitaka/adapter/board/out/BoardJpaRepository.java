@@ -3,8 +3,10 @@ package com.raon.tikitaka.adapter.board.out;
 import com.raon.tikitaka.domain.board.Board;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface BoardJpaRepository extends JpaRepository<Board, Long> {
 
@@ -17,4 +19,11 @@ public interface BoardJpaRepository extends JpaRepository<Board, Long> {
             where b.isActive = true
             """)
     List<Board> findAllActiveWithMatch();
+
+    @Query("""
+            select b from Board b
+            join fetch b.match m
+            where b.boardId = :boardId and b.isActive = true
+            """)
+    Optional<Board> findActiveByIdWithMatch(@Param("boardId") Long boardId);
 }
