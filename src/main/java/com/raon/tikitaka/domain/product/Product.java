@@ -26,7 +26,7 @@ public class Product {
     private String productImage;
 
     @Column(name = "product_type")
-    private ProductType productType; // 상품 종류 (상의, 하의 등)
+    private ProductType productType;
 
     @Column(name = "price")
     private Integer price;
