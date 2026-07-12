@@ -34,6 +34,10 @@ dependencies {
 
 	//S3
 	implementation("io.awspring.cloud:spring-cloud-aws-starter-s3:4.0.2")
+
+	//WebClient
+	implementation("org.springframework:spring-webflux")
+	implementation("io.projectreactor.netty:reactor-netty-http")
 }
 
 tasks.withType<Test> {

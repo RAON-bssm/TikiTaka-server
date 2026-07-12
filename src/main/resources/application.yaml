@@ -34,3 +34,8 @@ cloud:
     s3:
       bucket: ${AWS_S3_BUCKET_NAME}
 
+gemini:
+  api-key: ${GEMINI_API_KEY}
+  model: gemini-3.5-flash
+  prompt: ${GEMINI_PROMPT}
+

@@ -38,10 +38,10 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
     @Override
     @Transactional
-    public void createPost(UUID authorId, Long boardId, String content, String postImage) {
+    public void createPost(UUID authorId, Long boardId, String content, String postImage, Integer score, String aiReview) {
         Users author = postRepositoryPort.getUser(authorId);
         Board board = postRepositoryPort.getBoard(boardId);
-        postRepositoryPort.save(Post.create(author, board, content, postImage));
+        postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview));
     }
 
     @Override

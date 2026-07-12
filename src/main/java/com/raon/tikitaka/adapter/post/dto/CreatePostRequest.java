@@ -1,4 +1,6 @@
 package com.raon.tikitaka.adapter.post.dto;
 
-public record CreatePostRequest(Long boardId, String postImage, String content) {
+import org.springframework.web.multipart.MultipartFile;
+
+public record CreatePostRequest(Long boardId, String content, MultipartFile image) {
 }

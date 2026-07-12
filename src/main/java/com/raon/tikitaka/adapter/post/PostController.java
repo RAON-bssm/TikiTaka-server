@@ -9,10 +9,15 @@ import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
 import com.raon.tikitaka.application.post.in.GetPostListUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
+import com.raon.tikitaka.application.board.in.GetBoardUseCase;
+import com.raon.tikitaka.application.review.AiReviewResult;
+import com.raon.tikitaka.application.review.in.ReviewUseCase;
+import com.raon.tikitaka.application.storage.in.StorageUseCase;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,8 +26,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.util.UUID;
 
 @RestController
@@ -37,6 +44,9 @@ public class PostController {
     private final CreatePostUseCase createPostUseCase;
     private final UpdatePostUseCase updatePostUseCase;
     private final DeletePostUseCase deletePostUseCase;
+    private final StorageUseCase storageUseCase;
+    private final ReviewUseCase reviewUseCase;
+    private final GetBoardUseCase getBoardUseCase;
 
     @GetMapping("/{boardId:\\d+}")
     public ApiResponse<PostListResponse> getPosts(@PathVariable Long boardId) {
@@ -50,14 +60,21 @@ public class PostController {
         return ApiResponse.of(200, "게시물 조회 성공", response);
     }
 
-    @PostMapping
+    @PostMapping(consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> createPost(
             @RequestHeader("Authorization") String authorization,
-            @RequestBody CreatePostRequest request
+            @ModelAttribute CreatePostRequest request
     ) {
         UUID authorId = resolveUserId(authorization);
-        createPostUseCase.createPost(authorId, request.boardId(), request.content(), request.postImage());
+        MultipartFile image = validateImage(request.image());
+        byte[] imageBytes = readImageBytes(image);
+
+        String mission = getBoardUseCase.getMission(request.boardId());
+        String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
+        AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());
+
+        createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, review.score(), review.review());
         return ApiResponse.of(201, "게시물 생성 성공", null);
     }
 
@@ -86,6 +103,21 @@ public class PostController {
 
     private boolean isAdmin(String role) {
         return "admin".equalsIgnoreCase(role);
+    }
+
+    private MultipartFile validateImage(MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미지는 필수입니다.");
+        }
+        return image;
+    }
+
+    private byte[] readImageBytes(MultipartFile image) {
+        try {
+            return image.getBytes();
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미지를 읽을 수 없습니다.");
+        }
     }
 
     private UUID resolveUserId(String authorization) {
