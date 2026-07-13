@@ -8,4 +8,6 @@ import java.util.UUID;
 public interface InventoryRepositoryPort {
 
     List<Inventory> findAllByUserIdWithProduct(UUID userId);
+
+    Inventory save(Inventory inventory);
 }
