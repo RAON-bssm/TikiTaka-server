@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -16,5 +17,10 @@ public class ProductPersistenceAdapter implements ProductRepositoryPort {
     @Override
     public List<Product> findAllActiveProducts() {
         return productJpaRepository.findAllActiveProducts();
+    }
+
+    @Override
+    public Optional<Product> findActiveById(Long productId) {
+        return productJpaRepository.findActiveById(productId);
     }
 }

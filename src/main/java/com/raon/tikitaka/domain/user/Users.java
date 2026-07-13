@@ -2,6 +2,7 @@ package com.raon.tikitaka.domain.user;
 
 import com.raon.tikitaka.domain.enums.UserRole;
 import com.raon.tikitaka.domain.location.Location;
+import com.raon.tikitaka.global.exception.InsufficientPointException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -50,6 +51,13 @@ public class Users {
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void usePoint(int amount) {
+        if (this.point < amount) {
+            throw new InsufficientPointException();
+        }
+        this.point -= amount;
     }
 
 }

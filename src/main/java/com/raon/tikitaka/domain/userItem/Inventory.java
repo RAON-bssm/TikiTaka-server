@@ -30,4 +30,13 @@ public class Inventory {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
+
+    private Inventory(Users user, Product product) {
+        this.user = user;
+        this.product = product;
+    }
+
+    public static Inventory of(Users user, Product product) {
+        return new Inventory(user, product);
+    }
 }
