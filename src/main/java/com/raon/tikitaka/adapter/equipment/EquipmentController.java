@@ -1,7 +1,7 @@
 package com.raon.tikitaka.adapter.equipment;
 
 import com.raon.tikitaka.adapter.equipment.dto.EquipRequest;
-import com.raon.tikitaka.adapter.equipment.dto.EquipmentListResponse;
+import com.raon.tikitaka.adapter.equipment.dto.EquipmentResponse;
 import com.raon.tikitaka.application.equipment.in.EquipItemUseCase;
 import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.global.response.ApiResponse;
@@ -24,8 +24,8 @@ public class EquipmentController {
     private final GetEquippedItemsUseCase getEquippedItemsUseCase;
 
     @GetMapping("/{user_id}")
-    public ApiResponse<EquipmentListResponse> getEquippedItems(@PathVariable("user_id") UUID userId) {
-        EquipmentListResponse response = EquipmentListResponse.from(getEquippedItemsUseCase.getEquippedItems(userId));
+    public ApiResponse<EquipmentResponse> getEquippedItems(@PathVariable("user_id") UUID userId) {
+        EquipmentResponse response = EquipmentResponse.from(getEquippedItemsUseCase.getEquippedItems(userId));
         return ApiResponse.of(200, "장비 조회 성공", response);
     }
 
