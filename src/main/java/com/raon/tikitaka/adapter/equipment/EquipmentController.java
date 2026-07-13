@@ -1,9 +1,12 @@
 package com.raon.tikitaka.adapter.equipment;
 
 import com.raon.tikitaka.adapter.equipment.dto.EquipRequest;
+import com.raon.tikitaka.adapter.equipment.dto.EquipmentListResponse;
 import com.raon.tikitaka.application.equipment.in.EquipItemUseCase;
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,6 +21,13 @@ import java.util.UUID;
 public class EquipmentController {
 
     private final EquipItemUseCase equipItemUseCase;
+    private final GetEquippedItemsUseCase getEquippedItemsUseCase;
+
+    @GetMapping("/{user_id}")
+    public ApiResponse<EquipmentListResponse> getEquippedItems(@PathVariable("user_id") UUID userId) {
+        EquipmentListResponse response = EquipmentListResponse.from(getEquippedItemsUseCase.getEquippedItems(userId));
+        return ApiResponse.of(200, "장비 조회 성공", response);
+    }
 
     @PatchMapping("/{user_id}")
     public ApiResponse<Void> equip(@PathVariable("user_id") UUID userId, @RequestBody EquipRequest request) {

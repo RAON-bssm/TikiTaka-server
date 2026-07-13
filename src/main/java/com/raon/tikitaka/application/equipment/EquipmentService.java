@@ -1,6 +1,7 @@
 package com.raon.tikitaka.application.equipment;
 
 import com.raon.tikitaka.application.equipment.in.EquipItemUseCase;
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.inventory.out.InventoryRepositoryPort;
 import com.raon.tikitaka.application.user.out.EquipmentRepositoryPort;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
@@ -21,11 +22,21 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class EquipmentService implements EquipItemUseCase {
+public class EquipmentService implements EquipItemUseCase, GetEquippedItemsUseCase {
 
     private final UserRepositoryPort userRepositoryPort;
     private final InventoryRepositoryPort inventoryRepositoryPort;
     private final EquipmentRepositoryPort equipmentRepositoryPort;
+
+    @Override
+    public List<Product> getEquippedItems(UUID userId) {
+        userRepositoryPort.findByIdWithLocations(userId)
+                .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
+
+        return equipmentRepositoryPort.findAllByUserId(userId).stream()
+                .map(Equipment::getProduct)
+                .toList();
+    }
 
     @Override
     public void equip(UUID userId, List<Long> productIds) {
