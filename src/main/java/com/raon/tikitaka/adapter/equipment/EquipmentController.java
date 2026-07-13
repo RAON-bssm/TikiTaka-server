@@ -31,7 +31,7 @@ public class EquipmentController {
 
     @PatchMapping("/{user_id}")
     public ApiResponse<Void> equip(@PathVariable("user_id") UUID userId, @RequestBody EquipRequest request) {
-        equipItemUseCase.equip(userId, request.equipmentIds());
+        equipItemUseCase.equip(userId, request.toSelections());
         return ApiResponse.of(204, "장비 착용 성공", null);
     }
 }
