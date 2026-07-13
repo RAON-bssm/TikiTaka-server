@@ -42,6 +42,9 @@ public class Post {
     @Column(name = "ai_review")
     private String aiReview;
 
+    @Column(name = "location")
+    private String location;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -57,7 +60,7 @@ public class Post {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public static Post create(Users author, Board board, String content, String postImage, Integer score, String aiReview) {
+    public static Post create(Users author, Board board, String content, String postImage, Integer score, String aiReview, String location) {
         Post post = new Post();
         post.userId = author;
         post.board = board;
@@ -65,6 +68,7 @@ public class Post {
         post.postImage = postImage;
         post.score = score;
         post.aiReview = aiReview;
+        post.location = location;
         post.isActive = true;
         post.createdAt = LocalDateTime.now();
         post.updatedAt = LocalDateTime.now();
