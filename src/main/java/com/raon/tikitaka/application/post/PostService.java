@@ -7,6 +7,8 @@ import com.raon.tikitaka.application.post.in.GetPostListUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.domain.board.Board;
+import com.raon.tikitaka.domain.location.Location;
+import com.raon.tikitaka.domain.match.Match;
 import com.raon.tikitaka.domain.post.Post;
 import com.raon.tikitaka.domain.user.Users;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +43,24 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     public void createPost(UUID authorId, Long boardId, String content, String postImage, Integer score, String aiReview) {
         Users author = postRepositoryPort.getUser(authorId);
         Board board = postRepositoryPort.getBoard(boardId);
-        postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview));
+        String location = resolveLocation(author, board);
+        postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview, location));
+    }
+
+    private String resolveLocation(Users author, Board board) {
+        Location authorLocation = author.getMainLocation();
+        if (authorLocation == null) {
+            return null;
+        }
+
+        Match match = board.getMatch();
+        if (authorLocation.getLocationId().equals(match.getTeam1().getLocationId())) {
+            return match.getTeam1().getLocationName();
+        }
+        if (authorLocation.getLocationId().equals(match.getTeam2().getLocationId())) {
+            return match.getTeam2().getLocationName();
+        }
+        return null;
     }
 
     @Override

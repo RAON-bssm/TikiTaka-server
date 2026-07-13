@@ -52,6 +52,10 @@ public class GeminiAdapter implements AiReviewPort {
                 )
         );
 
+        log.info("Gemini API 호출 시작: model={}, promptChars={}, imageBytes={}, contentType={}",
+                model, text.length(), image.length, contentType);
+
+        long startedAt = System.currentTimeMillis();
         String responseBody;
         try {
             responseBody = webClient.post()
@@ -61,11 +65,28 @@ public class GeminiAdapter implements AiReviewPort {
                     .bodyToMono(String.class)
                     .block();
         } catch (WebClientResponseException e) {
-            log.error("Gemini API 호출 실패: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            log.error("Gemini API 호출 실패: model={}, status={}, elapsedMs={}, retryAfter={}, rateLimitHeaders={}, body={}",
+                    model,
+                    e.getStatusCode(),
+                    System.currentTimeMillis() - startedAt,
+                    e.getHeaders().getFirst("Retry-After"),
+                    extractRateLimitHeaders(e),
+                    e.getResponseBodyAsString());
             throw e;
         }
 
+        log.info("Gemini API 호출 성공: model={}, elapsedMs={}", model, System.currentTimeMillis() - startedAt);
         return parse(responseBody);
+    }
+
+    private Map<String, String> extractRateLimitHeaders(WebClientResponseException e) {
+        Map<String, String> headers = new java.util.LinkedHashMap<>();
+        e.getHeaders().forEach((name, values) -> {
+            if (name.toLowerCase().contains("ratelimit") || name.toLowerCase().contains("quota")) {
+                headers.put(name, String.join(",", values));
+            }
+        });
+        return headers;
     }
 
     private AiReviewResult parse(String responseBody) {
