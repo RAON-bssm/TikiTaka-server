@@ -12,6 +12,8 @@ public record PostDetailResponse(
         String content,
         Integer score,
         String aiReview,
+        String location,
+        Integer likeCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -24,6 +26,8 @@ public record PostDetailResponse(
                 post.getContent(),
                 post.getScore(),
                 post.getAiReview(),
+                post.getLocation(),
+                0,
                 post.getCreatedAt(),
                 post.getUpdatedAt()
         );
