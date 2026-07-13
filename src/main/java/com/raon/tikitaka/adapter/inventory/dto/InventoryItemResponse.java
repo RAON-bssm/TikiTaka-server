@@ -5,7 +5,6 @@ import com.raon.tikitaka.domain.product.Product;
 public record InventoryItemResponse(
         Long productId,
         String productName,
-        String productImage,
         String type,
         boolean isActive
 ) {
@@ -14,7 +13,6 @@ public record InventoryItemResponse(
         return new InventoryItemResponse(
                 product.getProductId(),
                 product.getProductName(),
-                product.getProductImage(),
                 product.getProductType().name().toLowerCase(),
                 isActive
         );
