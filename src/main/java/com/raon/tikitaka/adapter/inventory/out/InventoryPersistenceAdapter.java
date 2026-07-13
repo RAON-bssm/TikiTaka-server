@@ -18,4 +18,9 @@ public class InventoryPersistenceAdapter implements InventoryRepositoryPort {
     public List<Inventory> findAllByUserIdWithProduct(UUID userId) {
         return inventoryJpaRepository.findAllByUserIdWithProduct(userId);
     }
+
+    @Override
+    public Inventory save(Inventory inventory) {
+        return inventoryJpaRepository.save(inventory);
+    }
 }

@@ -2,9 +2,11 @@ package com.raon.tikitaka.application.product;
 
 import com.raon.tikitaka.application.inventory.out.InventoryRepositoryPort;
 import com.raon.tikitaka.application.product.in.GetProductListUseCase;
+import com.raon.tikitaka.application.product.in.PurchaseProductUseCase;
 import com.raon.tikitaka.application.product.out.ProductRepositoryPort;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.product.Product;
+import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.domain.userItem.Inventory;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +21,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ProductService implements GetProductListUseCase {
+public class ProductService implements GetProductListUseCase, PurchaseProductUseCase {
 
     private final UserRepositoryPort userRepositoryPort;
     private final ProductRepositoryPort productRepositoryPort;
@@ -38,5 +40,19 @@ public class ProductService implements GetProductListUseCase {
         return productRepositoryPort.findAllActiveProducts().stream()
                 .filter(product -> !ownedProductIds.contains(product.getProductId()))
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public void purchase(UUID userId, Long productId) {
+        Users user = userRepositoryPort.findByIdWithLocations(userId)
+                .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
+
+        Product product = productRepositoryPort.findActiveById(productId)
+                .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 상품입니다."));
+
+        user.usePoint(product.getPrice());
+
+        inventoryRepositoryPort.save(Inventory.of(user, product));
     }
 }
