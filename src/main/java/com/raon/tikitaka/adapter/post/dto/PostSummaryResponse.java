@@ -12,7 +12,9 @@ public record PostSummaryResponse(
         String postImage,
         Integer score,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String content,
+        String location
 ) {
 
     public static PostSummaryResponse from(Post post) {
@@ -23,7 +25,9 @@ public record PostSummaryResponse(
                 post.getPostImage(),
                 post.getScore(),
                 post.getCreatedAt(),
-                post.getUpdatedAt()
+                post.getUpdatedAt(),
+                post.getContent(),
+                post.getLocation()
         );
     }
 }
