@@ -1,5 +1,6 @@
 package com.raon.tikitaka.domain.user;
 
+import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.domain.enums.UserRole;
 import com.raon.tikitaka.domain.location.Location;
 import jakarta.persistence.*;
@@ -12,7 +13,10 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(
+        name = "users",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"provider", "provider_id"})
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Users {
@@ -24,6 +28,13 @@ public class Users {
 
     @Column(name = "user_name", nullable = false, unique = true)
     private String userName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider", nullable = false)
+    private LoginProvider provider;
+
+    @Column(name = "provider_id", nullable = false)
+    private String providerId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "main_location_id")
@@ -46,6 +57,26 @@ public class Users {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public static Users of(String userName, LoginProvider provider, String providerId) {
+        Users user = new Users();
+        user.userName = userName;
+        user.provider = provider;
+        user.providerId = providerId;
+        user.role = UserRole.USER;
+        user.point = 0;
+        return user;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+        if (this.point == null) {
+            this.point = 0;
+        }
+    }
 
     @PreUpdate
     public void preUpdate() {
