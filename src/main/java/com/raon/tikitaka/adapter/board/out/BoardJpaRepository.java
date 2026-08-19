@@ -12,7 +12,8 @@ import java.util.Optional;
 public interface BoardJpaRepository extends JpaRepository<Board, Long> {
 
     /**
-     * 현재 라운드에서 내 동네가 참가한 매치의 게시판 목록.
+     * 현재 라운드의 게시판 전체 목록. 다른 동네 경기도 구경할 수 있게 동네 조건을 걸지 않는다.
+     * 작성 검증은 아래 단건 조회가 담당하므로 글은 여전히 내 동네 게시판에만 쓸 수 있다.
      * 라운드 전환 시 실행되는 코드는 없고 now가 지나면 조회 결과가 자연히 바뀐다.
      */
     @Query("""
@@ -24,10 +25,9 @@ public interface BoardJpaRepository extends JpaRepository<Board, Long> {
             where b.isActive = true
               and s.startedAt <= :now
               and :now < s.endedAt
-              and (t1.locationId = :locationId or t2.locationId = :locationId)
+            order by b.boardId
             """)
-    List<Board> findAllActiveWithMatch(@Param("now") LocalDateTime now,
-                                       @Param("locationId") Long locationId);
+    List<Board> findAllActiveWithMatch(@Param("now") LocalDateTime now);
 
     /**
      * 단건 조회. 게시물 작성 시 미션을 가져오는 경로라 목록과 같은 필터가 필요하다.

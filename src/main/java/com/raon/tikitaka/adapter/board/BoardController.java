@@ -19,9 +19,9 @@ public class BoardController {
     private final GetBoardUseCase getBoardUseCase;
 
     /**
-     * 내 동네가 참가한 현재 라운드의 게시판만 내려준다.
+     * 현재 라운드의 게시판 전체 목록. 다른 동네 경기도 구경할 수 있고
+     * 내 동네 매치는 myMatch가 true로 내려가며 목록 맨 앞에 온다.
      * 인증은 JwtAuthenticationFilter가 처리하고 검증된 userId가 principal로 주입된다.
-     * 미인증 요청은 시큐리티 단계에서 컨트롤러 진입 전에 차단된다.
      */
     @GetMapping
     public ApiResponse<BoardListResponse> getBoards(@AuthenticationPrincipal UUID userId) {

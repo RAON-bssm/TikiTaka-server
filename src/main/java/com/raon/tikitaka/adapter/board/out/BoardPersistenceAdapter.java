@@ -16,8 +16,8 @@ public class BoardPersistenceAdapter implements BoardRepositoryPort {
     private final BoardJpaRepository boardJpaRepository;
 
     @Override
-    public List<Board> findAllActiveBoards(LocalDateTime now, Long locationId) {
-        return boardJpaRepository.findAllActiveWithMatch(now, locationId);
+    public List<Board> findAllActiveBoards(LocalDateTime now) {
+        return boardJpaRepository.findAllActiveWithMatch(now);
     }
 
     @Override

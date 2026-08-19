@@ -25,8 +25,9 @@ public class BoardService implements GetBoardUseCase {
     private final UserRepositoryPort userRepositoryPort;
 
     @Override
-    public List<Board> getBoards(UUID userId) {
-        return boardRepositoryPort.findAllActiveBoards(LocalDateTime.now(), mainLocationId(userId));
+    public BoardListResult getBoards(UUID userId) {
+        List<Board> boards = boardRepositoryPort.findAllActiveBoards(LocalDateTime.now());
+        return new BoardListResult(boards, mainLocationId(userId));
     }
 
     @Override
