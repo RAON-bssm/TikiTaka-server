@@ -3,6 +3,9 @@ package com.raon.tikitaka.adapter.board.dto;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.match.Match;
 
+/**
+ * 게시판 목록의 한 건. myMatch가 true면 내 메인 동네가 참가한 매치의 게시판이다.
+ */
 public record BoardResponse(
         Long boardId,
         String team1Name,
@@ -10,10 +13,11 @@ public record BoardResponse(
         String mission,
         String matchType,
         Integer season,
-        Integer round
+        Integer round,
+        boolean myMatch
 ) {
 
-    public static BoardResponse from(Board board) {
+    public static BoardResponse from(Board board, boolean myMatch) {
         Match match = board.getMatch();
         return new BoardResponse(
                 board.getBoardId(),
@@ -22,7 +26,8 @@ public record BoardResponse(
                 match.getMission(),
                 match.getMatchType().getDescription(),
                 match.getStage().getSeason(),
-                match.getStage().getRound()
+                match.getStage().getRound(),
+                myMatch
         );
     }
 }
