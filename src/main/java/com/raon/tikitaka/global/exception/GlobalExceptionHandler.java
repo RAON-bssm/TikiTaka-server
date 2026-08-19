@@ -5,9 +5,24 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * 서비스 계층이 던지는 ResponseStatusException을 공통 응답 형식으로 바꾼다.
+     * 이 핸들러가 없으면 스프링 기본 에러 형식으로 내려가 메시지가 클라이언트에 전달되지 않는다.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResponseStatus(ResponseStatusException e) {
+        String message = e.getReason();
+        if (message == null) {
+            message = "요청을 처리할 수 없습니다.";
+        }
+        return ResponseEntity.status(e.getStatusCode())
+                .body(ApiResponse.of(e.getStatusCode().value(), message, null));
+    }
 
     @ExceptionHandler(InsufficientPointException.class)
     public ResponseEntity<ApiResponse<Void>> handleInsufficientPoint(InsufficientPointException e) {
