@@ -1,5 +1,6 @@
 package com.raon.tikitaka.adapter.user.out;
 
+import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.domain.enums.UserStatus;
 import com.raon.tikitaka.domain.user.Users;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +12,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserJpaRepository extends JpaRepository<Users, UUID> {
+
+    // ===== 인증 (TK-70) =====
+
+    Optional<Users> findByProviderAndProviderId(LoginProvider provider, String providerId);
+
+    boolean existsByUserName(String userName);
+
+    // ===== 시즌/랭킹 자동화 =====
 
     @Query("""
             select u from Users u

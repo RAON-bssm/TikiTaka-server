@@ -18,4 +18,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleSubLocationNotSet(SubLocationNotSetException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.of(400, e.getMessage(), null));
     }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidToken(InvalidTokenException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.of(401, e.getMessage(), null));
+    }
+
+    @ExceptionHandler(DuplicateUserNameException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDuplicateUserName(DuplicateUserNameException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.of(409, e.getMessage(), null));
+    }
+
+    @ExceptionHandler(SocialLoginFailedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSocialLoginFailed(SocialLoginFailedException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.of(401, e.getMessage(), null));
+    }
 }

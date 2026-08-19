@@ -1,5 +1,6 @@
 package com.raon.tikitaka.domain.user;
 
+import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.domain.enums.UserRole;
 import com.raon.tikitaka.domain.enums.UserStatus;
 import com.raon.tikitaka.domain.location.Location;
@@ -15,7 +16,10 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(
+        name = "users",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"provider", "provider_id"})
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Users {
@@ -27,6 +31,13 @@ public class Users {
 
     @Column(name = "user_name", nullable = false, unique = true)
     private String userName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider", nullable = false)
+    private LoginProvider provider;
+
+    @Column(name = "provider_id", nullable = false)
+    private String providerId;
 
     /**
      * 메인 지역 — 항상 "현재 라운드의 소속"과 일치한다. 소속 없는 유저는 존재하지 않는다.
@@ -76,6 +87,16 @@ public class Users {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public static Users of(String userName, LoginProvider provider, String providerId) {
+        Users user = new Users();
+        user.userName = userName;
+        user.provider = provider;
+        user.providerId = providerId;
+        user.role = UserRole.USER;
+        user.point = 0;
+        return user;
+    }
 
     @PrePersist
     public void prePersist() {
