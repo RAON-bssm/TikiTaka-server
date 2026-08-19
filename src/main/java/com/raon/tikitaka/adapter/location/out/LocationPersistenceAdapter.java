@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -21,5 +22,10 @@ public class LocationPersistenceAdapter implements LocationRepositoryPort {
     @Override
     public long count() {
         return locationJpaRepository.count();
+    }
+
+    @Override
+    public Optional<Location> findById(Long locationId) {
+        return locationJpaRepository.findById(locationId);
     }
 }

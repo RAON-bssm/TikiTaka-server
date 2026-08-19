@@ -4,5 +4,5 @@ import com.raon.tikitaka.application.auth.TokenResult;
 
 public interface SignupUseCase {
 
-    TokenResult signup(String signupToken, String userName);
+    TokenResult signup(String signupToken, String userName, Long mainLocationId);
 }

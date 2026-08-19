@@ -5,9 +5,11 @@ import com.raon.tikitaka.application.auth.in.LogoutUseCase;
 import com.raon.tikitaka.application.auth.in.ReissueUseCase;
 import com.raon.tikitaka.application.auth.in.SignupUseCase;
 import com.raon.tikitaka.application.auth.out.OAuthClientPort;
+import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
 import com.raon.tikitaka.application.user.out.TokenRepositoryPort;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.enums.LoginProvider;
+import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.token.Token;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.exception.DuplicateUserNameException;
@@ -15,9 +17,12 @@ import com.raon.tikitaka.global.exception.InvalidTokenException;
 import com.raon.tikitaka.global.security.jwt.JwtProvider;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -28,24 +33,28 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
     private final OAuthClientPort oAuthClientPort;
     private final UserRepositoryPort userRepositoryPort;
     private final TokenRepositoryPort tokenRepositoryPort;
+    private final LocationRepositoryPort locationRepositoryPort;
     private final JwtProvider jwtProvider;
 
     @Override
     public LoginResult login(LoginProvider provider, String providerAccessToken) {
         SocialUserInfo socialUserInfo = oAuthClientPort.fetchUserInfo(provider, providerAccessToken);
 
-        return userRepositoryPort.findByProviderAndProviderId(provider, socialUserInfo.providerId())
-                .map(user -> (LoginResult) new LoginResult.Registered(
-                        jwtProvider.createAccessToken(user.getUserId(), user.getRole()),
-                        issueAndStoreRefreshToken(user.getUserId(), provider)
-                ))
-                .orElseGet(() -> new LoginResult.SignupRequired(
-                        jwtProvider.createSignupToken(provider, socialUserInfo.providerId())
-                ));
+        Optional<Users> existing = userRepositoryPort
+                .findByProviderAndProviderId(provider, socialUserInfo.providerId());
+        if (existing.isPresent()) {
+            Users user = existing.get();
+            user.touch();   // 활동 기록 — lastActiveAt 갱신, 휴면(DORMANT)이었다면 ACTIVE 복귀
+            return new LoginResult.Registered(
+                    jwtProvider.createAccessToken(user.getUserId(), user.getRole()),
+                    issueAndStoreRefreshToken(user.getUserId(), provider));
+        }
+        return new LoginResult.SignupRequired(
+                jwtProvider.createSignupToken(provider, socialUserInfo.providerId()));
     }
 
     @Override
-    public TokenResult signup(String signupToken, String userName) {
+    public TokenResult signup(String signupToken, String userName, Long mainLocationId) {
         Claims claims = jwtProvider.parseSignupToken(signupToken);
         LoginProvider provider = LoginProvider.valueOf(claims.get("provider", String.class));
         String providerId = claims.getSubject();
@@ -54,7 +63,16 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
             throw new DuplicateUserNameException(userName);
         }
 
-        Users user = userRepositoryPort.save(Users.of(userName, provider, providerId));
+        // 가입 시 동네 필수 — 소속 없는 유저는 존재하지 않는다 (main_location NOT NULL)
+        if (mainLocationId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "가입할 동네를 선택해주세요.");
+        }
+        Optional<Location> mainLocation = locationRepositoryPort.findById(mainLocationId);
+        if (mainLocation.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "존재하지 않는 동네입니다.");
+        }
+
+        Users user = userRepositoryPort.save(Users.of(userName, provider, providerId, mainLocation.get()));
 
         String accessToken = jwtProvider.createAccessToken(user.getUserId(), user.getRole());
         String refreshToken = issueAndStoreRefreshToken(user.getUserId(), provider);
