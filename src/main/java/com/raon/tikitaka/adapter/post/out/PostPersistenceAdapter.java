@@ -40,13 +40,20 @@ public class PostPersistenceAdapter implements PostRepositoryPort {
 
     @Override
     public Board getBoard(Long boardId) {
-        return boardJpaRepository.findById(boardId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시판을 찾을 수 없습니다."));
+        // 점수 계산이 match·team1·team2·stage를 전부 쓰므로 그래프째 즉시 로딩한다 (LAZY N+1 방지)
+        Optional<Board> board = boardJpaRepository.findByIdWithMatchGraph(boardId);
+        if (board.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시판을 찾을 수 없습니다.");
+        }
+        return board.get();
     }
 
     @Override
     public Users getUser(UUID userId) {
-        return userJpaRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자를 찾을 수 없습니다."));
+        Optional<Users> user = userJpaRepository.findByIdWithLocations(userId);
+        if (user.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자를 찾을 수 없습니다.");
+        }
+        return user.get();
     }
 }

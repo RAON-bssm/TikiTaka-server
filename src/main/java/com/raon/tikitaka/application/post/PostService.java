@@ -6,11 +6,14 @@ import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
 import com.raon.tikitaka.application.post.in.GetPostListUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
+import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.match.Match;
+import com.raon.tikitaka.domain.match.Stage;
 import com.raon.tikitaka.domain.post.Post;
 import com.raon.tikitaka.domain.user.Users;
+import com.raon.tikitaka.global.config.RankingProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,6 +30,8 @@ import java.util.UUID;
 public class PostService implements GetPostListUseCase, GetPostDetailUseCase, CreatePostUseCase, UpdatePostUseCase, DeletePostUseCase {
 
     private final PostRepositoryPort postRepositoryPort;
+    private final RankingRepositoryPort rankingRepositoryPort;
+    private final RankingProperties rankingProperties;
 
     @Override
     public List<Post> getPosts(Long boardId) {
@@ -34,8 +40,11 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
     @Override
     public Post getPost(UUID postId) {
-        return postRepositoryPort.findActiveById(postId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다."));
+        Optional<Post> post = postRepositoryPort.findActiveById(postId);
+        if (post.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
+        }
+        return post.get();
     }
 
     @Override
@@ -43,24 +52,28 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     public void createPost(UUID authorId, Long boardId, String content, String postImage, Integer score, String aiReview) {
         Users author = postRepositoryPort.getUser(authorId);
         Board board = postRepositoryPort.getBoard(boardId);
-        String location = resolveLocation(author, board);
-        postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview, location));
+        Location teamLocation = resolveTeamLocation(author, board);
+        postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview,
+                teamLocation.getLocationName(), teamLocation));
+
+        // 게시물 작성 = 활동 — 휴면 판정 기준(lastActiveAt)을 갱신하고, 휴면이었다면 ACTIVE로 복귀
+        author.touch();
+
+        // 점수 실시간 누적 (+1 = 가산)
+        accrueScores(board, teamLocation, author, score, 1);
     }
 
-    private String resolveLocation(Users author, Board board) {
+    private Location resolveTeamLocation(Users author, Board board) {
         Location authorLocation = author.getMainLocation();
-        if (authorLocation == null) {
-            return null;
-        }
 
         Match match = board.getMatch();
         if (authorLocation.getLocationId().equals(match.getTeam1().getLocationId())) {
-            return match.getTeam1().getLocationName();
+            return match.getTeam1();
         }
         if (authorLocation.getLocationId().equals(match.getTeam2().getLocationId())) {
-            return match.getTeam2().getLocationName();
+            return match.getTeam2();
         }
-        return null;
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "이 대결에 참가한 동네가 아닙니다.");
     }
 
     @Override
@@ -77,6 +90,47 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         Post post = getPost(postId);
         validateOwner(post, requesterId, isAdmin);
         post.deactivate();
+
+        // 삭제 시 이 게시물이 올렸던 점수를 그대로 뺀다 (확정 정책 ⑤).
+        // 작성 시점 스냅샷(post.score, post.teamLocation, match의 n, stage의 C)으로 재계산하므로
+        // 시간이 지나 인원이 바뀌어도 "더했던 값"과 정확히 같은 값을 뺀다.
+        // findActiveById가 is_active = true만 돌려주므로 같은 게시물이 두 번 차감될 일은 없다.
+        if (post.getScore() != null && post.getTeamLocation() != null) {
+            accrueScores(post.getBoard(), post.getTeamLocation(), post.getUserId(), post.getScore(), -1);
+        }
+    }
+
+    /**
+     * 점수 누적/차감의 단일 통로.
+     * 지역 점수 = round(AI점수 × K × C / max(n, minTeamSize)) — 팀 규모 보정 포함
+     * 개인 점수 = round(AI점수 × K) — 보정 없이 순수 실력
+     * direction: +1 = 작성(가산), -1 = 삭제(차감)
+     */
+    private void accrueScores(Board board, Location teamLocation, Users author, int score, int direction) {
+        Match match = board.getMatch();
+        Stage stage = match.getStage();
+
+        Double c = stage.getAvgLocationMemberCount();
+        if (c == null) {
+            // 매치가 있는데 C가 없다는 건 매칭 배치가 스냅샷을 안 채웠다는 뜻 — 데이터 버그이므로 조용히 넘어가지 않는다
+            throw new IllegalStateException("라운드의 평균 동네 인원(C)이 없습니다. stageId=" + stage.getStageId());
+        }
+
+        // n — 작성자 팀의 매칭 시점 인원 스냅샷 (BYE 매치는 team1 == team2라 어느 쪽이든 같은 값)
+        int n;
+        if (teamLocation.getLocationId().equals(match.getTeam1().getLocationId())) {
+            n = match.getTeam1MemberCount();
+        } else {
+            n = match.getTeam2MemberCount();
+        }
+
+        double k = rankingProperties.baseMultiplier();
+        double adjust = c / Math.max(n, rankingProperties.minTeamSize());
+        long teamDelta = Math.round(score * k * adjust) * direction;
+        long userDelta = Math.round(score * k) * direction;
+
+        rankingRepositoryPort.addLocationScore(stage.getStageId(), teamLocation.getLocationId(), teamDelta);
+        rankingRepositoryPort.addUserScore(stage.getStageId(), author.getUserId(), userDelta);
     }
 
     private void validateOwner(Post post, UUID requesterId, boolean isAdmin) {

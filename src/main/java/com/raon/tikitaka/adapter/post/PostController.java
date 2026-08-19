@@ -63,24 +63,27 @@ public class PostController {
     @PostMapping(consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> createPost(
-            @RequestHeader("Authorization") String authorization,
+            // required = false: 헤더 누락 시 스프링의 400 대신 resolveUserId의 401이 나가게 한다
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @ModelAttribute CreatePostRequest request
     ) {
         UUID authorId = resolveUserId(authorization);
         MultipartFile image = validateImage(request.image());
         byte[] imageBytes = readImageBytes(image);
 
-        String mission = getBoardUseCase.getMission(request.boardId());
+        // 작성자 기준으로 게시판 접근을 검증한다 — 종료된 라운드·남의 동네 게시판이면 여기서 404
+        String mission = getBoardUseCase.getMission(request.boardId(), authorId);
         String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
         AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());
+        int score = validateScore(review.score());
 
-        createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, review.score(), review.review());
+        createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score, review.review());
         return ApiResponse.of(201, "게시물 생성 성공", null);
     }
 
     @PatchMapping("/patch/{postId}")
     public ApiResponse<Void> updatePost(
-            @RequestHeader("Authorization") String authorization,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = "role", required = false) String role,
             @PathVariable UUID postId,
             @RequestBody UpdatePostRequest request
@@ -92,7 +95,7 @@ public class PostController {
 
     @PatchMapping("/delete/{postId}")
     public ApiResponse<Void> deletePost(
-            @RequestHeader("Authorization") String authorization,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = "role", required = false) String role,
             @PathVariable UUID postId
     ) {
@@ -103,6 +106,19 @@ public class PostController {
 
     private boolean isAdmin(String role) {
         return "admin".equalsIgnoreCase(role);
+    }
+
+    /**
+     * Gemini 응답에서 score가 누락되거나 범위를 벗어난 경우를 걸러낸다.
+     * asInt()의 "누락 → 0" 함정 때문에 GeminiAdapter가 누락 시 null을 돌려주도록 했고,
+     * 여기서 null·범위 밖이면 게시물을 만들지 않고 502로 끊는다 (점수 없는 게시물 저장 방지).
+     */
+    private int validateScore(Integer score) {
+        if (score == null || score < 0 || score > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "AI 심사 점수가 올바르지 않습니다. 잠시 후 다시 시도해주세요.");
+        }
+        return score;
     }
 
     private MultipartFile validateImage(MultipartFile image) {
