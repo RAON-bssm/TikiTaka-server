@@ -29,4 +29,12 @@ public interface MatchJpaRepository extends JpaRepository<Match, Long> {
             where m.stage.endedAt = :endedAt
             """)
     List<Match> findAllByStageEndedAt(@Param("endedAt") LocalDateTime endedAt);
+
+    @Query("""
+            select m from Match m
+            join fetch m.team1
+            join fetch m.team2
+            where m.stage.stageId = :stageId
+            """)
+    List<Match> findAllByStageIdWithTeams(@Param("stageId") Long stageId);
 }

@@ -35,4 +35,9 @@ public class MatchPersistenceAdapter implements MatchRepositoryPort {
     public List<Match> findAllByStageEndedAt(LocalDateTime endedAt) {
         return matchJpaRepository.findAllByStageEndedAt(endedAt);
     }
+
+    @Override
+    public List<Match> findAllByStageIdWithTeams(Long stageId) {
+        return matchJpaRepository.findAllByStageIdWithTeams(stageId);
+    }
 }

@@ -44,4 +44,9 @@ public class StagePersistenceAdapter implements StageRepositoryPort {
     public List<Stage> findAll() {
         return stageJpaRepository.findAll();
     }
+
+    @Override
+    public Optional<Stage> findLatestEnded(LocalDateTime now) {
+        return stageJpaRepository.findTopByEndedAtLessThanEqualOrderByEndedAtDesc(now);
+    }
 }

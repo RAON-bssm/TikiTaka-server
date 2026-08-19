@@ -14,8 +14,8 @@ public interface StageJpaRepository extends JpaRepository<Stage, Long> {
     Optional<Stage> findTopByOrderByEndedAtDesc();
 
     /**
-     * 매치가 아직 없는 임박(시작 threshold 이전)·진행 중(now < endedAt) 라운드.
-     * 하한 조건(:now < s.endedAt)이 없으면 매치 없이 지나간 과거 라운드까지 전부 걸린다.
+     * 매치가 아직 없는 임박 라운드와 진행 중 라운드를 조회한다.
+     * now < endedAt 조건이 없으면 매치 없이 지나간 과거 라운드까지 전부 걸린다.
      */
     @Query("""
             select s from Stage s
@@ -28,8 +28,8 @@ public interface StageJpaRepository extends JpaRepository<Stage, Long> {
                                          @Param("threshold") LocalDateTime threshold);
 
     /**
-     * 지금 진행 중인 라운드 — 경계는 시작 포함, 종료 미포함(started_at <= now < ended_at)이라
-     * 라운드가 갈리는 자정 순간에도 정확히 한 라운드만 걸린다.
+     * 지금 진행 중인 라운드. 경계가 started_at <= now < ended_at 이라
+     * 라운드가 갈리는 자정에도 정확히 한 라운드만 걸린다.
      */
     @Query("""
             select s from Stage s
@@ -37,4 +37,9 @@ public interface StageJpaRepository extends JpaRepository<Stage, Long> {
               and :now < s.endedAt
             """)
     Optional<Stage> findCurrent(@Param("now") LocalDateTime now);
+
+    /**
+     * 가장 최근에 종료된 라운드. 종료 시각이 now 이전인 것 중 제일 늦은 라운드다.
+     */
+    Optional<Stage> findTopByEndedAtLessThanEqualOrderByEndedAtDesc(LocalDateTime now);
 }
