@@ -16,13 +16,15 @@ import com.raon.tikitaka.application.storage.in.StorageUseCase;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -63,11 +65,9 @@ public class PostController {
     @PostMapping(consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> createPost(
-            // required = false: 헤더 누락 시 스프링의 400 대신 resolveUserId의 401이 나가게 한다
-            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @AuthenticationPrincipal UUID authorId,
             @ModelAttribute CreatePostRequest request
     ) {
-        UUID authorId = resolveUserId(authorization);
         MultipartFile image = validateImage(request.image());
         byte[] imageBytes = readImageBytes(image);
 
@@ -83,29 +83,39 @@ public class PostController {
 
     @PatchMapping("/patch/{postId}")
     public ApiResponse<Void> updatePost(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
-            @RequestHeader(value = "role", required = false) String role,
+            @AuthenticationPrincipal UUID requesterId,
+            Authentication authentication,
             @PathVariable UUID postId,
             @RequestBody UpdatePostRequest request
     ) {
-        UUID requesterId = resolveUserId(authorization);
-        updatePostUseCase.updatePost(postId, requesterId, isAdmin(role), request.content());
+        updatePostUseCase.updatePost(postId, requesterId, isAdmin(authentication), request.content());
         return ApiResponse.of(204, "게시물 수정 성공", null);
     }
 
     @PatchMapping("/delete/{postId}")
     public ApiResponse<Void> deletePost(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
-            @RequestHeader(value = "role", required = false) String role,
+            @AuthenticationPrincipal UUID requesterId,
+            Authentication authentication,
             @PathVariable UUID postId
     ) {
-        UUID requesterId = resolveUserId(authorization);
-        deletePostUseCase.deletePost(postId, requesterId, isAdmin(role));
+        deletePostUseCase.deletePost(postId, requesterId, isAdmin(authentication));
         return ApiResponse.of(204, "게시물 삭제 성공", null);
     }
 
-    private boolean isAdmin(String role) {
-        return "admin".equalsIgnoreCase(role);
+    /**
+     * JWT의 role로 관리자 판별 — 필터가 심어준 ROLE_ 권한을 검사한다.
+     * (예전의 "role: admin" 헤더 방식은 누구나 위조 가능해서 폐기)
+     */
+    private boolean isAdmin(Authentication authentication) {
+        if (authentication == null) {
+            return false;
+        }
+        for (GrantedAuthority authority : authentication.getAuthorities()) {
+            if ("ROLE_ADMIN".equals(authority.getAuthority())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -133,18 +143,6 @@ public class PostController {
             return image.getBytes();
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미지를 읽을 수 없습니다.");
-        }
-    }
-
-    private UUID resolveUserId(String authorization) {
-        if (authorization == null || authorization.isBlank() || authorization.equalsIgnoreCase("null")) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
-        }
-        String token = authorization.startsWith("Bearer ") ? authorization.substring(7) : authorization;
-        try {
-            return UUID.fromString(token);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
         }
     }
 }

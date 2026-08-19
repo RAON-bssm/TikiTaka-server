@@ -41,7 +41,7 @@ public class Users {
 
     /**
      * 메인 지역 — 항상 "현재 라운드의 소속"과 일치한다. 소속 없는 유저는 존재하지 않는다.
-     * (회원가입 시 mainLocationId 필수 — 로그인 브랜치 병합 시 확인)
+     * (회원가입 시 mainLocationId 필수)
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "main_location_id", nullable = false)
@@ -88,11 +88,16 @@ public class Users {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    public static Users of(String userName, LoginProvider provider, String providerId) {
+    /**
+     * 회원가입 팩토리 — mainLocation 필수 (main_location_id NOT NULL).
+     * status·lastActiveAt·시각 필드는 prePersist가 채운다.
+     */
+    public static Users of(String userName, LoginProvider provider, String providerId, Location mainLocation) {
         Users user = new Users();
         user.userName = userName;
         user.provider = provider;
         user.providerId = providerId;
+        user.mainLocation = mainLocation;
         user.role = UserRole.USER;
         user.point = 0;
         return user;

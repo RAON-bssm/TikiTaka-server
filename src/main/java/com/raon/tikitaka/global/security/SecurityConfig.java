@@ -25,6 +25,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/login/**", "/api/auth/signup", "/api/auth/refresh").permitAll()
+                        // 배치 수동 트리거 — JWT의 role이 ADMIN인 유저만 (필터가 ROLE_ADMIN 권한을 심어준다)
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
 

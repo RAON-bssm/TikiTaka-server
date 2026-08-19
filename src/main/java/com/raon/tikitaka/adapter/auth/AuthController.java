@@ -43,7 +43,7 @@ public class AuthController {
 
     @PostMapping("/api/auth/signup")
     public ApiResponse<TokenResponse> signup(@RequestBody SignupRequest request) {
-        TokenResult result = signupUseCase.signup(request.signupToken(), request.userName());
+        TokenResult result = signupUseCase.signup(request.signupToken(), request.userName(), request.mainLocationId());
         return ApiResponse.of(200, "회원가입 성공", new TokenResponse(result.accessToken(), result.refreshToken()));
     }
 
