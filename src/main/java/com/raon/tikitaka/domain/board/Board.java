@@ -27,8 +27,8 @@ public class Board {
     private boolean isActive;
 
     /**
-     * isActive를 반드시 true로 명시한다 — primitive boolean이라 명시하지 않으면
-     * Hibernate가 false를 INSERT해 DB DEFAULT가 무시되고, 게시판이 목록에서 전부 사라진다.
+     * isActive를 반드시 true로 명시한다. primitive boolean이라 명시하지 않으면
+     * Hibernate가 false를 넣어 게시판이 목록에서 전부 사라진다.
      */
     public static Board create(Match match) {
         Board board = new Board();

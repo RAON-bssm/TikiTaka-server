@@ -40,7 +40,7 @@ public class PostPersistenceAdapter implements PostRepositoryPort {
 
     @Override
     public Board getBoard(Long boardId) {
-        // 점수 계산이 match·team1·team2·stage를 전부 쓰므로 그래프째 즉시 로딩한다 (LAZY N+1 방지)
+        // 점수 계산이 match, team1, team2, stage를 전부 쓰므로 그래프째 즉시 로딩한다
         Optional<Board> board = boardJpaRepository.findByIdWithMatchGraph(boardId);
         if (board.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시판을 찾을 수 없습니다.");

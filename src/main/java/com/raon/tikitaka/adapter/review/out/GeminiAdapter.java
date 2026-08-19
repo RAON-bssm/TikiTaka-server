@@ -51,8 +51,7 @@ public class GeminiAdapter implements AiReviewPort {
                                 ))
                         ))
                 ),
-                // JSON 모드 강제 — 이거 없으면 모델이 가끔 작은따옴표 유사-JSON이나
-                // ```json 코드펜스를 섞어 보내서 parse()가 깨진다 (검증 중 실제 발생)
+                // JSON 모드 강제. 없으면 모델이 가끔 코드펜스 섞인 응답을 보내 parse()가 깨진다
                 "generationConfig", Map.of(
                         "response_mime_type", "application/json"
                 )
@@ -101,8 +100,8 @@ public class GeminiAdapter implements AiReviewPort {
                 .path("content").path("parts").get(0)
                 .path("text").asString();
 
-        // JSON 모드를 강제했지만 그래도 깨진 응답이 오면 500으로 새지 않게 —
-        // score = null로 돌려서 PostController의 범위 검증이 502로 처리하게 한다
+        // 깨진 응답이 와도 500으로 새지 않게 score를 null로 돌려서
+        // PostController의 범위 검증이 502로 처리하게 한다
         JsonNode result;
         try {
             result = objectMapper.readTree(text);
@@ -111,8 +110,8 @@ public class GeminiAdapter implements AiReviewPort {
             return new AiReviewResult(null, null);
         }
 
-        // score가 누락되면 asInt()가 조용히 0을 반환한다 — 잘못된 응답이 0점 게시물로 저장되는 것을 막기 위해
-        // 누락 시 null을 돌려주고, PostController의 범위 검증(0~100)이 502로 거른다
+        // score가 누락되면 asInt()가 0을 반환해 0점 게시물이 저장될 수 있다
+        // 누락 시 null을 돌려주고 PostController의 범위 검증이 502로 거른다
         Integer score = null;
         if (result.hasNonNull("score")) {
             score = result.path("score").asInt();

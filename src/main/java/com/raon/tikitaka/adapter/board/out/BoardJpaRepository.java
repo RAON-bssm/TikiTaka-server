@@ -12,8 +12,8 @@ import java.util.Optional;
 public interface BoardJpaRepository extends JpaRepository<Board, Long> {
 
     /**
-     * 게시판 목록 — "현재 라운드 + 내 동네가 참가한 매치"만.
-     * 라운드 전환 시 실행되는 코드는 없고, now가 넘어가면 조회 결과가 자연히 바뀐다.
+     * 현재 라운드에서 내 동네가 참가한 매치의 게시판 목록.
+     * 라운드 전환 시 실행되는 코드는 없고 now가 지나면 조회 결과가 자연히 바뀐다.
      */
     @Query("""
             select b from Board b
@@ -30,8 +30,8 @@ public interface BoardJpaRepository extends JpaRepository<Board, Long> {
                                        @Param("locationId") Long locationId);
 
     /**
-     * 단건 조회 — 게시물 작성 시 미션을 가져오는 경로라서 같은 필터가 반드시 필요하다.
-     * 없으면 종료된 라운드의 게시판 ID로 계속 글을 쓸 수 있다 (23:55 열고 00:01 제출하는 타이밍 사고).
+     * 단건 조회. 게시물 작성 시 미션을 가져오는 경로라 목록과 같은 필터가 필요하다.
+     * 필터가 없으면 종료된 라운드의 게시판 ID로 계속 글을 쓸 수 있다.
      */
     @Query("""
             select b from Board b
@@ -50,8 +50,8 @@ public interface BoardJpaRepository extends JpaRepository<Board, Long> {
                                             @Param("locationId") Long locationId);
 
     /**
-     * 필터 없이 매치 그래프(팀·라운드)까지 즉시 로딩 — 점수 계산·차감(8-2)용.
-     * 위 필터 쿼리와 달리 시간·동네 조건이 없다 (검증은 서비스에서 이미 끝난 뒤 호출되므로).
+     * 점수 계산과 차감에 쓰는 조회. 매치와 팀, 라운드까지 즉시 로딩한다.
+     * 검증이 끝난 뒤 호출되는 경로라 시간과 동네 조건은 걸지 않는다.
      */
     @Query("""
             select b from Board b

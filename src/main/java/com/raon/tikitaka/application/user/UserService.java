@@ -22,9 +22,8 @@ public class UserService implements DeactivateInactiveUsersUseCase {
     private final RankingProperties rankingProperties;
 
     /**
-     * 휴면 전환 배치 — lastActiveAt이 dormantDays(7일) 이상 지난 ACTIVE 유저를 DORMANT로.
-     * ⚠️ 스케줄러(9단계)에 올리지 않는다 — 로그인 브랜치가 병합되어 로그인이 touch()를
-     * 호출하기 전까지는, 이 배치가 돌면 로그인만 하는 유저까지 전부 휴면 처리된다.
+     * 휴면 전환 배치. lastActiveAt이 dormantDays 이상 지난 ACTIVE 유저를 DORMANT로 바꾼다.
+     * 로그인과 게시물 작성이 touch()로 lastActiveAt을 갱신하는 것이 전제다.
      */
     @Override
     public void execute() {
@@ -34,7 +33,7 @@ public class UserService implements DeactivateInactiveUsersUseCase {
             user.markDormant();
         }
         if (users.size() > 0) {
-            log.info("휴면 전환 완료 — 유저 {}명 (기준: {} 이전 활동)", users.size(), threshold);
+            log.info("휴면 전환 완료. 유저 {}명 (기준: {} 이전 활동)", users.size(), threshold);
         }
     }
 }

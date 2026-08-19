@@ -71,7 +71,7 @@ public class PostController {
         MultipartFile image = validateImage(request.image());
         byte[] imageBytes = readImageBytes(image);
 
-        // 작성자 기준으로 게시판 접근을 검증한다 — 종료된 라운드·남의 동네 게시판이면 여기서 404
+        // 작성자 기준으로 게시판 접근을 검증한다. 종료된 라운드나 남의 동네 게시판이면 404
         String mission = getBoardUseCase.getMission(request.boardId(), authorId);
         String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
         AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());
@@ -103,8 +103,8 @@ public class PostController {
     }
 
     /**
-     * JWT의 role로 관리자 판별 — 필터가 심어준 ROLE_ 권한을 검사한다.
-     * (예전의 "role: admin" 헤더 방식은 누구나 위조 가능해서 폐기)
+     * JWT의 role로 관리자를 판별한다. 필터가 심어준 ROLE_ 권한을 검사한다.
+     * 예전의 role 헤더 방식은 누구나 위조할 수 있어 폐기했다.
      */
     private boolean isAdmin(Authentication authentication) {
         if (authentication == null) {
@@ -120,8 +120,8 @@ public class PostController {
 
     /**
      * Gemini 응답에서 score가 누락되거나 범위를 벗어난 경우를 걸러낸다.
-     * asInt()의 "누락 → 0" 함정 때문에 GeminiAdapter가 누락 시 null을 돌려주도록 했고,
-     * 여기서 null·범위 밖이면 게시물을 만들지 않고 502로 끊는다 (점수 없는 게시물 저장 방지).
+     * 누락 시 asInt()가 0을 돌려주는 함정 때문에 GeminiAdapter가 null을 반환하게 했고
+     * 여기서 null이거나 범위 밖이면 게시물을 만들지 않고 502로 끊는다.
      */
     private int validateScore(Integer score) {
         if (score == null || score < 0 || score > 100) {

@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 시즌 최종 순위 — 시즌 종료 시 라운드 점수를 합산해 등수를 박제한다. 한 번 쓰이면 바뀌지 않는다.
- * 점수가 없는 동네도 final_score = 0으로 기록해 "미참여"와 "꼴등"을 구분한다.
+ * 시즌 최종 순위. 시즌 종료 시 라운드 점수를 합산해 등수를 기록하고 한 번 쓰이면 바뀌지 않는다.
+ * 점수가 없는 동네도 final_score 0으로 함께 기록한다.
  */
 @Entity
 @Table(name = "season_location_result",

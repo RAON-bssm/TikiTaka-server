@@ -15,7 +15,7 @@ import java.util.Map;
 
 /**
  * 키워드 조합을 Gemini로 자연스러운 미션 문장으로 다듬는다.
- * 실패하면(타임아웃·파싱 오류·이상 응답) 템플릿 폴백을 반환한다 — 절대 예외를 던지지 않는다.
+ * 타임아웃이나 응답 이상으로 실패하면 템플릿 문장을 대신 반환하고 예외는 던지지 않는다.
  */
 @Slf4j
 @Component
@@ -71,7 +71,7 @@ public class GeminiMissionAdapter implements MissionGeneratorPort {
             return mission;
 
         } catch (Exception e) {
-            log.warn("Gemini 미션 생성 실패 — 템플릿으로 대체합니다 ({} {}): {}", adjective, noun, e.getMessage());
+            log.warn("Gemini 미션 생성 실패. 템플릿으로 대체합니다 ({} {}): {}", adjective, noun, e.getMessage());
             return fallback;
         }
     }

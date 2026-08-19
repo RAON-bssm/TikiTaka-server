@@ -10,8 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 배치 수동 트리거 — 평상시엔 스케줄러(9단계)가 돌리지만,
- * 배치 실패 시의 복구 경로이자 로컬 검증(10단계)의 실행 버튼이다.
+ * 배치 수동 실행 API. 평소에는 스케줄러가 돌리고 배치가 실패했을 때 복구 용도로 쓴다.
  */
 @RestController
 @RequestMapping("/api/admin/match")
@@ -31,7 +30,7 @@ public class MatchAdminController {
     @PostMapping("/open-rounds")
     public ApiResponse<Void> openRounds() {
         openRoundUseCase.execute();
-        return ApiResponse.of(200, "매치·게시판 생성 실행 완료", null);
+        return ApiResponse.of(200, "매치, 게시판 생성 실행 완료", null);
     }
 
     @PostMapping("/apply-swaps")

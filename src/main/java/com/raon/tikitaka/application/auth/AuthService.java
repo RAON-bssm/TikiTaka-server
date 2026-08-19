@@ -44,7 +44,7 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
                 .findByProviderAndProviderId(provider, socialUserInfo.providerId());
         if (existing.isPresent()) {
             Users user = existing.get();
-            user.touch();   // 활동 기록 — lastActiveAt 갱신, 휴면(DORMANT)이었다면 ACTIVE 복귀
+            user.touch();   // lastActiveAt 갱신. 휴면이었다면 ACTIVE로 복귀
             return new LoginResult.Registered(
                     jwtProvider.createAccessToken(user.getUserId(), user.getRole()),
                     issueAndStoreRefreshToken(user.getUserId(), provider));
@@ -63,7 +63,7 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
             throw new DuplicateUserNameException(userName);
         }
 
-        // 가입 시 동네 필수 — 소속 없는 유저는 존재하지 않는다 (main_location NOT NULL)
+        // 가입 시 동네는 필수다. main_location이 NOT NULL이라 소속 없는 유저는 만들 수 없다
         if (mainLocationId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "가입할 동네를 선택해주세요.");
         }

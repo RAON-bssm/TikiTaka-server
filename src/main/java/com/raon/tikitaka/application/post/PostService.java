@@ -56,10 +56,10 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview,
                 teamLocation.getLocationName(), teamLocation));
 
-        // 게시물 작성 = 활동 — 휴면 판정 기준(lastActiveAt)을 갱신하고, 휴면이었다면 ACTIVE로 복귀
+        // 게시물 작성도 활동이므로 lastActiveAt을 갱신하고 휴면이었다면 ACTIVE로 복귀한다
         author.touch();
 
-        // 점수 실시간 누적 (+1 = 가산)
+        // 점수 실시간 가산
         accrueScores(board, teamLocation, author, score, 1);
     }
 
@@ -91,20 +91,18 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         validateOwner(post, requesterId, isAdmin);
         post.deactivate();
 
-        // 삭제 시 이 게시물이 올렸던 점수를 그대로 뺀다 (확정 정책 ⑤).
-        // 작성 시점 스냅샷(post.score, post.teamLocation, match의 n, stage의 C)으로 재계산하므로
-        // 시간이 지나 인원이 바뀌어도 "더했던 값"과 정확히 같은 값을 뺀다.
-        // findActiveById가 is_active = true만 돌려주므로 같은 게시물이 두 번 차감될 일은 없다.
+        // 삭제 시 이 게시물이 올렸던 점수를 그대로 뺀다.
+        // 작성 시점 스냅샷으로 재계산하므로 인원이 바뀌어도 더했던 값과 같은 값을 뺀다.
+        // findActiveById가 is_active인 게시물만 돌려주므로 두 번 차감될 일은 없다.
         if (post.getScore() != null && post.getTeamLocation() != null) {
             accrueScores(post.getBoard(), post.getTeamLocation(), post.getUserId(), post.getScore(), -1);
         }
     }
 
     /**
-     * 점수 누적/차감의 단일 통로.
-     * 지역 점수 = round(AI점수 × K × C / max(n, minTeamSize)) — 팀 규모 보정 포함
-     * 개인 점수 = round(AI점수 × K) — 보정 없이 순수 실력
-     * direction: +1 = 작성(가산), -1 = 삭제(차감)
+     * 점수 누적과 차감의 단일 통로. direction이 1이면 가산, -1이면 차감이다.
+     * 지역 점수는 round(AI점수 * K * C / max(n, minTeamSize))로 팀 규모를 보정하고
+     * 개인 점수는 round(AI점수 * K)로 보정 없이 계산한다.
      */
     private void accrueScores(Board board, Location teamLocation, Users author, int score, int direction) {
         Match match = board.getMatch();
@@ -112,11 +110,11 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
         Double c = stage.getAvgLocationMemberCount();
         if (c == null) {
-            // 매치가 있는데 C가 없다는 건 매칭 배치가 스냅샷을 안 채웠다는 뜻 — 데이터 버그이므로 조용히 넘어가지 않는다
+            // 매치가 있는데 C가 없으면 매칭 배치가 스냅샷을 안 채운 데이터 버그라 바로 예외를 던진다
             throw new IllegalStateException("라운드의 평균 동네 인원(C)이 없습니다. stageId=" + stage.getStageId());
         }
 
-        // n — 작성자 팀의 매칭 시점 인원 스냅샷 (BYE 매치는 team1 == team2라 어느 쪽이든 같은 값)
+        // n은 작성자 팀의 매칭 시점 인원 스냅샷. BYE 매치는 team1 == team2라 어느 쪽이든 같다
         int n;
         if (teamLocation.getLocationId().equals(match.getTeam1().getLocationId())) {
             n = match.getTeam1MemberCount();
