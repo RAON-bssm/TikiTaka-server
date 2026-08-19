@@ -39,3 +39,13 @@ gemini:
   model: gemini-3.1-flash-lite
   prompt: ${GEMINI_PROMPT}
 
+ranking:
+  base-multiplier: 67.76      # K — 개인 점수 = round(AI점수 × K)
+  min-team-size: 5            # 조정치 분모의 하한
+  dormant-days: 7             # 휴면 전환 기준 일수
+
+season:
+  round-days: 7               # 라운드 1개 길이
+  rounds-per-season: 4        # 시즌당 라운드 수 → 시즌 = 28일
+  prefetch-days: 30           # 미래 라운드를 며칠치 미리 생성할지
+  match-open-ahead-days: 1    # 매치·게시판을 라운드 시작 며칠 전에 만들지
