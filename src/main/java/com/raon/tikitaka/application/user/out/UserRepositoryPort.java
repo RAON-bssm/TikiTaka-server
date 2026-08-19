@@ -25,19 +25,19 @@ public interface UserRepositoryPort {
     Optional<Users> findByIdWithLocations(UUID userId);
 
     /**
-     * ACTIVE 유저 전원의 "예정 소속" 지역 ID 목록 (유저 1명당 1건).
-     * 예정 소속 = 스위칭 예약(pendingLocationSwap)이 있으면 subLocation, 없으면 mainLocation.
-     * 매칭(7단계)이 라운드 시작 전날 인원을 셀 때, 다음 라운드 시작 직후 적용될 스위칭을 미리 반영하기 위한 것.
+     * ACTIVE 유저 전원의 예정 소속 지역 ID 목록. 유저 1명당 1건이다.
+     * 스위칭 예약이 있으면 subLocation, 없으면 mainLocation이 예정 소속이다.
+     * 매칭이 라운드 시작 전날 인원을 셀 때 곧 적용될 스위칭을 미리 반영하기 위한 것이다.
      */
     List<Long> findExpectedLocationIdsOfActiveUsers();
 
     /**
-     * 지역 스위칭이 예약된 유저 전원 — 라운드 시작 직후 배치가 main ↔ sub를 교환할 대상.
+     * 지역 스위칭이 예약된 유저 전원. 라운드 시작 직후 배치가 교환할 대상이다.
      */
     List<Users> findAllWithPendingLocationSwap();
 
     /**
-     * threshold 이전이 마지막 활동인 ACTIVE 유저 — 휴면 전환 배치의 대상.
+     * 마지막 활동이 threshold 이전인 ACTIVE 유저. 휴면 전환 배치의 대상이다.
      */
     List<Users> findAllActiveLastActiveBefore(LocalDateTime threshold);
 }

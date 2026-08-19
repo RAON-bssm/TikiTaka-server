@@ -46,7 +46,7 @@ public class Match {
     private MatchType matchType = MatchType.NORMAL;
 
     /**
-     * n — 매칭 시점 각 팀의 ACTIVE 인원수 스냅샷. 라운드 중 인원 변동에 영향받지 않는다.
+     * 매칭 시점 각 팀의 ACTIVE 인원수 스냅샷. 라운드 중 인원 변동에 영향받지 않는다.
      */
     @Column(name = "team1_member_count", nullable = false)
     private Integer team1MemberCount;
@@ -58,7 +58,7 @@ public class Match {
     private String mission;
 
     /**
-     * BYE(셀프 미션) 매치는 team1 == team2로 만든다. winTeam은 null로 시작한다.
+     * 부전승 매치는 team1과 team2를 같은 동네로 만든다. winTeam은 null로 시작한다.
      */
     public static Match create(Stage stage, Location team1, Location team2, MatchType matchType,
                                int team1MemberCount, int team2MemberCount, String mission) {

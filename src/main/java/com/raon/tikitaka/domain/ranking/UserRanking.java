@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 라운드별 개인 점수 — 게시물이 올라올 때마다 (stage_id, user_id) 행에 실시간 누적된다(UPSERT).
- * 개인 점수는 round(AI점수 × K)로 조정치를 곱하지 않는다 — 팀 규모와 무관하게 순수 실력으로 겨룬다.
+ * 라운드별 개인 점수. 게시물이 올라올 때마다 실시간으로 누적된다.
+ * 개인 점수는 round(AI점수 * K)로 팀 규모 조정치를 곱하지 않는다.
  */
 @Entity
 @Table(name = "user_ranking",

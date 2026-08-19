@@ -29,9 +29,9 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * 라운드 하나의 매치·게시판을 생성한다 — 반드시 단일 트랜잭션.
- * 중간에 실패하면 전부 롤백되어 "매치가 하나도 없는" 상태로 돌아가고,
- * 다음 실행의 멱등성 체크(existsByStage)가 정상 동작한다.
+ * 라운드 하나의 매치와 게시판을 단일 트랜잭션으로 생성한다.
+ * 중간에 실패하면 전부 롤백되어 매치가 하나도 없는 상태로 돌아가고
+ * 다음 실행의 멱등성 체크가 정상 동작한다.
  */
 @Slf4j
 @Service
@@ -60,13 +60,13 @@ public class OpenRoundProcessor {
         }
         Stage stage = stageOptional.get();
 
-        // 멱등성 2차 방어 — 목록 조회와 처리 사이에 다른 실행이 끼어든 경우
+        // 목록 조회와 처리 사이에 다른 실행이 끼어든 경우를 막는 2차 멱등성 체크
         if (matchRepositoryPort.existsByStage(stage)) {
             return;
         }
 
-        // 1) 동네별 "예정 소속" ACTIVE 인원 집계 (스위칭 예약자는 sub 지역으로 카운트)
-        //    쿼리는 유저 1명당 소속 동네 ID를 1건씩 돌려주고, 여기서 동네별로 센다
+        // 1. 동네별 예정 소속 ACTIVE 인원 집계. 스위칭 예약자는 sub 지역으로 계산한다
+        //    쿼리가 유저 1명당 소속 동네 ID를 1건씩 돌려주고 여기서 동네별로 센다
         Map<Long, Integer> memberCounts = new HashMap<>();
         List<Long> expectedLocationIds = userRepositoryPort.findExpectedLocationIdsOfActiveUsers();
         for (Long locationId : expectedLocationIds) {
@@ -78,7 +78,8 @@ public class OpenRoundProcessor {
             }
         }
 
-        // 2) C = 전체 ACTIVE 유저 수 / 전체 동네 수 → Stage에 스냅샷 (double로 끝까지, 중간 반올림 금지)
+        // 2. C는 전체 ACTIVE 유저 수를 전체 동네 수로 나눈 값. Stage에 스냅샷으로 저장한다
+        //    중간에 반올림하지 않고 double로 유지한다
         List<Location> allLocations = locationRepositoryPort.findAll();
         if (allLocations.isEmpty()) {
             log.warn("location 테이블이 비어 있어 매치를 만들 수 없습니다 (stage {})", stageId);
@@ -89,7 +90,7 @@ public class OpenRoundProcessor {
         double avgMemberCount = (double) totalActiveUsers / allLocations.size();
         stage.assignAvgLocationMemberCount(avgMemberCount);
 
-        // 3) 참가 동네 = ACTIVE 인원 1명 이상 (0명 동네는 매칭 제외 — 확정 내역 2번)
+        // 3. ACTIVE 인원이 1명 이상인 동네만 매칭에 참가한다
         List<Location> participants = new ArrayList<>();
         for (Location location : allLocations) {
             Integer count = memberCounts.get(location.getLocationId());
@@ -102,14 +103,14 @@ public class OpenRoundProcessor {
             return;
         }
 
-        // 4) 미션은 매치마다 각각 생성한다 (확정 — 매치별 상이).
+        // 4. 미션은 매치마다 각각 생성한다
         //    같은 라운드 안에서 같은 키워드 조합이 반복되지 않도록 사용한 조합을 기록한다
         Set<String> usedKeywordCombos = new HashSet<>();
 
         Set<Long> assigned = new HashSet<>();
         int matchCount = 0;
 
-        // 5) 홀수면 BYE 이력이 가장 오래된 동네를 부전승(셀프 미션 매치)으로 (확정 내역 4번)
+        // 5. 참가 동네가 홀수면 부전승 이력이 가장 오래된 동네를 부전승으로 뺀다
         if (participants.size() % 2 == 1) {
             Location bye = selectByeLocation(participants);
             participants.remove(bye);
@@ -121,9 +122,9 @@ public class OpenRoundProcessor {
             log.info("부전승(BYE) 매치 생성: {} (stage {})", bye.getLocationName(), stageId);
         }
 
-        // 6) 랜덤 짝짓기 + 직전 라운드 상대 회피 (확정 내역 2번)
-        //    무작위로 섞은 뒤 인접한 동네끼리 짝짓는다. 직전 라운드에서 붙었던 짝이 나오면
-        //    다시 섞는다(최대 10회). 동네가 적어 회피가 불가능하면 리매치를 허용한다.
+        // 6. 무작위로 섞은 뒤 인접한 동네끼리 짝짓는다
+        //    직전 라운드에서 붙었던 짝이 나오면 최대 10회까지 다시 섞고
+        //    동네가 적어 회피가 불가능하면 리매치를 허용한다
         Map<Long, Long> lastOpponents = findLastOpponents(stage);
         for (int attempt = 1; attempt <= MAX_SHUFFLE_ATTEMPTS; attempt++) {
             Collections.shuffle(participants, random);
@@ -148,13 +149,13 @@ public class OpenRoundProcessor {
             matchCount++;
         }
 
-        log.info("라운드 개장 완료: stage {} (season {} round {}) — 매치 {}개, C = {}",
+        log.info("라운드 개장 완료: stage {} (season {} round {}) 매치 {}개, C = {}",
                 stageId, stage.getSeason(), stage.getRound(), matchCount, avgMemberCount);
     }
 
     /**
-     * 키워드(형용사+명사)를 무작위로 뽑아 미션 문장을 생성한다 — 매치마다 호출된다.
-     * 같은 라운드에서 이미 쓴 조합은 피한다(최대 10회 재추첨, 조합이 바닥나면 중복 허용).
+     * 형용사와 명사를 무작위로 뽑아 미션 문장을 생성한다. 매치마다 호출된다.
+     * 같은 라운드에서 이미 쓴 조합은 최대 10회까지 재추첨으로 피하고 조합이 바닥나면 중복을 허용한다.
      */
     private String createMission(Set<String> usedKeywordCombos) {
         List<String> adjectives = keywordRepositoryPort.findKeywordsByType(TYPE_ADJECTIVE);
@@ -179,7 +180,7 @@ public class OpenRoundProcessor {
             }
         }
         if (adjective == null) {
-            // 10번 다 이미 쓴 조합 — 키워드가 극히 적은 상황이니 중복을 허용한다
+            // 10번 모두 이미 쓴 조합이면 키워드가 극히 적은 상황이니 중복을 허용한다
             adjective = adjectives.get(random.nextInt(adjectives.size()));
             noun = nouns.get(random.nextInt(nouns.size()));
         }
@@ -187,9 +188,9 @@ public class OpenRoundProcessor {
     }
 
     /**
-     * 직전 라운드의 "동네 → 상대 동네" 지도.
-     * 라운드는 빈틈없이 이어지므로 직전 라운드 = ended_at이 이번 라운드의 started_at과 같은 라운드다.
-     * BYE(셀프) 매치는 상대가 아니므로 제외한다.
+     * 직전 라운드에서 어느 동네가 어느 동네와 붙었는지 담은 맵.
+     * 라운드가 빈틈없이 이어지므로 ended_at이 이번 라운드의 started_at과 같은 라운드가 직전 라운드다.
+     * 부전승 매치는 상대가 없으므로 제외한다.
      */
     private Map<Long, Long> findLastOpponents(Stage stage) {
         Map<Long, Long> lastOpponents = new HashMap<>();
@@ -206,7 +207,7 @@ public class OpenRoundProcessor {
     }
 
     /**
-     * 현재 순서로 인접 짝짓기를 했을 때, 직전 라운드에서 붙었던 짝이 하나라도 있으면 true.
+     * 현재 순서로 인접 짝짓기를 했을 때 직전 라운드에서 붙었던 짝이 하나라도 있으면 true.
      */
     private boolean hasRematch(List<Location> shuffled, Map<Long, Long> lastOpponents) {
         for (int i = 0; i + 1 < shuffled.size(); i += 2) {
@@ -221,11 +222,11 @@ public class OpenRoundProcessor {
     }
 
     /**
-     * BYE 이력이 없는 동네 → 가장 오래전에 BYE였던 동네 순. 동률은 location_id 순 (확정 내역 4번).
-     * 이력은 match_type = BYE 매치의 시작 시각으로 판단하므로 별도 컬럼이 필요 없다.
+     * 부전승 이력이 없는 동네를 먼저, 그다음 가장 오래전에 부전승이었던 동네 순으로 고른다.
+     * 동률이면 location_id가 작은 쪽이다. 이력은 BYE 매치의 시작 시각으로 판단한다.
      */
     private Location selectByeLocation(List<Location> participants) {
-        // 동네별 "마지막으로 부전승이었던 라운드의 시작 시각"을 모은다
+        // 동네별로 마지막 부전승 라운드의 시작 시각을 모은다
         Map<Long, LocalDateTime> lastByeAt = new HashMap<>();
         List<Match> byeMatches = matchRepositoryPort.findAllByMatchType(MatchType.BYE);
         for (Match byeMatch : byeMatches) {
@@ -237,13 +238,13 @@ public class OpenRoundProcessor {
             }
         }
 
-        // 이력 시각이 가장 오래된(없으면 최우선) 동네를 고른다. 동률이면 location_id가 작은 쪽
+        // 이력 시각이 가장 오래된 동네를 고르고 이력이 없으면 최우선이다. 동률이면 location_id가 작은 쪽
         Location selected = null;
         LocalDateTime selectedLastByeAt = null;
         for (Location candidate : participants) {
             LocalDateTime candidateLastByeAt = lastByeAt.get(candidate.getLocationId());
             if (candidateLastByeAt == null) {
-                candidateLastByeAt = LocalDateTime.MIN;     // 이력 없음 = 가장 오래된 것으로 취급
+                candidateLastByeAt = LocalDateTime.MIN;     // 이력이 없으면 가장 오래된 것으로 취급
             }
 
             if (selected == null) {

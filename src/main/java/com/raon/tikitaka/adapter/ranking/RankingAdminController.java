@@ -8,9 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 시즌 확정 수동 트리거 — 평상시엔 스케줄러(9단계, 05:20)가 돌린다.
- * 휴면 전환(DeactivateInactiveUsers)은 엔드포인트를 일부러 만들지 않았다 —
- * 로그인 브랜치 병합 전에 실수로 호출하면 전 유저가 휴면 처리되기 때문.
+ * 시즌 확정 수동 실행 API. 평소에는 새벽 스케줄러가 돌린다.
+ * 휴면 전환은 실수로 호출하면 전 유저가 휴면 처리될 수 있어 엔드포인트를 만들지 않았다.
  */
 @RestController
 @RequestMapping("/api/admin/ranking")

@@ -34,7 +34,7 @@ public class BoardService implements GetBoardUseCase {
         Optional<Board> board = boardRepositoryPort
                 .findActiveById(boardId, LocalDateTime.now(), mainLocationId(userId));
         if (board.isEmpty()) {
-            // "없는 ID"인지 "종료된 라운드"인지 "남의 동네"인지 구분되는 메시지 — 디버깅용
+            // 없는 ID인지 종료된 라운드인지 남의 동네인지 구분되는 메시지를 남긴다
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "종료되었거나 접근할 수 없는 게시판입니다.");
         }
         return board.get().getMatch().getMission();
@@ -45,6 +45,6 @@ public class BoardService implements GetBoardUseCase {
         if (user.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
         }
-        return user.get().getMainLocation().getLocationId();    // 4단계에서 main_location은 NOT NULL
+        return user.get().getMainLocation().getLocationId();    // main_location은 NOT NULL
     }
 }

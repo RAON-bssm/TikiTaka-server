@@ -47,8 +47,8 @@ public class Post {
     private String location;
 
     /**
-     * 작성 시점의 소속 팀 스냅샷 — 점수 집계용.
-     * location(문자열)은 표시용으로 유지하고, 집계는 이 FK로만 한다.
+     * 작성 시점의 소속 팀 스냅샷. 점수 집계에 쓴다.
+     * 문자열 location 필드는 표시용으로 유지하고 집계는 이 FK로만 한다.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id", nullable = false)

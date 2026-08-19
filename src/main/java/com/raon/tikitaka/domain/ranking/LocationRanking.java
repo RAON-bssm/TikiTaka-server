@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 라운드별 지역 점수 — 게시물이 올라올 때마다 (stage_id, location_id) 행에 실시간 누적된다.
- * 순위 컬럼은 두지 않는다 — 라운드 순위는 조회 시 ORDER BY location_score DESC로 계산하고,
- * 시즌 확정 순위는 season_location_result.final_rank가 담당한다.
+ * 라운드별 지역 점수. 게시물이 올라올 때마다 실시간으로 누적된다.
+ * 라운드 순위는 조회 시점에 계산하고 시즌 확정 순위는 season_location_result가 담당하므로
+ * 순위 컬럼은 두지 않는다.
  */
 @Entity
 @Table(name = "location_ranking",
