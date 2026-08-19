@@ -39,6 +39,12 @@ gemini:
   model: gemini-3.1-flash-lite
   prompt: ${GEMINI_PROMPT}
 
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION:1800000}
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:1209600000}
+  signup-token-expiration: ${JWT_SIGNUP_EXPIRATION:600000}
+
 ranking:
   base-multiplier: 67.76      # K — 개인 점수 = round(AI점수 × K)
   min-team-size: 5            # 조정치 분모의 하한
