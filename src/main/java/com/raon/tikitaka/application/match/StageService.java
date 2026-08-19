@@ -1,13 +1,16 @@
 package com.raon.tikitaka.application.match;
 
 import com.raon.tikitaka.application.match.in.EnsureFutureStagesUseCase;
+import com.raon.tikitaka.application.match.in.GetCurrentStageUseCase;
 import com.raon.tikitaka.application.match.out.StageRepositoryPort;
 import com.raon.tikitaka.domain.match.Stage;
 import com.raon.tikitaka.global.config.SeasonProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -16,16 +19,15 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class StageService implements EnsureFutureStagesUseCase {
+public class StageService implements EnsureFutureStagesUseCase, GetCurrentStageUseCase {
 
     private final StageRepositoryPort stageRepositoryPort;
     private final SeasonProperties seasonProperties;
 
     /**
-     * 미래 라운드를 prefetchDays(30일)치 미리 생성한다.
-     * - 멱등: 이미 채워져 있으면 while 조건이 거짓이라 아무것도 하지 않는다
-     * - 따라잡기: 며칠 중단됐다 재실행되면 밀린 라운드를 한 번에 채운다
-     * - 라운드 경계는 직전 라운드의 ended_at에서 이어지므로 시드의 자정 기준이 영원히 유지된다
+     * 미래 라운드를 prefetchDays 일수만큼 미리 생성한다.
+     * 이미 채워져 있으면 아무것도 하지 않고 며칠 중단됐다 재실행되면 밀린 라운드를 한 번에 채운다.
+     * 라운드 경계는 직전 라운드의 ended_at에서 이어지므로 시드의 자정 기준이 계속 유지된다.
      */
     @Override
     public void execute() {
@@ -58,5 +60,18 @@ public class StageService implements EnsureFutureStagesUseCase {
             log.info("미래 라운드 {}개 생성 완료 (마지막: season {}, round {}, ~{})",
                     created, last.getSeason(), last.getRound(), last.getEndedAt());
         }
+    }
+
+    /**
+     * 시즌 라운드 조회 API에서 쓰는 현재 진행 중인 라운드.
+     * 시드 전이거나 라운드 생성이 오래 멈춘 비정상 상황에서만 404가 난다.
+     */
+    @Override
+    public Stage getCurrentStage() {
+        Optional<Stage> current = stageRepositoryPort.findCurrent(LocalDateTime.now());
+        if (current.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "진행 중인 라운드가 없습니다.");
+        }
+        return current.get();
     }
 }
