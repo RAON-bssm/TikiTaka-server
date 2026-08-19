@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * 지역 스위칭 서비스. 유저의 예약 관리와 라운드 시작 직후의 일괄 적용을 담당한다.
