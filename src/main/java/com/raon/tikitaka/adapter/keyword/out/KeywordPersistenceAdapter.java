@@ -23,4 +23,24 @@ public class KeywordPersistenceAdapter implements KeywordRepositoryPort {
         }
         return result;
     }
+
+    @Override
+    public List<Keyword> findAll() {
+        return keywordJpaRepository.findAll();
+    }
+
+    @Override
+    public boolean exists(String keyword) {
+        return keywordJpaRepository.existsById(keyword);
+    }
+
+    @Override
+    public Keyword save(Keyword keyword) {
+        return keywordJpaRepository.save(keyword);
+    }
+
+    @Override
+    public void delete(String keyword) {
+        keywordJpaRepository.deleteById(keyword);
+    }
 }
