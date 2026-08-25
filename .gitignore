@@ -43,3 +43,7 @@ out/
 gradle/wrapper/gradle-wrapper.jar
 
 /database
+
+### macOS ###
+.DS_Store
+**/.DS_Store
