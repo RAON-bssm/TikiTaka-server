@@ -43,6 +43,10 @@ public class EquipmentService implements EquipItemUseCase, GetEquippedItemsUseCa
 
     @Override
     public void equip(UUID userId, Map<ProductType, Long> selections) {
+        if (selections.isEmpty()) {
+            return;
+        }
+
         Users user = userRepositoryPort.findByIdWithLocations(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 
@@ -54,7 +58,7 @@ public class EquipmentService implements EquipItemUseCase, GetEquippedItemsUseCa
                 .map(entry -> Equipment.of(user, findOwnedProductOfType(ownedProducts, entry.getKey(), entry.getValue())))
                 .toList();
 
-        equipmentRepositoryPort.deleteAllByUserId(userId);
+        equipmentRepositoryPort.deleteAllByUserIdAndProductTypes(userId, selections.keySet());
         equipmentRepositoryPort.saveAll(newEquipments);
     }
 
