@@ -39,3 +39,7 @@ out/
 .env
 
 /database
+
+### macOS ###
+.DS_Store
+**/.DS_Store
