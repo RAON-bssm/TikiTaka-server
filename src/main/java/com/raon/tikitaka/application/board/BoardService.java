@@ -27,7 +27,10 @@ public class BoardService implements GetBoardUseCase {
     @Override
     public BoardListResult getBoards(UUID userId) {
         List<Board> boards = boardRepositoryPort.findAllActiveBoards(LocalDateTime.now());
-        return new BoardListResult(boards, mainLocationId(userId));
+        // 비로그인 조회를 허용한다. principal이 없으면 userId가 null로 들어오고
+        // myLocationId도 null이 되어 모든 게시판의 myMatch가 false로 내려간다
+        Long myLocationId = (userId == null) ? null : mainLocationId(userId);
+        return new BoardListResult(boards, myLocationId);
     }
 
     @Override
