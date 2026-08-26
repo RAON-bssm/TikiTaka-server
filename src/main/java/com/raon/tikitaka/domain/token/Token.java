@@ -29,6 +29,19 @@ public class Token {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    public static Token of(UUID userId, LoginProvider provider, String refreshToken) {
+        Token token = new Token();
+        token.userId = userId;
+        token.provider = provider;
+        token.refreshToken = refreshToken;
+        return token;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
