@@ -1,6 +1,7 @@
 package com.raon.tikitaka.domain.post;
 
 import com.raon.tikitaka.domain.board.Board;
+import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.user.Users;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -42,6 +43,17 @@ public class Post {
     @Column(name = "ai_review")
     private String aiReview;
 
+    @Column(name = "location")
+    private String location;
+
+    /**
+     * 작성 시점의 소속 팀 스냅샷. 점수 집계에 쓴다.
+     * 문자열 location 필드는 표시용으로 유지하고 집계는 이 FK로만 한다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id", nullable = false)
+    private Location teamLocation;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -55,5 +67,29 @@ public class Post {
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public static Post create(Users author, Board board, String content, String postImage, Integer score, String aiReview, String location, Location teamLocation) {
+        Post post = new Post();
+        post.userId = author;
+        post.board = board;
+        post.content = content;
+        post.postImage = postImage;
+        post.score = score;
+        post.aiReview = aiReview;
+        post.location = location;
+        post.teamLocation = teamLocation;
+        post.isActive = true;
+        post.createdAt = LocalDateTime.now();
+        post.updatedAt = LocalDateTime.now();
+        return post;
+    }
+
+    public void updateContent(String content) {
+        this.content = content;
+    }
+
+    public void deactivate() {
+        this.isActive = false;
     }
 }

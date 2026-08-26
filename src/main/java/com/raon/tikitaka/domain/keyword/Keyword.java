@@ -21,4 +21,11 @@ public class Keyword {
     @Column(name = "type", nullable = false)
     private String type;
 
+    public static Keyword create(String keyword, String type) {
+        Keyword entity = new Keyword();
+        entity.keyword = keyword;
+        entity.type = type;
+        return entity;
+    }
+
 }
