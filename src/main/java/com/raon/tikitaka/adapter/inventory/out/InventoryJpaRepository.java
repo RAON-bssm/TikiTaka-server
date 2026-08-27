@@ -15,4 +15,6 @@ public interface InventoryJpaRepository extends JpaRepository<Inventory, Long> {
             where i.user.userId = :userId
             """)
     List<Inventory> findAllByUserIdWithProduct(UUID userId);
+
+    boolean existsByUser_UserIdAndProduct_ProductId(UUID userId, Long productId);
 }
