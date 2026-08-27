@@ -1,10 +1,12 @@
 package com.raon.tikitaka.adapter.user.out;
 
 import com.raon.tikitaka.application.user.out.EquipmentRepositoryPort;
+import com.raon.tikitaka.domain.enums.ProductType;
 import com.raon.tikitaka.domain.userItem.Equipment;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,8 +22,8 @@ public class EquipmentPersistenceAdapter implements EquipmentRepositoryPort {
     }
 
     @Override
-    public void deleteAllByUserId(UUID userId) {
-        equipmentJpaRepository.deleteAllByUser_UserId(userId);
+    public void deleteAllByUserIdAndProductTypes(UUID userId, Collection<ProductType> productTypes) {
+        equipmentJpaRepository.deleteAllByUser_UserIdAndProduct_ProductTypeIn(userId, productTypes);
     }
 
     @Override
