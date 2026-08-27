@@ -20,6 +20,11 @@ public class InventoryPersistenceAdapter implements InventoryRepositoryPort {
     }
 
     @Override
+    public boolean existsByUserIdAndProductId(UUID userId, Long productId) {
+        return inventoryJpaRepository.existsByUser_UserIdAndProduct_ProductId(userId, productId);
+    }
+
+    @Override
     public Inventory save(Inventory inventory) {
         return inventoryJpaRepository.save(inventory);
     }

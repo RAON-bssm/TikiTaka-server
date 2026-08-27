@@ -8,6 +8,7 @@ import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.product.Product;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.domain.userItem.Inventory;
+import com.raon.tikitaka.global.exception.AlreadyOwnedProductException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,10 @@ public class ProductService implements GetProductListUseCase, PurchaseProductUse
 
         Product product = productRepositoryPort.findActiveById(productId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 상품입니다."));
+
+        if (inventoryRepositoryPort.existsByUserIdAndProductId(userId, productId)) {
+            throw new AlreadyOwnedProductException(productId);
+        }
 
         user.usePoint(product.getPrice());
 
