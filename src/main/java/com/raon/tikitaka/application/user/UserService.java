@@ -6,9 +6,13 @@ import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
 import com.raon.tikitaka.application.user.in.DeactivateInactiveUsersUseCase;
 import com.raon.tikitaka.application.user.in.GetMyInfoUseCase;
 import com.raon.tikitaka.application.user.in.GetUserProfileUseCase;
+import com.raon.tikitaka.application.user.in.ManageLocationSwapUseCase;
+import com.raon.tikitaka.application.user.in.UpdateProfileUseCase;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
+import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.RankingProperties;
+import com.raon.tikitaka.global.exception.DuplicateUserNameException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -25,12 +29,14 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUseCase, GetUserProfileUseCase {
+public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUseCase, GetUserProfileUseCase,
+        UpdateProfileUseCase {
 
     private final UserRepositoryPort userRepositoryPort;
     private final RankingProperties rankingProperties;
     private final StageRepositoryPort stageRepositoryPort;
     private final RankingRepositoryPort rankingRepositoryPort;
+    private final ManageLocationSwapUseCase manageLocationSwapUseCase;
 
     /**
      * 휴면 전환 배치. lastActiveAt이 dormantDays 이상 지난 ACTIVE 유저를 DORMANT로 바꾼다.
@@ -69,5 +75,31 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
                 .orElse(null);
 
         return new UserProfile(user, myRanking);
+    }
+
+    @Override
+    @Transactional
+    public void updateProfile(UUID userId, String userName, Long mainLocationId, Long subLocationId) {
+        Users user = getMyInfo(userId);
+
+        if (userName != null && !userName.equals(user.getUserName())) {
+            if (userRepositoryPort.existsByUserName(userName)) {
+                throw new DuplicateUserNameException(userName);
+            }
+            user.changeUserName(userName);
+        }
+
+        if (subLocationId != null) {
+            manageLocationSwapUseCase.setSubLocation(userId, subLocationId);
+        }
+
+        if (mainLocationId != null && !mainLocationId.equals(user.getMainLocation().getLocationId())) {
+            Location subLocation = user.getSubLocation();
+            if (subLocation == null || !mainLocationId.equals(subLocation.getLocationId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "메인 동네는 서브 동네로 설정된 곳으로만 다음 라운드 전환을 예약할 수 있습니다.");
+            }
+            manageLocationSwapUseCase.requestLocationSwap(userId);
+        }
     }
 }
