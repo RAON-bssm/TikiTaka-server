@@ -1,7 +1,11 @@
 package com.raon.tikitaka.application.user;
 
+import com.raon.tikitaka.application.match.out.StageRepositoryPort;
+import com.raon.tikitaka.application.ranking.UserRankRow;
+import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
 import com.raon.tikitaka.application.user.in.DeactivateInactiveUsersUseCase;
 import com.raon.tikitaka.application.user.in.GetMyInfoUseCase;
+import com.raon.tikitaka.application.user.in.GetUserProfileUseCase;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.RankingProperties;
@@ -21,10 +25,12 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUseCase {
+public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUseCase, GetUserProfileUseCase {
 
     private final UserRepositoryPort userRepositoryPort;
     private final RankingProperties rankingProperties;
+    private final StageRepositoryPort stageRepositoryPort;
+    private final RankingRepositoryPort rankingRepositoryPort;
 
     /**
      * 휴면 전환 배치. lastActiveAt이 dormantDays 이상 지난 ACTIVE 유저를 DORMANT로 바꾼다.
@@ -51,5 +57,17 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
         }
         return user.get();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserProfile getProfile(UUID userId) {
+        Users user = getMyInfo(userId);
+
+        UserRankRow myRanking = stageRepositoryPort.findCurrent(LocalDateTime.now())
+                .flatMap(stage -> rankingRepositoryPort.findMyUserRanking(stage.getStageId(), userId))
+                .orElse(null);
+
+        return new UserProfile(user, myRanking);
     }
 }
