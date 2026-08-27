@@ -11,6 +11,7 @@ import com.raon.tikitaka.domain.userItem.Inventory;
 import com.raon.tikitaka.global.exception.AlreadyOwnedProductException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,6 +59,13 @@ public class ProductService implements GetProductListUseCase, PurchaseProductUse
 
         user.usePoint(product.getPrice());
 
-        inventoryRepositoryPort.save(Inventory.of(user, product));
+        try {
+            inventoryRepositoryPort.save(Inventory.of(user, product));
+        } catch (DataIntegrityViolationException e) {
+            // 동시에 들어온 중복 구매 요청 — existsByUserIdAndProductId 체크를 둘 다 통과한 뒤
+            // uk_inventory_user_product 유니크 제약에서 걸린 경우. 트랜잭션이 롤백되어 포인트는
+            // 그대로 복구되므로, 원인 불명의 500 대신 동일한 409 응답으로 정리한다.
+            throw new AlreadyOwnedProductException(productId);
+        }
     }
 }
