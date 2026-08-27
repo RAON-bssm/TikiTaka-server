@@ -44,6 +44,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.of(409, e.getMessage(), null));
     }
 
+    @ExceptionHandler(AlreadyOwnedProductException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAlreadyOwnedProduct(AlreadyOwnedProductException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.of(409, e.getMessage(), null));
+    }
+
     @ExceptionHandler(SocialLoginFailedException.class)
     public ResponseEntity<ApiResponse<Void>> handleSocialLoginFailed(SocialLoginFailedException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.of(401, e.getMessage(), null));
