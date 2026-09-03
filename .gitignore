@@ -40,6 +40,10 @@ out/
 
 /database
 
+
+schema.dbml
+
+
 ### macOS ###
 .DS_Store
 **/.DS_Store

@@ -2,6 +2,7 @@ package com.raon.tikitaka.global.security;
 
 import com.raon.tikitaka.global.security.jwt.JwtAuthenticationFilter;
 import com.raon.tikitaka.global.security.jwt.JwtProvider;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +14,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -20,9 +22,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.ArrayList;
 import java.util.List;
 
+
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
+
 
     @Value("${cors.allowed-origins:}")
     private List<String> extraOrigins;
@@ -31,6 +35,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtProvider jwtProvider) throws Exception {
         http
                 .cors(Customizer.withDefaults())
+
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
