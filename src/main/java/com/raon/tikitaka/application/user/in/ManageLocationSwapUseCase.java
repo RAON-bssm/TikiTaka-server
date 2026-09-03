@@ -22,4 +22,9 @@ public interface ManageLocationSwapUseCase {
      * 예약 취소.
      */
     void cancelLocationSwap(UUID userId);
+
+    /**
+     * 메인과 서브 동네를 즉시 교환한다. 라운드 종료를 기다리지 않는다. 서브 동네가 없으면 400.
+     */
+    void swapLocationImmediately(UUID userId);
 }

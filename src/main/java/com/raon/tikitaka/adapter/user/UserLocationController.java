@@ -16,7 +16,8 @@ import java.util.UUID;
 
 /**
  * 지역 스위칭 API. 서브 동네 설정과 스위칭 예약, 예약 취소를 담당한다.
- * 실제 교환은 다음 라운드 시작 직후 00:10 배치가 일괄 적용한다.
+ * 예약된 교환은 다음 라운드 시작 직후 00:10 배치가 일괄 적용하지만,
+ * /location-swap/immediate로는 라운드 종료를 기다리지 않고 즉시 교환할 수 있다.
  */
 @RestController
 @RequestMapping("/api/user")
@@ -43,5 +44,11 @@ public class UserLocationController {
     public ApiResponse<Void> cancelLocationSwap(@AuthenticationPrincipal UUID userId) {
         manageLocationSwapUseCase.cancelLocationSwap(userId);
         return ApiResponse.of(200, "지역 스위칭 예약 취소 성공", null);
+    }
+
+    @PostMapping("/location-swap/immediate")
+    public ApiResponse<Void> swapLocationImmediately(@AuthenticationPrincipal UUID userId) {
+        manageLocationSwapUseCase.swapLocationImmediately(userId);
+        return ApiResponse.of(200, "지역 스위칭 즉시 적용 성공", null);
     }
 }
