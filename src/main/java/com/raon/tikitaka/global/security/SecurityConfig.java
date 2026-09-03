@@ -2,9 +2,12 @@ package com.raon.tikitaka.global.security;
 
 import com.raon.tikitaka.global.security.jwt.JwtAuthenticationFilter;
 import com.raon.tikitaka.global.security.jwt.JwtProvider;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -12,13 +15,27 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.ArrayList;
+import java.util.List;
+
+
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
 
+
+    @Value("${cors.allowed-origins:}")
+    private List<String> extraOrigins;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtProvider jwtProvider) throws Exception {
         http
+                .cors(Customizer.withDefaults())
+
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -42,5 +59,25 @@ public class SecurityConfig {
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource  corsConfigurationSource() {
+        List<String> patterns = new ArrayList<>(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        ));
+        patterns.addAll(extraOrigins);
+        patterns.removeIf(String::isBlank);   // 환경변수가 비었을 때 들어오는 빈 문자열 제거
+
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(patterns);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }

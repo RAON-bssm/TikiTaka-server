@@ -9,7 +9,8 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:update}
+      
     show-sql: true
     properties:
       hibernate:
@@ -55,3 +56,8 @@ season:
   rounds-per-season: 4        # 시즌당 라운드 수 → 시즌 = 28일
   prefetch-days: 30           # 미래 라운드를 며칠치 미리 생성할지
   match-open-ahead-days: 1    # 매치·게시판을 라운드 시작 며칠 전에 만들지
+
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
+

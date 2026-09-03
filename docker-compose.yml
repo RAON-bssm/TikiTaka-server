@@ -19,3 +19,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_PROMPT: ${GEMINI_PROMPT}
       JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+
+

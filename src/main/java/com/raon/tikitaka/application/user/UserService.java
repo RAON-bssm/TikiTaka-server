@@ -1,5 +1,6 @@
 package com.raon.tikitaka.application.user;
 
+
 import com.raon.tikitaka.application.match.out.StageRepositoryPort;
 import com.raon.tikitaka.application.ranking.UserRankRow;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
@@ -29,6 +30,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
+
 public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUseCase, GetUserProfileUseCase,
         UpdateProfileUseCase {
 
@@ -64,6 +66,7 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
         }
         return user.get();
     }
+
 
     @Override
     @Transactional(readOnly = true)
