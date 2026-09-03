@@ -28,4 +28,14 @@ public class LocationPersistenceAdapter implements LocationRepositoryPort {
     public Optional<Location> findById(Long locationId) {
         return locationJpaRepository.findById(locationId);
     }
+
+    @Override
+    public Location save(Location location) {
+        return locationJpaRepository.save(location);
+    }
+
+    @Override
+    public boolean existsByLocationName(String locationName) {
+        return locationJpaRepository.existsByLocationName(locationName);
+    }
 }
