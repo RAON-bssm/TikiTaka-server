@@ -121,6 +121,13 @@ public class Users {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * 닉네임 변경. 중복 검증은 서비스 계층 책임이다.
+     */
+    public void changeUserName(String userName) {
+        this.userName = userName;
+    }
+
     public void usePoint(int amount) {
         if (this.point < amount) {
             throw new InsufficientPointException();
