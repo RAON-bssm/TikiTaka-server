@@ -32,6 +32,12 @@ public interface UserRepositoryPort {
     List<Long> findExpectedLocationIdsOfActiveUsers();
 
     /**
+     * 라운드 팀 규모(n) 집계용. 메인 동네 소속자 + 서브 동네 설정자를 합쳐서
+     * 동네별로 센다. 유저 1명이 서브 동네를 설정해뒀으면 2건(메인 1 + 서브 1)이다.
+     */
+    List<Long> findLocationIdsForMemberCount();
+
+    /**
      * 지역 스위칭이 예약된 유저 전원. 라운드 시작 직후 배치가 교환할 대상이다.
      */
     List<Users> findAllWithPendingLocationSwap();

@@ -40,6 +40,19 @@ public interface UserJpaRepository extends JpaRepository<Users, UUID> {
             """, nativeQuery = true)
     List<Long> findExpectedLocationIdsOfActiveUsers();
 
+    /**
+     * 라운드 팀 규모(n) 집계용. 메인 동네 1건에 더해, 서브 동네가 설정돼 있으면
+     * 그 동네도 1건 추가로 센다 — 즉시 스위칭으로 들어올 수 있는 인원을 미리
+     * 반영해서, 라운드 중간에 스위칭해 들어와도 분모(n)가 실제보다 작게
+     * 잡혀 점수가 부풀려지는 걸 막기 위함이다.
+     */
+    @Query(value = """
+            select main_location_id from users where status = 'ACTIVE'
+            union all
+            select sub_location_id from users where status = 'ACTIVE' and sub_location_id is not null
+            """, nativeQuery = true)
+    List<Long> findLocationIdsForMemberCount();
+
     List<Users> findAllByPendingLocationSwapTrue();
 
     List<Users> findAllByLastActiveAtBeforeAndStatus(LocalDateTime threshold, UserStatus status);
