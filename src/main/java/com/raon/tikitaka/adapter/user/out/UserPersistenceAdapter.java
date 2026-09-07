@@ -53,6 +53,11 @@ public class UserPersistenceAdapter implements UserRepositoryPort {
     }
 
     @Override
+    public List<Long> findLocationIdsForMemberCount() {
+        return userJpaRepository.findLocationIdsForMemberCount();
+    }
+
+    @Override
     public List<Users> findAllWithPendingLocationSwap() {
         return userJpaRepository.findAllByPendingLocationSwapTrue();
     }

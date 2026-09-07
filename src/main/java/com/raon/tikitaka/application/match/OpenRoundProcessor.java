@@ -65,11 +65,13 @@ public class OpenRoundProcessor {
             return;
         }
 
-        // 1. 동네별 예정 소속 ACTIVE 인원 집계. 스위칭 예약자는 sub 지역으로 계산한다
-        //    쿼리가 유저 1명당 소속 동네 ID를 1건씩 돌려주고 여기서 동네별로 센다
+        // 1. 동네별 인원 집계. 메인 동네 소속자 + 서브 동네 설정자를 합쳐서 센다 —
+        //    즉시 스위칭(swapLocationImmediately)으로 라운드 중간에 들어올 수 있는
+        //    인원을 미리 반영해서, 나중에 실제로 들어와도 n(팀 규모)이 그대로라
+        //    점수가 부풀려지지 않게 하기 위함이다
         Map<Long, Integer> memberCounts = new HashMap<>();
-        List<Long> expectedLocationIds = userRepositoryPort.findExpectedLocationIdsOfActiveUsers();
-        for (Long locationId : expectedLocationIds) {
+        List<Long> memberCountLocationIds = userRepositoryPort.findLocationIdsForMemberCount();
+        for (Long locationId : memberCountLocationIds) {
             Integer currentCount = memberCounts.get(locationId);
             if (currentCount == null) {
                 memberCounts.put(locationId, 1);
@@ -85,8 +87,9 @@ public class OpenRoundProcessor {
             log.warn("location 테이블이 비어 있어 매치를 만들 수 없습니다 (stage {})", stageId);
             return;
         }
-        // 쿼리가 유저 1명당 1건을 돌려주므로 명단 길이가 곧 전체 ACTIVE 유저 수다
-        int totalActiveUsers = expectedLocationIds.size();
+        // 예정 소속 쿼리는 유저 1명당 1건을 돌려주므로(memberCount 집계와 달리 서브 동네로
+        // 중복 세지 않는다) 명단 길이가 곧 전체 ACTIVE 유저 수다
+        int totalActiveUsers = userRepositoryPort.findExpectedLocationIdsOfActiveUsers().size();
         double avgMemberCount = (double) totalActiveUsers / allLocations.size();
         stage.assignAvgLocationMemberCount(avgMemberCount);
 
