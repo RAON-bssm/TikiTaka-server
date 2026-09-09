@@ -1,5 +1,6 @@
 package com.raon.tikitaka.application.auth;
 
+import com.raon.tikitaka.application.auth.in.CheckUserNameUseCase;
 import com.raon.tikitaka.application.auth.in.LoginUseCase;
 import com.raon.tikitaka.application.auth.in.LogoutUseCase;
 import com.raon.tikitaka.application.auth.in.ReissueUseCase;
@@ -28,7 +29,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase, LogoutUseCase {
+public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase, LogoutUseCase,
+        CheckUserNameUseCase {
 
     private final OAuthClientPort oAuthClientPort;
     private final UserRepositoryPort userRepositoryPort;
@@ -104,6 +106,16 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
     @Override
     public void logout(UUID userId) {
         tokenRepositoryPort.deleteByUserId(userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isUserNameAvailable(String userName) {
+        if (userName == null || userName.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "닉네임을 입력해주세요.");
+        }
+        // 가입(signup)도 같은 existsByUserName을 쓰므로 판정 기준이 어긋나지 않는다
+        return !userRepositoryPort.existsByUserName(userName);
     }
 
     private String issueAndStoreRefreshToken(UUID userId, LoginProvider provider) {
