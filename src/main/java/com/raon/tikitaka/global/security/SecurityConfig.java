@@ -43,6 +43,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/login/**", "/api/auth/signup", "/api/auth/refresh").permitAll()
+                        // 닉네임 중복확인. 가입 화면에서 토큰 발급 전에 호출된다
+                        .requestMatchers(HttpMethod.GET, "/api/auth/check-name").permitAll()
                         // /api/location: 가입 화면의 동네 선택 목록. 토큰 발급 전에 호출된다
                         // /api/location/rank: 지역 랭킹. principal을 쓰지 않는 전체 공용 데이터다
                         // 둘 다 GET만 열어둔다. 같은 경로의 쓰기 요청은 계속 인증이 필요하다
