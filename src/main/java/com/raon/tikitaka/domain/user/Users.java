@@ -174,6 +174,21 @@ public class Users {
     }
 
     /**
+     * 메인과 서브 동네를 즉시 교환한다. 라운드 종료를 기다리지 않는다.
+     * 걸려있던 스위칭 예약은 이미 반영된 셈이라 함께 해제한다 — 안 그러면
+     * 다음 라운드 배치가 다시 한번 교환해 원래대로 되돌려버린다.
+     */
+    public void swapLocationImmediately() {
+        if (this.subLocation == null) {
+            throw new SubLocationNotSetException();
+        }
+        Location tmp = this.mainLocation;
+        this.mainLocation = this.subLocation;
+        this.subLocation = tmp;
+        this.pendingLocationSwap = false;
+    }
+
+    /**
      * 활동 기록. 로그인 성공과 게시물 작성 시 호출되고 휴면 유저는 ACTIVE로 복귀한다.
      */
     public void touch() {

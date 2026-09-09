@@ -87,6 +87,12 @@ public class LocationSwapService implements ApplyLocationSwapUseCase, ManageLoca
         getUser(userId).cancelLocationSwap();
     }
 
+    @Override
+    public void swapLocationImmediately(UUID userId) {
+        // 서브 동네가 없으면 도메인이 SubLocationNotSetException을 던지고 전역 핸들러가 400으로 바꾼다
+        getUser(userId).swapLocationImmediately();
+    }
+
     private Users getUser(UUID userId) {
         Optional<Users> user = userRepositoryPort.findByIdWithLocations(userId);
         if (user.isEmpty()) {
