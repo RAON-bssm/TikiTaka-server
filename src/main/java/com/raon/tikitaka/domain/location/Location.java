@@ -16,6 +16,9 @@ public class Location {
     @Column(name = "location_id")
     private Long locationId;
 
+    @Column(name="city_name",nullable = false)
+    private String cityName;
+
     @Column(name = "location_name", nullable = false)
     private String locationName;
 
