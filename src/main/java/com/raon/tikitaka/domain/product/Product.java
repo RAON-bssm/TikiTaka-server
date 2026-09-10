@@ -25,6 +25,7 @@ public class Product {
     @Column(name = "product_image")
     private String productImage;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "product_type")
     private ProductType productType;
 
