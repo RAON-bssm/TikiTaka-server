@@ -1,6 +1,7 @@
 package com.raon.tikitaka.global.exception;
 
 import com.raon.tikitaka.global.response.ApiResponse;
+import com.raon.tikitaka.global.security.AuthErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -34,9 +35,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.of(400, e.getMessage(), null));
     }
 
+    /**
+     * 컨트롤러/서비스가 직접 토큰을 파싱하다 실패한 경우(예: /api/auth/refresh).
+     * 필터 단계의 실패는 여기까지 오지 않고 JwtAuthenticationEntryPoint가 처리하지만,
+     * 두 경로가 같은 바디 형식을 내도록 code를 똑같이 실어준다.
+     */
     @ExceptionHandler(InvalidTokenException.class)
-    public ResponseEntity<ApiResponse<Void>> handleInvalidToken(InvalidTokenException e) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.of(401, e.getMessage(), null));
+    public ResponseEntity<ApiResponse<AuthErrorResponse>> handleInvalidToken(InvalidTokenException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.of(401, e.getMessage(), AuthErrorResponse.of(e.getCode())));
     }
 
     @ExceptionHandler(DuplicateUserNameException.class)

@@ -32,7 +32,12 @@ public class SecurityConfig {
     private List<String> extraOrigins;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtProvider jwtProvider) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtProvider jwtProvider,
+            JwtAuthenticationEntryPoint authenticationEntryPoint,
+            JwtAccessDeniedHandler accessDeniedHandler
+    ) throws Exception {
         http
                 .cors(Customizer.withDefaults())
 
@@ -58,6 +63,11 @@ public class SecurityConfig {
                         // 관리자 API는 JWT의 role이 ADMIN인 유저만. 필터가 ROLE_ADMIN 권한을 심어준다
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
+                // 이 설정이 없으면 httpBasic/formLogin을 모두 disable한 탓에 기본값인
+                // Http403ForbiddenEntryPoint가 쓰여서, 토큰 만료도 401이 아닌 403 + 스프링 기본 에러 바디로 나간다
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

@@ -4,6 +4,7 @@ import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.domain.enums.UserRole;
 import com.raon.tikitaka.global.exception.InvalidTokenException;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -72,16 +73,23 @@ public class JwtProvider {
                 .compact();
     }
 
+    /**
+     * 만료를 나머지 실패와 분리해서 던진다.
+     * 클라이언트는 만료면 refresh를, 그 외에는 재로그인을 해야 하므로 사유가 구분돼야 한다.
+     * ExpiredJwtException이 JwtException의 하위 타입이라 반드시 먼저 잡아야 한다.
+     */
     private Claims parse(String token, TokenType expectedType) {
         try {
             Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
             String actualType = claims.get("tokenType", String.class);
             if (!expectedType.name().equals(actualType)) {
-                throw new InvalidTokenException("잘못된 토큰 타입입니다.");
+                throw new InvalidTokenException(TokenErrorCode.TOKEN_INVALID, "잘못된 토큰 타입입니다.");
             }
             return claims;
+        } catch (ExpiredJwtException e) {
+            throw new InvalidTokenException(TokenErrorCode.TOKEN_EXPIRED, TokenErrorCode.TOKEN_EXPIRED.getMessage());
         } catch (JwtException | IllegalArgumentException e) {
-            throw new InvalidTokenException("유효하지 않은 토큰입니다.");
+            throw new InvalidTokenException(TokenErrorCode.TOKEN_INVALID, TokenErrorCode.TOKEN_INVALID.getMessage());
         }
     }
 }
