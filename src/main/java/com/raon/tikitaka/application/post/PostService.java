@@ -49,11 +49,11 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
     @Override
     @Transactional
-    public UUID createPost(UUID authorId, Long boardId, String content, String postImage, Integer score, String aiReview) {
+    public void createPost(UUID authorId, Long boardId, String content, String postImage, Integer score, String aiReview) {
         Users author = postRepositoryPort.getUser(authorId);
         Board board = postRepositoryPort.getBoard(boardId);
         Location teamLocation = resolveTeamLocation(author, board);
-        Post saved = postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview,
+        postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview,
                 teamLocation.getLocationName(), teamLocation));
 
         // 게시물 작성도 활동이므로 lastActiveAt을 갱신하고 휴면이었다면 ACTIVE로 복귀한다
@@ -61,9 +61,6 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
         // 점수 실시간 가산
         accrueScores(board, teamLocation, author, score, 1);
-
-        // 생성된 id를 돌려준다. 클라이언트가 업로드 직후 상세로 바로 이동할 수 있어야 한다.
-        return saved.getPostId();
     }
 
     private Location resolveTeamLocation(Users author, Board board) {

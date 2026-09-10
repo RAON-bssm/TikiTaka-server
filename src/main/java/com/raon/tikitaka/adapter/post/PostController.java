@@ -1,7 +1,6 @@
 package com.raon.tikitaka.adapter.post;
 
 import com.raon.tikitaka.adapter.post.dto.CreatePostRequest;
-import com.raon.tikitaka.adapter.post.dto.CreatePostResponse;
 import com.raon.tikitaka.adapter.post.dto.PostDetailResponse;
 import com.raon.tikitaka.adapter.post.dto.PostListResponse;
 import com.raon.tikitaka.adapter.post.dto.UpdatePostRequest;
@@ -65,7 +64,7 @@ public class PostController {
 
     @PostMapping(consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<CreatePostResponse> createPost(
+    public ApiResponse<Void> createPost(
             @AuthenticationPrincipal UUID authorId,
             @ModelAttribute CreatePostRequest request
     ) {
@@ -78,8 +77,8 @@ public class PostController {
         AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());
         int score = validateScore(review.score());
 
-        UUID postId = createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score, review.review());
-        return ApiResponse.of(201, "게시물 생성 성공", CreatePostResponse.of(postId));
+        createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score, review.review());
+        return ApiResponse.of(201, "게시물 생성 성공", null);
     }
 
     @PatchMapping("/patch/{postId}")

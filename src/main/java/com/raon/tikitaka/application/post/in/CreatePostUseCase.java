@@ -4,5 +4,5 @@ import java.util.UUID;
 
 public interface CreatePostUseCase {
 
-    UUID createPost(UUID authorId, Long boardId, String content, String postImage, Integer score, String aiReview);
+    void createPost(UUID authorId, Long boardId, String content, String postImage, Integer score, String aiReview);
 }
