@@ -1,8 +1,10 @@
 package com.raon.tikitaka.global.exception;
 
 import com.raon.tikitaka.global.response.ApiResponse;
+import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -52,5 +54,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SocialLoginFailedException.class)
     public ResponseEntity<ApiResponse<Void>> handleSocialLoginFailed(SocialLoginFailedException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.of(401, e.getMessage(), null));
+    }
+
+    @ExceptionHandler(DuplicateLocationNameException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDuplicateLocationName(DuplicateLocationNameException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.of(409, e.getMessage(), null));
+    }
+
+    /**
+     * @Valid 검증 실패. 스프링 기본 형식 대신 공통 응답으로 내려
+     * 첫 번째 위반 메시지를 클라이언트가 그대로 읽을 수 있게 한다.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(DefaultMessageSourceResolvable::getDefaultMessage)
+                .findFirst()
+                .orElse("잘못된 요청입니다.");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.of(400, message, null));
     }
 }

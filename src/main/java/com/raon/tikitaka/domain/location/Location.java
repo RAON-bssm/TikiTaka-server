@@ -22,4 +22,12 @@ public class Location {
     @Column(name = "location_name", nullable = false)
     private String locationName;
 
+    /**
+     * 새 지역을 만든다. locationId는 IDENTITY라 저장 시점에 DB가 채운다.
+     */
+    public static Location of(String locationName) {
+        Location location = new Location();
+        location.locationName = locationName;
+        return location;
+    }
 }

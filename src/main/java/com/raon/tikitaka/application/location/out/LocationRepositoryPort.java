@@ -15,4 +15,11 @@ public interface LocationRepositoryPort {
      * 회원가입 시 mainLocationId 검증과 조회에 쓴다.
      */
     Optional<Location> findById(Long locationId);
+
+    Location save(Location location);
+
+    /**
+     * 지역 등록 시 같은 이름이 이미 있는지 확인한다.
+     */
+    boolean existsByLocationName(String locationName);
 }

@@ -49,6 +49,9 @@ public class SecurityConfig {
                         // /api/location/rank: 지역 랭킹. principal을 쓰지 않는 전체 공용 데이터다
                         // 둘 다 GET만 열어둔다. 같은 경로의 쓰기 요청은 계속 인증이 필요하다
                         .requestMatchers(HttpMethod.GET, "/api/location", "/api/location/rank").permitAll()
+                        // TODO(임시): 초기 지역 데이터 입력용으로만 열어둔 쓰기 경로다.
+                        //             인증을 붙이는 시점에 이 줄과 LocationController의 POST 주석을 함께 걷어낸다
+                        .requestMatchers(HttpMethod.POST, "/api/location").permitAll()
                         // 비로그인 둘러보기: 진행 중인 게시판 목록과 그 안의 게시물 조회
                         // GET만 열려 있으므로 작성/수정/삭제(POST, PATCH)는 그대로 인증이 필요하다
                         .requestMatchers(HttpMethod.GET, "/api/board", "/api/post/**").permitAll()
