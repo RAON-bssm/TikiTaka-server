@@ -46,4 +46,6 @@ schema.dbml
 
 ### macOS ###
 .DS_Store
-**/.DS_Store
+**/.DS_Store_to_delete/
+
+_to_delete/
