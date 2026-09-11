@@ -19,13 +19,13 @@ public record UserInfoResponse(
         Integer point
 ) {
 
-    public record LocationInfo(Long locationId, String locationName) {
+    public record LocationInfo(Long locationId,String locationCityName, String locationName) {
 
         public static LocationInfo from(Location location) {
             if (location == null) {
                 return null;
             }
-            return new LocationInfo(location.getLocationId(), location.getLocationName());
+            return new LocationInfo(location.getLocationId(),location.getCityName(),location.getLocationName());
         }
     }
 
