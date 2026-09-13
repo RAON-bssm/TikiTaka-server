@@ -92,11 +92,11 @@ public class MatchService implements OpenRoundUseCase, GetMatchResultsUseCase {
                 Long score1 = scoreByLocationId.getOrDefault(match.getTeam1().getLocationId(), 0L);
                 Long score2 = scoreByLocationId.getOrDefault(match.getTeam2().getLocationId(), 0L);
                 if (score1 > score2) {
-                    winTeam = match.getTeam1().getLocationName();
-                    lostTeam = match.getTeam2().getLocationName();
+                    winTeam = match.getTeam1().getFullName();
+                    lostTeam = match.getTeam2().getFullName();
                 } else if (score2 > score1) {
-                    winTeam = match.getTeam2().getLocationName();
-                    lostTeam = match.getTeam1().getLocationName();
+                    winTeam = match.getTeam2().getFullName();
+                    lostTeam = match.getTeam1().getFullName();
                 }
                 // 동점이면 둘 다 null로 둔다
             }

@@ -56,6 +56,7 @@ public interface LocationRankingJpaRepository extends JpaRepository<LocationRank
      */
     @Query(value = """
             select l.location_id as locationId,
+                   l.city_name as cityName,
                    l.location_name as locationName,
                    cast(coalesce(sum(lr.location_score), 0) as bigint) as locationScore,
                    cast(rank() over (order by coalesce(sum(lr.location_score), 0) desc) as int) as locationRank
@@ -63,7 +64,7 @@ public interface LocationRankingJpaRepository extends JpaRepository<LocationRank
               left join location_ranking lr
                      on lr.location_id = l.location_id
                     and lr.stage_id = :stageId
-             group by l.location_id, l.location_name
+             group by l.location_id, l.city_name, l.location_name
              order by locationRank, locationId
             """, nativeQuery = true)
     List<LocationRankRow> findLocationRanking(@Param("stageId") Long stageId);

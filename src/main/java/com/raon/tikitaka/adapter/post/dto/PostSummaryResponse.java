@@ -14,6 +14,7 @@ public record PostSummaryResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         String content,
+        String cityName,
         String location
 ) {
 
@@ -27,6 +28,7 @@ public record PostSummaryResponse(
                 post.getCreatedAt(),
                 post.getUpdatedAt(),
                 post.getContent(),
+                post.getTeamLocation().getCityName(),
                 post.getLocation()
         );
     }
