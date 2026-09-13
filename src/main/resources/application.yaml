@@ -49,7 +49,7 @@ jwt:
 ranking:
   base-multiplier: 67.76      # K — 개인 점수 = round(AI점수 × K)
   min-team-size: 5            # 조정치 분모의 하한
-  dormant-days: 7             # 휴면 전환 기준 일수
+  dormant-days: ${DORMANT_DAYS:7}   # 휴면 전환 기준 일수 (개발 환경은 DORMANT_DAYS로 크게 잡는다)
 
 season:
   round-days: 7               # 라운드 1개 길이
