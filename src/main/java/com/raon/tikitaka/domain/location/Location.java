@@ -22,4 +22,12 @@ public class Location {
     @Column(name = "location_name", nullable = false)
     private String locationName;
 
+    /**
+     * 표시용 전체 지역명. "부산광역시 북구"처럼 도시명과 동네명을 합친다.
+     * 팀 이름처럼 지역을 한 덩어리로 보여주는 곳에서 쓴다.
+     */
+    public String getFullName() {
+        return cityName + " " + locationName;
+    }
+
 }

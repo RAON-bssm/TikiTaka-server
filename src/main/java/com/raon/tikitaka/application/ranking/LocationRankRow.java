@@ -7,6 +7,8 @@ public interface LocationRankRow {
 
     Long getLocationId();
 
+    String getCityName();
+
     String getLocationName();
 
     Integer getLocationRank();

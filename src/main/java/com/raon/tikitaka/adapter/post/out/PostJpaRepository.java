@@ -14,6 +14,7 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
     @Query("""
             select p from Post p
             join fetch p.userId
+            join fetch p.teamLocation
             where p.board.boardId = :boardId and p.isActive = true
             order by p.createdAt desc
             """)
@@ -22,6 +23,7 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
     @Query("""
             select p from Post p
             join fetch p.userId
+            join fetch p.teamLocation
             where p.postId = :postId and p.isActive = true
             """)
     Optional<Post> findActiveById(@Param("postId") UUID postId);
