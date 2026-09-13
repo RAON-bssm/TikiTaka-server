@@ -65,11 +65,11 @@ public class OpenRoundProcessor {
             return;
         }
 
-        // 1. 동네별 ACTIVE 인원 집계. 쿼리가 유저 1명당 소속 동네 ID를 1건씩 돌려주고
-        //    여기서 동네별로 센다
+        // 1. 동네별 예정 소속 ACTIVE 인원 집계. 변경 예약자는 예약 동네로 계산한다
+        //    쿼리가 유저 1명당 소속 동네 ID를 1건씩 돌려주고 여기서 동네별로 센다
         Map<Long, Integer> memberCounts = new HashMap<>();
-        List<Long> activeUserLocationIds = userRepositoryPort.findMainLocationIdsOfActiveUsers();
-        for (Long locationId : activeUserLocationIds) {
+        List<Long> expectedLocationIds = userRepositoryPort.findExpectedLocationIdsOfActiveUsers();
+        for (Long locationId : expectedLocationIds) {
             Integer currentCount = memberCounts.get(locationId);
             if (currentCount == null) {
                 memberCounts.put(locationId, 1);
@@ -86,7 +86,7 @@ public class OpenRoundProcessor {
             return;
         }
         // 쿼리가 유저 1명당 1건을 돌려주므로 명단 길이가 곧 전체 ACTIVE 유저 수다
-        int totalActiveUsers = activeUserLocationIds.size();
+        int totalActiveUsers = expectedLocationIds.size();
         double avgMemberCount = (double) totalActiveUsers / allLocations.size();
         stage.assignAvgLocationMemberCount(avgMemberCount);
 

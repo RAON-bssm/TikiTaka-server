@@ -24,17 +24,23 @@ public interface UserJpaRepository extends JpaRepository<Users, UUID> {
     @Query("""
             select u from Users u
             left join fetch u.mainLocation
+            left join fetch u.pendingLocation
             where u.userId = :userId
             """)
-    Optional<Users> findByIdWithLocation(UUID userId);
+    Optional<Users> findByIdWithLocations(UUID userId);
 
     /**
-     * ACTIVE 유저 전원의 소속 지역 ID 목록. 유저 1명당 1건이다.
+     * 네이티브로 FK 컬럼을 직접 읽는다. JPQL로 u.pendingLocation.locationId를 참조하면
+     * 암묵적 inner join이 생겨 예약이 없는 유저가 결과에서 빠진다.
      */
     @Query(value = """
-            select main_location_id from users where status = 'ACTIVE'
+            select coalesce(pending_location_id, main_location_id)
+              from users
+             where status = 'ACTIVE'
             """, nativeQuery = true)
-    List<Long> findMainLocationIdsOfActiveUsers();
+    List<Long> findExpectedLocationIdsOfActiveUsers();
+
+    List<Users> findAllByPendingLocationIsNotNull();
 
     List<Users> findAllByLastActiveAtBeforeAndStatus(LocalDateTime threshold, UserStatus status);
 }

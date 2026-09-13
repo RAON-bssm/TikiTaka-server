@@ -13,7 +13,7 @@ import java.util.UUID;
 
 /**
  * 내 정보 조회 API. 대상 유저는 토큰으로 식별하므로 별도 파라미터가 없다.
- * 랭킹에서 내 동네 강조, 마이페이지, 스위칭 화면 등 프론트 전반이 쓴다.
+ * 랭킹에서 내 동네 강조, 마이페이지, 동네 변경 화면 등 프론트 전반이 쓴다.
  */
 @RestController
 @RequestMapping("/api/user")

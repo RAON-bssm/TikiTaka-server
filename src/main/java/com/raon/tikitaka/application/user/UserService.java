@@ -1,16 +1,15 @@
 package com.raon.tikitaka.application.user;
 
 
-import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
 import com.raon.tikitaka.application.match.out.StageRepositoryPort;
 import com.raon.tikitaka.application.ranking.UserRankRow;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
 import com.raon.tikitaka.application.user.in.DeactivateInactiveUsersUseCase;
 import com.raon.tikitaka.application.user.in.GetMyInfoUseCase;
 import com.raon.tikitaka.application.user.in.GetUserProfileUseCase;
+import com.raon.tikitaka.application.user.in.ManageLocationChangeUseCase;
 import com.raon.tikitaka.application.user.in.UpdateProfileUseCase;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
-import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.RankingProperties;
 import com.raon.tikitaka.global.exception.DuplicateUserNameException;
@@ -38,7 +37,7 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
     private final RankingProperties rankingProperties;
     private final StageRepositoryPort stageRepositoryPort;
     private final RankingRepositoryPort rankingRepositoryPort;
-    private final LocationRepositoryPort locationRepositoryPort;
+    private final ManageLocationChangeUseCase manageLocationChangeUseCase;
 
     /**
      * 휴면 전환 배치. lastActiveAt이 dormantDays 이상 지난 ACTIVE 유저를 DORMANT로 바꾼다.
@@ -59,7 +58,7 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
     @Override
     @Transactional(readOnly = true)
     public Users getMyInfo(UUID userId) {
-        Optional<Users> user = userRepositoryPort.findByIdWithLocation(userId);
+        Optional<Users> user = userRepositoryPort.findByIdWithLocations(userId);
         if (user.isEmpty()) {
             // 토큰은 유효한데 유저가 없는 경우는 탈퇴 등 비정상 상황뿐이다
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
@@ -92,10 +91,9 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
             user.changeUserName(userName);
         }
 
+        // 동네 변경은 즉시 반영이 아니라 다음 라운드 시작 시 적용될 예약으로 처리한다
         if (mainLocationId != null && !mainLocationId.equals(user.getMainLocation().getLocationId())) {
-            Location location = locationRepositoryPort.findById(mainLocationId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "존재하지 않는 동네입니다."));
-            user.changeMainLocation(location);
+            manageLocationChangeUseCase.reserve(userId, mainLocationId);
         }
     }
 }

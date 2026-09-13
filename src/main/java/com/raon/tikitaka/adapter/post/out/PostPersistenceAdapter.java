@@ -50,7 +50,7 @@ public class PostPersistenceAdapter implements PostRepositoryPort {
 
     @Override
     public Users getUser(UUID userId) {
-        Optional<Users> user = userJpaRepository.findByIdWithLocation(userId);
+        Optional<Users> user = userJpaRepository.findByIdWithLocations(userId);
         if (user.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자를 찾을 수 없습니다.");
         }

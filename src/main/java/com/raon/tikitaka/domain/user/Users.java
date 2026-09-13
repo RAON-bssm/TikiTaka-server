@@ -45,6 +45,14 @@ public class Users {
     @JoinColumn(name = "main_location_id", nullable = false)
     private Location mainLocation;
 
+    /**
+     * 다음 라운드 시작 직후 소속이 될 예약 지역. 예약이 없으면 null이다.
+     * 라운드 도중 소속이 바뀌면 팀이 중간에 흔들리므로 변경은 항상 예약으로만 받는다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pending_location_id")
+    private Location pendingLocation;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     private UserRole role;
@@ -121,10 +129,30 @@ public class Users {
     }
 
     /**
-     * 소속 지역 변경. 다음 라운드 매칭부터 새 지역 기준으로 반영된다.
+     * 지역 변경 예약. 실제 이동은 다음 라운드 시작 직후 배치가 수행한다.
+     * 이미 예약이 있으면 새 지역으로 덮어쓴다.
      */
-    public void changeMainLocation(Location location) {
-        this.mainLocation = location;
+    public void reserveLocationChange(Location location) {
+        this.pendingLocation = location;
+    }
+
+    /**
+     * 예약 취소. 다음 라운드가 시작되기 전에만 의미가 있다.
+     */
+    public void cancelLocationChange() {
+        this.pendingLocation = null;
+    }
+
+    /**
+     * 예약된 지역 변경 적용. 라운드 시작 직후 배치에서만 호출해야 한다.
+     * 적용과 동시에 예약을 비워 재실행돼도 두 번 이동하지 않는다.
+     */
+    public void applyPendingLocation() {
+        if (this.pendingLocation == null) {
+            return;
+        }
+        this.mainLocation = this.pendingLocation;
+        this.pendingLocation = null;
     }
 
     /**

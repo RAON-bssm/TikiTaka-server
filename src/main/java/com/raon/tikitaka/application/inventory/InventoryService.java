@@ -25,7 +25,7 @@ public class InventoryService implements GetInventoryUseCase {
 
     @Override
     public UserInventory getInventory(UUID userId) {
-        userRepositoryPort.findByIdWithLocation(userId)
+        userRepositoryPort.findByIdWithLocations(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 
         List<Inventory> inventoryList = inventoryRepositoryPort.findAllByUserIdWithProduct(userId);
