@@ -21,5 +21,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
       JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      DORMANT_DAYS: ${DORMANT_DAYS:-7}
 
 
