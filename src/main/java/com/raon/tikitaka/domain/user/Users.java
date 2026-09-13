@@ -5,7 +5,6 @@ import com.raon.tikitaka.domain.enums.UserRole;
 import com.raon.tikitaka.domain.enums.UserStatus;
 import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.global.exception.InsufficientPointException;
-import com.raon.tikitaka.global.exception.SubLocationNotSetException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -40,18 +39,11 @@ public class Users {
     private String providerId;
 
     /**
-     * 메인 지역. 항상 현재 라운드의 소속과 일치하고 회원가입 시 필수라 null일 수 없다.
+     * 소속 지역. 항상 현재 라운드의 소속과 일치하고 회원가입 시 필수라 null일 수 없다.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "main_location_id", nullable = false)
     private Location mainLocation;
-
-    /**
-     * 두 번째 지역. 스위칭 대상일 뿐 점수 계산과는 무관하고 없을 수 있다.
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sub_location_id")
-    private Location subLocation;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
@@ -69,13 +61,6 @@ public class Users {
      */
     @Column(name = "last_active_at", nullable = false)
     private LocalDateTime lastActiveAt;
-
-    /**
-     * 지역 스위칭 예약 여부. true면 다음 라운드 시작 직후 배치가 메인과 서브를 교환한다.
-     */
-    @Column(name = "pending_location_swap", nullable = false)
-    @ColumnDefault("false")
-    private boolean pendingLocationSwap;
 
     @Column(name = "point", nullable = false)
     @ColumnDefault("0")
@@ -136,56 +121,10 @@ public class Users {
     }
 
     /**
-     * 서브 동네 설정과 변경. 스위칭 예약의 전제 조건이다.
-     * 이미 예약이 걸린 상태에서 서브를 바꾸면 예약은 새 서브 동네 기준으로 적용된다.
+     * 소속 지역 변경. 다음 라운드 매칭부터 새 지역 기준으로 반영된다.
      */
-    public void assignSubLocation(Location location) {
-        this.subLocation = location;
-    }
-
-    /**
-     * 지역 스위칭 예약 취소. 다음 라운드 시작 전에만 의미가 있다.
-     */
-    public void cancelLocationSwap() {
-        this.pendingLocationSwap = false;
-    }
-
-    /**
-     * 지역 스위칭 예약. 실제 교환은 다음 라운드 시작 직후 배치가 수행한다.
-     */
-    public void requestLocationSwap() {
-        if (this.subLocation == null) {
-            throw new SubLocationNotSetException();
-        }
-        this.pendingLocationSwap = true;
-    }
-
-    /**
-     * 예약된 스위칭 적용. 라운드 시작 직후 배치에서만 호출해야 한다.
-     */
-    public void applyLocationSwap() {
-        if (!this.pendingLocationSwap) {
-            return;
-        }
-        Location tmp = this.mainLocation;
-        this.mainLocation = this.subLocation;
-        this.subLocation = tmp;
-        this.pendingLocationSwap = false;
-    }
-
-    /**
-     * 메인과 서브 동네를 즉시 교환한다. 라운드 종료를 기다리지 않는다.
-     * 걸려있던 스위칭 예약은 이미 반영된 셈이라 함께 해제한다 — 안 그러면
-     * 다음 라운드 배치가 다시 한번 교환해 원래대로 되돌려버린다.
-     */
-    public void swapLocationImmediately() {
-        if (this.subLocation == null) {
-            throw new SubLocationNotSetException();
-        }
-        Location tmp = this.mainLocation;
-        this.mainLocation = this.subLocation;
-        this.subLocation = tmp;
-        this.pendingLocationSwap = false;
+    public void changeMainLocation(Location location) {
+        this.mainLocation = location;
     }
 
     /**

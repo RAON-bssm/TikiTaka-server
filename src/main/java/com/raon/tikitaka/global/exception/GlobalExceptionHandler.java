@@ -30,11 +30,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.of(403, e.getMessage(), null));
     }
 
-    @ExceptionHandler(SubLocationNotSetException.class)
-    public ResponseEntity<ApiResponse<Void>> handleSubLocationNotSet(SubLocationNotSetException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.of(400, e.getMessage(), null));
-    }
-
     /**
      * 컨트롤러/서비스가 직접 토큰을 파싱하다 실패한 경우(예: /api/auth/refresh).
      * 필터 단계의 실패는 여기까지 오지 않고 JwtAuthenticationEntryPoint가 처리하지만,

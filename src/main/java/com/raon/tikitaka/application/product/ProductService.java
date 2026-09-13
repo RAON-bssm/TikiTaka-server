@@ -31,7 +31,7 @@ public class ProductService implements GetProductListUseCase, PurchaseProductUse
 
     @Override
     public List<Product> getProducts(UUID userId) {
-        userRepositoryPort.findByIdWithLocations(userId)
+        userRepositoryPort.findByIdWithLocation(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 
         Set<Long> ownedProductIds = inventoryRepositoryPort.findAllByUserIdWithProduct(userId).stream()
@@ -47,7 +47,7 @@ public class ProductService implements GetProductListUseCase, PurchaseProductUse
     @Override
     @Transactional
     public void purchase(UUID userId, Long productId) {
-        Users user = userRepositoryPort.findByIdWithLocations(userId)
+        Users user = userRepositoryPort.findByIdWithLocation(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 
         Product product = productRepositoryPort.findActiveById(productId)

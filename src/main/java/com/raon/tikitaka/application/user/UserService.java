@@ -1,13 +1,13 @@
 package com.raon.tikitaka.application.user;
 
 
+import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
 import com.raon.tikitaka.application.match.out.StageRepositoryPort;
 import com.raon.tikitaka.application.ranking.UserRankRow;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
 import com.raon.tikitaka.application.user.in.DeactivateInactiveUsersUseCase;
 import com.raon.tikitaka.application.user.in.GetMyInfoUseCase;
 import com.raon.tikitaka.application.user.in.GetUserProfileUseCase;
-import com.raon.tikitaka.application.user.in.ManageLocationSwapUseCase;
 import com.raon.tikitaka.application.user.in.UpdateProfileUseCase;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.location.Location;
@@ -38,7 +38,7 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
     private final RankingProperties rankingProperties;
     private final StageRepositoryPort stageRepositoryPort;
     private final RankingRepositoryPort rankingRepositoryPort;
-    private final ManageLocationSwapUseCase manageLocationSwapUseCase;
+    private final LocationRepositoryPort locationRepositoryPort;
 
     /**
      * 휴면 전환 배치. lastActiveAt이 dormantDays 이상 지난 ACTIVE 유저를 DORMANT로 바꾼다.
@@ -59,7 +59,7 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
     @Override
     @Transactional(readOnly = true)
     public Users getMyInfo(UUID userId) {
-        Optional<Users> user = userRepositoryPort.findByIdWithLocations(userId);
+        Optional<Users> user = userRepositoryPort.findByIdWithLocation(userId);
         if (user.isEmpty()) {
             // 토큰은 유효한데 유저가 없는 경우는 탈퇴 등 비정상 상황뿐이다
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
@@ -82,7 +82,7 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
 
     @Override
     @Transactional
-    public void updateProfile(UUID userId, String userName, Long mainLocationId, Long subLocationId) {
+    public void updateProfile(UUID userId, String userName, Long mainLocationId) {
         Users user = getMyInfo(userId);
 
         if (userName != null && !userName.equals(user.getUserName())) {
@@ -92,17 +92,10 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
             user.changeUserName(userName);
         }
 
-        if (subLocationId != null) {
-            manageLocationSwapUseCase.setSubLocation(userId, subLocationId);
-        }
-
         if (mainLocationId != null && !mainLocationId.equals(user.getMainLocation().getLocationId())) {
-            Location subLocation = user.getSubLocation();
-            if (subLocation == null || !mainLocationId.equals(subLocation.getLocationId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "메인 동네는 서브 동네로 설정된 곳으로만 다음 라운드 전환을 예약할 수 있습니다.");
-            }
-            manageLocationSwapUseCase.requestLocationSwap(userId);
+            Location location = locationRepositoryPort.findById(mainLocationId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "존재하지 않는 동네입니다."));
+            user.changeMainLocation(location);
         }
     }
 }

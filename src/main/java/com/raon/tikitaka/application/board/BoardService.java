@@ -45,7 +45,7 @@ public class BoardService implements GetBoardUseCase {
     }
 
     private Long mainLocationId(UUID userId) {
-        Optional<Users> user = userRepositoryPort.findByIdWithLocations(userId);
+        Optional<Users> user = userRepositoryPort.findByIdWithLocation(userId);
         if (user.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
         }

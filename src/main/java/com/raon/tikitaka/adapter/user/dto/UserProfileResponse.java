@@ -9,8 +9,6 @@ public record UserProfileResponse(
         String userName,
         String mainLocationCityName,
         String mainLocationName,
-        String subLocationCityName,
-        String subLocationName,
         Integer userRank,
         Long userScore,
         Integer point
@@ -24,8 +22,6 @@ public record UserProfileResponse(
                 user.getUserName(),
                 cityName(user.getMainLocation()),
                 locationName(user.getMainLocation()),
-                cityName(user.getSubLocation()),
-                locationName(user.getSubLocation()),
                 myRanking != null ? myRanking.getUserRank() : null,
                 myRanking != null ? myRanking.getUserScore() : null,
                 user.getPoint()

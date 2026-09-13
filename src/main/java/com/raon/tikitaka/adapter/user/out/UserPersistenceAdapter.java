@@ -43,23 +43,13 @@ public class UserPersistenceAdapter implements UserRepositoryPort {
     // ===== 시즌/랭킹 자동화 =====
 
     @Override
-    public Optional<Users> findByIdWithLocations(UUID userId) {
-        return userJpaRepository.findByIdWithLocations(userId);
+    public Optional<Users> findByIdWithLocation(UUID userId) {
+        return userJpaRepository.findByIdWithLocation(userId);
     }
 
     @Override
-    public List<Long> findExpectedLocationIdsOfActiveUsers() {
-        return userJpaRepository.findExpectedLocationIdsOfActiveUsers();
-    }
-
-    @Override
-    public List<Long> findLocationIdsForMemberCount() {
-        return userJpaRepository.findLocationIdsForMemberCount();
-    }
-
-    @Override
-    public List<Users> findAllWithPendingLocationSwap() {
-        return userJpaRepository.findAllByPendingLocationSwapTrue();
+    public List<Long> findMainLocationIdsOfActiveUsers() {
+        return userJpaRepository.findMainLocationIdsOfActiveUsers();
     }
 
     @Override

@@ -38,7 +38,7 @@ public class UserProfileController {
     @PatchMapping("/profile")
     public ApiResponse<Void> updateProfile(@AuthenticationPrincipal UUID userId,
                                             @RequestBody UpdateProfileRequest request) {
-        updateProfileUseCase.updateProfile(userId, request.userName(), request.mainLocationId(), request.subLocationId());
+        updateProfileUseCase.updateProfile(userId, request.userName(), request.mainLocationId());
         return ApiResponse.of(204, "프로필 수정 성공", null);
     }
 }

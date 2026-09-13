@@ -33,7 +33,7 @@ public class EquipmentService implements EquipItemUseCase, GetEquippedItemsUseCa
 
     @Override
     public List<Product> getEquippedItems(UUID userId) {
-        userRepositoryPort.findByIdWithLocations(userId)
+        userRepositoryPort.findByIdWithLocation(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 
         return equipmentRepositoryPort.findAllByUserId(userId).stream()
@@ -47,7 +47,7 @@ public class EquipmentService implements EquipItemUseCase, GetEquippedItemsUseCa
             return;
         }
 
-        Users user = userRepositoryPort.findByIdWithLocations(userId)
+        Users user = userRepositoryPort.findByIdWithLocation(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 
         Map<Long, Product> ownedProducts = inventoryRepositoryPort.findAllByUserIdWithProduct(userId).stream()

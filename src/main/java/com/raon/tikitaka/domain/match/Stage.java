@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 
@@ -39,29 +38,17 @@ public class Stage {
     @Column(name = "avg_location_member_count")
     private Double avgLocationMemberCount;
 
-    /**
-     * 이 라운드의 지역 스위칭 예약이 이미 적용됐는지 여부. 라운드 시작 직후 배치가 1회 적용한다.
-     */
-    @Column(name = "swap_applied", nullable = false)
-    @ColumnDefault("false")
-    private boolean swapApplied;
-
     public static Stage create(Integer season, Integer round, LocalDateTime startedAt, LocalDateTime endedAt) {
         Stage stage = new Stage();
         stage.season = season;
         stage.round = round;
         stage.startedAt = startedAt;
         stage.endedAt = endedAt;
-        stage.swapApplied = false;
         return stage;
     }
 
     public void assignAvgLocationMemberCount(double avgLocationMemberCount) {
         this.avgLocationMemberCount = avgLocationMemberCount;
-    }
-
-    public void markSwapApplied() {
-        this.swapApplied = true;
     }
 
 }
