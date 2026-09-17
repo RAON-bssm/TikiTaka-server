@@ -19,8 +19,8 @@ public class BoardController {
     private final GetBoardUseCase getBoardUseCase;
 
     /**
-     * 현재 라운드의 게시판 전체 목록. 다른 동네 경기도 구경할 수 있고
-     * 내 동네 매치는 myMatch가 true로 내려가며 목록 맨 앞에 온다.
+     * 현재 라운드의 게시판 전체 목록. 모든 동네 경기를 구경할 수 있고
+     * 지금 있는 동네의 매치는 myMatch가 true로 내려가며 목록 맨 앞에 온다.
      * 인증은 JwtAuthenticationFilter가 처리하고 검증된 userId가 principal로 주입된다.
      */
     @GetMapping

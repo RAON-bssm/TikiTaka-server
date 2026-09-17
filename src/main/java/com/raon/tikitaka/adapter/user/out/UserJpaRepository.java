@@ -24,6 +24,7 @@ public interface UserJpaRepository extends JpaRepository<Users, UUID> {
     @Query("""
             select u from Users u
             left join fetch u.mainLocation
+            left join fetch u.currentLocation
             left join fetch u.pendingLocation
             where u.userId = :userId
             """)

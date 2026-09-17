@@ -21,7 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 지역 변경 예약 서비스. 유저의 예약 관리와 라운드 시작 직후의 일괄 적용을 담당한다.
+ * 지역 서비스. 본진 변경 예약과 그 일괄 적용, 그리고 현재 지역 즉시 이동을 담당한다.
  * EnsureFutureStagesUseCase와 ApplyLocationChangeUseCase 둘 다 execute()라서
  * 한 클래스가 두 인터페이스를 구현할 수 없어 StageService와 분리했다.
  */
@@ -61,7 +61,27 @@ public class LocationChangeService implements ApplyLocationChangeUseCase, Manage
     @Override
     public void reserve(UUID userId, Long locationId) {
         Users user = getUser(userId);
+        Location location = findLocation(locationId);
 
+        if (locationId.equals(user.getMainLocation().getLocationId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 본진인 동네입니다.");
+        }
+
+        user.reserveLocationChange(location);
+    }
+
+    @Override
+    public void cancel(UUID userId) {
+        getUser(userId).cancelLocationChange();
+    }
+
+    @Override
+    public void moveCurrentLocation(UUID userId, Long locationId) {
+        Users user = getUser(userId);
+        user.moveTo(findLocation(locationId));
+    }
+
+    private Location findLocation(Long locationId) {
         if (locationId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "동네를 선택해주세요.");
         }
@@ -69,16 +89,7 @@ public class LocationChangeService implements ApplyLocationChangeUseCase, Manage
         if (location.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "존재하지 않는 동네입니다.");
         }
-        if (locationId.equals(user.getMainLocation().getLocationId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 소속된 동네입니다.");
-        }
-
-        user.reserveLocationChange(location.get());
-    }
-
-    @Override
-    public void cancel(UUID userId) {
-        getUser(userId).cancelLocationChange();
+        return location.get();
     }
 
     private Users getUser(UUID userId) {

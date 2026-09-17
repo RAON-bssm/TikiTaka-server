@@ -53,21 +53,29 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         Users author = postRepositoryPort.getUser(authorId);
         Board board = postRepositoryPort.getBoard(boardId);
         Location teamLocation = resolveTeamLocation(author, board);
+
+        // 본진에서 쓴 글만 지역 점수까지 올라간다. 원정 중이면 개인 점수만 쌓인다
+        boolean locationScored = author.isAtHome();
+
         Post saved = postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview,
-                teamLocation.getLocationName(), teamLocation));
+                teamLocation.getLocationName(), teamLocation, locationScored));
 
         // 게시물 작성도 활동이므로 lastActiveAt을 갱신하고 휴면이었다면 ACTIVE로 복귀한다
         author.touch();
 
         // 점수 실시간 가산
-        accrueScores(board, teamLocation, author, score, 1);
+        accrueScores(board, teamLocation, author, score, locationScored, 1);
 
         // 생성된 id를 돌려준다. 클라이언트가 업로드 직후 상세로 바로 이동할 수 있어야 한다.
         return saved.getPostId();
     }
 
+    /**
+     * 글을 쓰는 팀은 작성자가 지금 있는 지역이다. 본진이 아니어도 그 동네 게시판에는 쓸 수 있고,
+     * 대신 지역 점수는 본진에서 쓴 글에만 붙는다.
+     */
     private Location resolveTeamLocation(Users author, Board board) {
-        Location authorLocation = author.getMainLocation();
+        Location authorLocation = author.getCurrentLocation();
 
         Match match = board.getMatch();
         if (authorLocation.getLocationId().equals(match.getTeam1().getLocationId())) {
@@ -98,7 +106,10 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         // 작성 시점 스냅샷으로 재계산하므로 인원이 바뀌어도 더했던 값과 같은 값을 뺀다.
         // findActiveById가 is_active인 게시물만 돌려주므로 두 번 차감될 일은 없다.
         if (post.getScore() != null && post.getTeamLocation() != null) {
-            accrueScores(post.getBoard(), post.getTeamLocation(), post.getUserId(), post.getScore(), -1);
+            // 지역 점수 차감 여부는 작성 시점 스냅샷을 따른다. 그 사이 작성자가 이사를 갔어도
+            // 올렸던 것과 같은 항목만 되돌린다
+            accrueScores(post.getBoard(), post.getTeamLocation(), post.getUserId(), post.getScore(),
+                    post.isLocationScored(), -1);
         }
     }
 
@@ -106,10 +117,19 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
      * 점수 누적과 차감의 단일 통로. direction이 1이면 가산, -1이면 차감이다.
      * 지역 점수는 round(AI점수 * K * C / max(n, minTeamSize))로 팀 규모를 보정하고
      * 개인 점수는 round(AI점수 * K)로 보정 없이 계산한다.
+     * locationScored가 false면 개인 점수만 건드린다. 원정 중에 쓴 글이라는 뜻이다.
      */
-    private void accrueScores(Board board, Location teamLocation, Users author, int score, int direction) {
+    private void accrueScores(Board board, Location teamLocation, Users author, int score,
+                              boolean locationScored, int direction) {
         Match match = board.getMatch();
         Stage stage = match.getStage();
+
+        long userDelta = Math.round(score * rankingProperties.baseMultiplier()) * direction;
+        rankingRepositoryPort.addUserScore(stage.getStageId(), author.getUserId(), userDelta);
+
+        if (!locationScored) {
+            return;     // 원정 경기. 개인 점수만 쌓고 지역 점수는 건드리지 않는다
+        }
 
         Double c = stage.getAvgLocationMemberCount();
         if (c == null) {
@@ -125,13 +145,10 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
             n = match.getTeam2MemberCount();
         }
 
-        double k = rankingProperties.baseMultiplier();
         double adjust = c / Math.max(n, rankingProperties.minTeamSize());
-        long teamDelta = Math.round(score * k * adjust) * direction;
-        long userDelta = Math.round(score * k) * direction;
+        long teamDelta = Math.round(score * rankingProperties.baseMultiplier() * adjust) * direction;
 
         rankingRepositoryPort.addLocationScore(stage.getStageId(), teamLocation.getLocationId(), teamDelta);
-        rankingRepositoryPort.addUserScore(stage.getStageId(), author.getUserId(), userDelta);
     }
 
     private void validateOwner(Post post, UUID requesterId, boolean isAdmin) {

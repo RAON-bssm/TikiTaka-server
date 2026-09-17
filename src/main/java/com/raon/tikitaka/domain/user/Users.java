@@ -39,15 +39,27 @@ public class Users {
     private String providerId;
 
     /**
-     * 소속 지역. 항상 현재 라운드의 소속과 일치하고 회원가입 시 필수라 null일 수 없다.
+     * 본진. 지역 점수가 쌓이는 곳이고 회원가입 시 필수라 null일 수 없다.
+     * 라운드 중에는 바뀌지 않고 예약을 통해 다음 라운드 시작 시에만 바뀐다.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "main_location_id", nullable = false)
     private Location mainLocation;
 
     /**
-     * 다음 라운드 시작 직후 소속이 될 예약 지역. 예약이 없으면 null이다.
-     * 라운드 도중 소속이 바뀌면 팀이 중간에 흔들리므로 변경은 항상 예약으로만 받는다.
+     * 지금 있는 지역. 본진을 떠나 다른 동네에 가 있을 수 있으므로 메인과 다를 수 있고
+     * 라운드 도중에도 즉시 바꿀 수 있다. 게시물은 이 지역의 게시판에만 쓸 수 있다.
+     *
+     * 레거시 행 보호를 위해 컬럼은 nullable이고, null이면 본진에 있는 것으로 본다.
+     * 조회는 항상 getCurrentLocation()을 써야 하고 필드를 직접 읽으면 안 된다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_location_id")
+    private Location currentLocation;
+
+    /**
+     * 다음 라운드 시작 직후 본진이 될 예약 지역. 예약이 없으면 null이다.
+     * 라운드 도중 본진이 바뀌면 지역 점수 집계가 흔들리므로 본진 변경은 항상 예약으로만 받는다.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pending_location_id")
@@ -90,6 +102,7 @@ public class Users {
         user.provider = provider;
         user.providerId = providerId;
         user.mainLocation = mainLocation;
+        user.currentLocation = mainLocation;    // 가입 직후에는 본진에 있다
         user.role = UserRole.USER;
         user.point = 0;
         return user;
@@ -129,7 +142,28 @@ public class Users {
     }
 
     /**
-     * 지역 변경 예약. 실제 이동은 다음 라운드 시작 직후 배치가 수행한다.
+     * 지금 있는 지역. 한 번도 옮긴 적이 없거나 컬럼 추가 이전 데이터면 본진을 돌려준다.
+     */
+    public Location getCurrentLocation() {
+        return this.currentLocation != null ? this.currentLocation : this.mainLocation;
+    }
+
+    /**
+     * 본진에 있는지 여부. 본진에서 쓴 게시물만 지역 점수까지 올라간다.
+     */
+    public boolean isAtHome() {
+        return getCurrentLocation().getLocationId().equals(this.mainLocation.getLocationId());
+    }
+
+    /**
+     * 현재 지역 이동. 라운드 도중에도 즉시 반영된다.
+     */
+    public void moveTo(Location location) {
+        this.currentLocation = location;
+    }
+
+    /**
+     * 본진 변경 예약. 실제 이동은 다음 라운드 시작 직후 배치가 수행한다.
      * 이미 예약이 있으면 새 지역으로 덮어쓴다.
      */
     public void reserveLocationChange(Location location) {
@@ -144,7 +178,8 @@ public class Users {
     }
 
     /**
-     * 예약된 지역 변경 적용. 라운드 시작 직후 배치에서만 호출해야 한다.
+     * 예약된 본진 변경 적용. 라운드 시작 직후 배치에서만 호출해야 한다.
+     * 본진을 옮기는 건 이사라서 현재 지역도 같이 새 본진으로 데려간다.
      * 적용과 동시에 예약을 비워 재실행돼도 두 번 이동하지 않는다.
      */
     public void applyPendingLocation() {
@@ -152,6 +187,7 @@ public class Users {
             return;
         }
         this.mainLocation = this.pendingLocation;
+        this.currentLocation = this.pendingLocation;
         this.pendingLocation = null;
     }
 
