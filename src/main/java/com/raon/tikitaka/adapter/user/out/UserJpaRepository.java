@@ -24,23 +24,24 @@ public interface UserJpaRepository extends JpaRepository<Users, UUID> {
     @Query("""
             select u from Users u
             left join fetch u.mainLocation
-            left join fetch u.subLocation
+            left join fetch u.currentLocation
+            left join fetch u.pendingLocation
             where u.userId = :userId
             """)
     Optional<Users> findByIdWithLocations(UUID userId);
 
     /**
-     * 네이티브로 FK 컬럼을 직접 읽는다. JPQL로 u.subLocation.locationId를 참조하면
-     * 암묵적 inner join이 생겨 subLocation이 null인 유저가 결과에서 빠진다.
+     * 네이티브로 FK 컬럼을 직접 읽는다. JPQL로 u.pendingLocation.locationId를 참조하면
+     * 암묵적 inner join이 생겨 예약이 없는 유저가 결과에서 빠진다.
      */
     @Query(value = """
-            select case when pending_location_swap then sub_location_id else main_location_id end
+            select coalesce(pending_location_id, main_location_id)
               from users
              where status = 'ACTIVE'
             """, nativeQuery = true)
     List<Long> findExpectedLocationIdsOfActiveUsers();
 
-    List<Users> findAllByPendingLocationSwapTrue();
+    List<Users> findAllByPendingLocationIsNotNull();
 
     List<Users> findAllByLastActiveAtBeforeAndStatus(LocalDateTime threshold, UserStatus status);
 }

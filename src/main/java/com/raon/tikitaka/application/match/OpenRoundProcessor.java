@@ -65,7 +65,7 @@ public class OpenRoundProcessor {
             return;
         }
 
-        // 1. 동네별 예정 소속 ACTIVE 인원 집계. 스위칭 예약자는 sub 지역으로 계산한다
+        // 1. 동네별 예정 소속 ACTIVE 인원 집계. 변경 예약자는 예약 동네로 계산한다
         //    쿼리가 유저 1명당 소속 동네 ID를 1건씩 돌려주고 여기서 동네별로 센다
         Map<Long, Integer> memberCounts = new HashMap<>();
         List<Long> expectedLocationIds = userRepositoryPort.findExpectedLocationIdsOfActiveUsers();

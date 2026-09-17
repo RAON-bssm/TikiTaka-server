@@ -72,7 +72,7 @@ public class PostController {
         MultipartFile image = validateImage(request.image());
         byte[] imageBytes = readImageBytes(image);
 
-        // 작성자 기준으로 게시판 접근을 검증한다. 종료된 라운드나 남의 동네 게시판이면 404
+        // 작성자가 지금 있는 동네 기준으로 게시판 접근을 검증한다. 종료된 라운드나 다른 동네 게시판이면 404
         String mission = getBoardUseCase.getMission(request.boardId(), authorId);
         String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
         AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());

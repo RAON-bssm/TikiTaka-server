@@ -2,7 +2,7 @@ package com.raon.tikitaka.adapter.match;
 
 import com.raon.tikitaka.application.match.in.EnsureFutureStagesUseCase;
 import com.raon.tikitaka.application.match.in.OpenRoundUseCase;
-import com.raon.tikitaka.application.user.in.ApplyLocationSwapUseCase;
+import com.raon.tikitaka.application.user.in.ApplyLocationChangeUseCase;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +19,7 @@ public class MatchAdminController {
 
     private final EnsureFutureStagesUseCase ensureFutureStagesUseCase;
     private final OpenRoundUseCase openRoundUseCase;
-    private final ApplyLocationSwapUseCase applyLocationSwapUseCase;
+    private final ApplyLocationChangeUseCase applyLocationChangeUseCase;
 
     @PostMapping("/ensure-stages")
     public ApiResponse<Void> ensureStages() {
@@ -33,9 +33,9 @@ public class MatchAdminController {
         return ApiResponse.of(200, "매치, 게시판 생성 실행 완료", null);
     }
 
-    @PostMapping("/apply-swaps")
-    public ApiResponse<Void> applySwaps() {
-        applyLocationSwapUseCase.execute();
-        return ApiResponse.of(200, "지역 스위칭 적용 실행 완료", null);
+    @PostMapping("/apply-location-changes")
+    public ApiResponse<Void> applyLocationChanges() {
+        applyLocationChangeUseCase.execute();
+        return ApiResponse.of(200, "지역 변경 예약 적용 실행 완료", null);
     }
 }

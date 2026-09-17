@@ -5,7 +5,6 @@ import com.raon.tikitaka.domain.enums.UserRole;
 import com.raon.tikitaka.domain.enums.UserStatus;
 import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.global.exception.InsufficientPointException;
-import com.raon.tikitaka.global.exception.SubLocationNotSetException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -40,18 +39,31 @@ public class Users {
     private String providerId;
 
     /**
-     * 메인 지역. 항상 현재 라운드의 소속과 일치하고 회원가입 시 필수라 null일 수 없다.
+     * 본진. 지역 점수가 쌓이는 곳이고 회원가입 시 필수라 null일 수 없다.
+     * 라운드 중에는 바뀌지 않고 예약을 통해 다음 라운드 시작 시에만 바뀐다.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "main_location_id", nullable = false)
     private Location mainLocation;
 
     /**
-     * 두 번째 지역. 스위칭 대상일 뿐 점수 계산과는 무관하고 없을 수 있다.
+     * 지금 있는 지역. 본진을 떠나 다른 동네에 가 있을 수 있으므로 메인과 다를 수 있고
+     * 라운드 도중에도 즉시 바꿀 수 있다. 게시물은 이 지역의 게시판에만 쓸 수 있다.
+     *
+     * 레거시 행 보호를 위해 컬럼은 nullable이고, null이면 본진에 있는 것으로 본다.
+     * 조회는 항상 getCurrentLocation()을 써야 하고 필드를 직접 읽으면 안 된다.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sub_location_id")
-    private Location subLocation;
+    @JoinColumn(name = "current_location_id")
+    private Location currentLocation;
+
+    /**
+     * 다음 라운드 시작 직후 본진이 될 예약 지역. 예약이 없으면 null이다.
+     * 라운드 도중 본진이 바뀌면 지역 점수 집계가 흔들리므로 본진 변경은 항상 예약으로만 받는다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pending_location_id")
+    private Location pendingLocation;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
@@ -69,13 +81,6 @@ public class Users {
      */
     @Column(name = "last_active_at", nullable = false)
     private LocalDateTime lastActiveAt;
-
-    /**
-     * 지역 스위칭 예약 여부. true면 다음 라운드 시작 직후 배치가 메인과 서브를 교환한다.
-     */
-    @Column(name = "pending_location_swap", nullable = false)
-    @ColumnDefault("false")
-    private boolean pendingLocationSwap;
 
     @Column(name = "point", nullable = false)
     @ColumnDefault("0")
@@ -97,6 +102,7 @@ public class Users {
         user.provider = provider;
         user.providerId = providerId;
         user.mainLocation = mainLocation;
+        user.currentLocation = mainLocation;    // 가입 직후에는 본진에 있다
         user.role = UserRole.USER;
         user.point = 0;
         return user;
@@ -136,56 +142,53 @@ public class Users {
     }
 
     /**
-     * 서브 동네 설정과 변경. 스위칭 예약의 전제 조건이다.
-     * 이미 예약이 걸린 상태에서 서브를 바꾸면 예약은 새 서브 동네 기준으로 적용된다.
+     * 지금 있는 지역. 한 번도 옮긴 적이 없거나 컬럼 추가 이전 데이터면 본진을 돌려준다.
      */
-    public void assignSubLocation(Location location) {
-        this.subLocation = location;
+    public Location getCurrentLocation() {
+        return this.currentLocation != null ? this.currentLocation : this.mainLocation;
     }
 
     /**
-     * 지역 스위칭 예약 취소. 다음 라운드 시작 전에만 의미가 있다.
+     * 본진에 있는지 여부. 본진에서 쓴 게시물만 지역 점수까지 올라간다.
      */
-    public void cancelLocationSwap() {
-        this.pendingLocationSwap = false;
+    public boolean isAtHome() {
+        return getCurrentLocation().getLocationId().equals(this.mainLocation.getLocationId());
     }
 
     /**
-     * 지역 스위칭 예약. 실제 교환은 다음 라운드 시작 직후 배치가 수행한다.
+     * 현재 지역 이동. 라운드 도중에도 즉시 반영된다.
      */
-    public void requestLocationSwap() {
-        if (this.subLocation == null) {
-            throw new SubLocationNotSetException();
-        }
-        this.pendingLocationSwap = true;
+    public void moveTo(Location location) {
+        this.currentLocation = location;
     }
 
     /**
-     * 예약된 스위칭 적용. 라운드 시작 직후 배치에서만 호출해야 한다.
+     * 본진 변경 예약. 실제 이동은 다음 라운드 시작 직후 배치가 수행한다.
+     * 이미 예약이 있으면 새 지역으로 덮어쓴다.
      */
-    public void applyLocationSwap() {
-        if (!this.pendingLocationSwap) {
+    public void reserveLocationChange(Location location) {
+        this.pendingLocation = location;
+    }
+
+    /**
+     * 예약 취소. 다음 라운드가 시작되기 전에만 의미가 있다.
+     */
+    public void cancelLocationChange() {
+        this.pendingLocation = null;
+    }
+
+    /**
+     * 예약된 본진 변경 적용. 라운드 시작 직후 배치에서만 호출해야 한다.
+     * 본진을 옮기는 건 이사라서 현재 지역도 같이 새 본진으로 데려간다.
+     * 적용과 동시에 예약을 비워 재실행돼도 두 번 이동하지 않는다.
+     */
+    public void applyPendingLocation() {
+        if (this.pendingLocation == null) {
             return;
         }
-        Location tmp = this.mainLocation;
-        this.mainLocation = this.subLocation;
-        this.subLocation = tmp;
-        this.pendingLocationSwap = false;
-    }
-
-    /**
-     * 메인과 서브 동네를 즉시 교환한다. 라운드 종료를 기다리지 않는다.
-     * 걸려있던 스위칭 예약은 이미 반영된 셈이라 함께 해제한다 — 안 그러면
-     * 다음 라운드 배치가 다시 한번 교환해 원래대로 되돌려버린다.
-     */
-    public void swapLocationImmediately() {
-        if (this.subLocation == null) {
-            throw new SubLocationNotSetException();
-        }
-        Location tmp = this.mainLocation;
-        this.mainLocation = this.subLocation;
-        this.subLocation = tmp;
-        this.pendingLocationSwap = false;
+        this.mainLocation = this.pendingLocation;
+        this.currentLocation = this.pendingLocation;
+        this.pendingLocation = null;
     }
 
     /**

@@ -7,10 +7,9 @@ import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
 import com.raon.tikitaka.application.user.in.DeactivateInactiveUsersUseCase;
 import com.raon.tikitaka.application.user.in.GetMyInfoUseCase;
 import com.raon.tikitaka.application.user.in.GetUserProfileUseCase;
-import com.raon.tikitaka.application.user.in.ManageLocationSwapUseCase;
+import com.raon.tikitaka.application.user.in.ManageLocationChangeUseCase;
 import com.raon.tikitaka.application.user.in.UpdateProfileUseCase;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
-import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.RankingProperties;
 import com.raon.tikitaka.global.exception.DuplicateUserNameException;
@@ -38,7 +37,7 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
     private final RankingProperties rankingProperties;
     private final StageRepositoryPort stageRepositoryPort;
     private final RankingRepositoryPort rankingRepositoryPort;
-    private final ManageLocationSwapUseCase manageLocationSwapUseCase;
+    private final ManageLocationChangeUseCase manageLocationChangeUseCase;
 
     /**
      * 휴면 전환 배치. lastActiveAt이 dormantDays 이상 지난 ACTIVE 유저를 DORMANT로 바꾼다.
@@ -82,7 +81,7 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
 
     @Override
     @Transactional
-    public void updateProfile(UUID userId, String userName, Long mainLocationId, Long subLocationId) {
+    public void updateProfile(UUID userId, String userName, Long mainLocationId) {
         Users user = getMyInfo(userId);
 
         if (userName != null && !userName.equals(user.getUserName())) {
@@ -92,17 +91,9 @@ public class UserService implements DeactivateInactiveUsersUseCase, GetMyInfoUse
             user.changeUserName(userName);
         }
 
-        if (subLocationId != null) {
-            manageLocationSwapUseCase.setSubLocation(userId, subLocationId);
-        }
-
+        // 동네 변경은 즉시 반영이 아니라 다음 라운드 시작 시 적용될 예약으로 처리한다
         if (mainLocationId != null && !mainLocationId.equals(user.getMainLocation().getLocationId())) {
-            Location subLocation = user.getSubLocation();
-            if (subLocation == null || !mainLocationId.equals(subLocation.getLocationId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "메인 동네는 서브 동네로 설정된 곳으로만 다음 라운드 전환을 예약할 수 있습니다.");
-            }
-            manageLocationSwapUseCase.requestLocationSwap(userId);
+            manageLocationChangeUseCase.reserve(userId, mainLocationId);
         }
     }
 }

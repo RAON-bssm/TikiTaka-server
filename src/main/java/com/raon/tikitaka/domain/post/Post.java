@@ -47,12 +47,21 @@ public class Post {
     private String location;
 
     /**
-     * 작성 시점의 소속 팀 스냅샷. 점수 집계에 쓴다.
+     * 작성 시점의 소속 팀 스냅샷. 작성자가 그때 있던 지역이고 점수 집계에 쓴다.
      * 문자열 location 필드는 표시용으로 유지하고 집계는 이 FK로만 한다.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id", nullable = false)
     private Location teamLocation;
+
+    /**
+     * 작성 시점에 지역 점수까지 올렸는지 여부. 본진에서 쓴 글만 true다.
+     * 삭제 시 차감 여부를 이 스냅샷으로 판정한다. 나중에 작성자가 이사를 가도
+     * 올렸던 만큼만 정확히 되돌리기 위해서다.
+     */
+    @Column(name = "location_scored", nullable = false)
+    @ColumnDefault("false")
+    private boolean locationScored;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -69,7 +78,7 @@ public class Post {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public static Post create(Users author, Board board, String content, String postImage, Integer score, String aiReview, String location, Location teamLocation) {
+    public static Post create(Users author, Board board, String content, String postImage, Integer score, String aiReview, String location, Location teamLocation, boolean locationScored) {
         Post post = new Post();
         post.userId = author;
         post.board = board;
@@ -79,6 +88,7 @@ public class Post {
         post.aiReview = aiReview;
         post.location = location;
         post.teamLocation = teamLocation;
+        post.locationScored = locationScored;
         post.isActive = true;
         post.createdAt = LocalDateTime.now();
         post.updatedAt = LocalDateTime.now();
