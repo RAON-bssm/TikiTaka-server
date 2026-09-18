@@ -13,6 +13,7 @@ import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.token.Token;
 import com.raon.tikitaka.domain.user.Users;
+import com.raon.tikitaka.global.config.AuthProperties;
 import com.raon.tikitaka.global.exception.DuplicateUserNameException;
 import com.raon.tikitaka.global.exception.InvalidTokenException;
 import com.raon.tikitaka.global.security.jwt.JwtProvider;
@@ -37,6 +38,7 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
     private final TokenRepositoryPort tokenRepositoryPort;
     private final LocationRepositoryPort locationRepositoryPort;
     private final JwtProvider jwtProvider;
+    private final AuthProperties authProperties;
 
     @Override
     public LoginResult login(LoginProvider provider, String providerAccessToken) {
@@ -57,6 +59,10 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
 
     @Override
     public TokenResult signup(String signupToken, String userName, Long mainLocationId) {
+        if (!authProperties.signupEnabled()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "현재 회원가입을 일시 중단했습니다. 잠시 후 다시 시도해주세요.");
+        }
+
         Claims claims = jwtProvider.parseSignupToken(signupToken);
         LoginProvider provider = LoginProvider.valueOf(claims.get("provider", String.class));
         String providerId = claims.getSubject();

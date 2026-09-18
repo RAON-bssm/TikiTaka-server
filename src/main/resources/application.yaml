@@ -40,6 +40,9 @@ gemini:
   model: gemini-3.1-flash-lite
   prompt: ${GEMINI_PROMPT}
 
+auth:
+  signup-enabled: ${SIGNUP_ENABLED:true}  # false면 점검/일시 중단으로 회원가입 API를 잠근다
+
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiration: ${JWT_ACCESS_EXPIRATION:1800000}
