@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 public record InventoryResponse(List<InventoryItemResponse> product) {
 
     public static InventoryResponse from(UserInventory userInventory) {
-        Set<Long> equippedProductIds = userInventory.equipmentList().stream()
+        Set<String> equippedProductIds = userInventory.equipmentList().stream()
                 .map(Equipment::getProduct)
                 .map(Product::getProductId)
                 .collect(Collectors.toSet());

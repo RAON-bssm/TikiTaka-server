@@ -42,7 +42,7 @@ public class EquipmentService implements EquipItemUseCase, GetEquippedItemsUseCa
     }
 
     @Override
-    public void equip(UUID userId, Map<ProductType, Long> selections) {
+    public void equip(UUID userId, Map<ProductType, String> selections) {
         if (selections.isEmpty()) {
             return;
         }
@@ -50,7 +50,7 @@ public class EquipmentService implements EquipItemUseCase, GetEquippedItemsUseCa
         Users user = userRepositoryPort.findByIdWithLocations(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 
-        Map<Long, Product> ownedProducts = inventoryRepositoryPort.findAllByUserIdWithProduct(userId).stream()
+        Map<String, Product> ownedProducts = inventoryRepositoryPort.findAllByUserIdWithProduct(userId).stream()
                 .map(Inventory::getProduct)
                 .collect(Collectors.toMap(Product::getProductId, product -> product));
 
@@ -62,7 +62,7 @@ public class EquipmentService implements EquipItemUseCase, GetEquippedItemsUseCa
         equipmentRepositoryPort.saveAll(newEquipments);
     }
 
-    private Product findOwnedProductOfType(Map<Long, Product> ownedProducts, ProductType type, Long productId) {
+    private Product findOwnedProductOfType(Map<String, Product> ownedProducts, ProductType type, String productId) {
         Product product = ownedProducts.get(productId);
         if (product == null) {
             throw new EntityNotFoundException("보유하지 않은 아이템입니다: " + productId);

@@ -4,5 +4,5 @@ import java.util.UUID;
 
 public interface PurchaseProductUseCase {
 
-    void purchase(UUID userId, Long productId);
+    void purchase(UUID userId, String productId);
 }

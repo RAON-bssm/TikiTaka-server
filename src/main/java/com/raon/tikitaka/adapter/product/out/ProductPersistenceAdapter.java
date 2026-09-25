@@ -20,7 +20,7 @@ public class ProductPersistenceAdapter implements ProductRepositoryPort {
     }
 
     @Override
-    public Optional<Product> findActiveById(Long productId) {
+    public Optional<Product> findActiveById(String productId) {
         return productJpaRepository.findActiveById(productId);
     }
 }

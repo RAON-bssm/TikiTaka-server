@@ -3,7 +3,7 @@ package com.raon.tikitaka.adapter.inventory.dto;
 import com.raon.tikitaka.domain.product.Product;
 
 public record InventoryItemResponse(
-        Long productId,
+        String productId,
         String productName,
         String type,
         boolean isActive

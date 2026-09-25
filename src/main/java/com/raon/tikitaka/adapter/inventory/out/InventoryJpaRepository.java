@@ -16,5 +16,5 @@ public interface InventoryJpaRepository extends JpaRepository<Inventory, Long> {
             """)
     List<Inventory> findAllByUserIdWithProduct(UUID userId);
 
-    boolean existsByUser_UserIdAndProduct_ProductId(UUID userId, Long productId);
+    boolean existsByUser_UserIdAndProduct_ProductId(UUID userId, String productId);
 }

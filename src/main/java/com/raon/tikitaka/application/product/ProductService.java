@@ -34,7 +34,7 @@ public class ProductService implements GetProductListUseCase, PurchaseProductUse
         userRepositoryPort.findByIdWithLocations(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 
-        Set<Long> ownedProductIds = inventoryRepositoryPort.findAllByUserIdWithProduct(userId).stream()
+        Set<String> ownedProductIds = inventoryRepositoryPort.findAllByUserIdWithProduct(userId).stream()
                 .map(Inventory::getProduct)
                 .map(Product::getProductId)
                 .collect(Collectors.toSet());
@@ -46,7 +46,7 @@ public class ProductService implements GetProductListUseCase, PurchaseProductUse
 
     @Override
     @Transactional
-    public void purchase(UUID userId, Long productId) {
+    public void purchase(UUID userId, String productId) {
         Users user = userRepositoryPort.findByIdWithLocations(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
 

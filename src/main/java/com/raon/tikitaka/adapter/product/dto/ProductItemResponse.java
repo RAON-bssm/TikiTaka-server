@@ -3,7 +3,7 @@ package com.raon.tikitaka.adapter.product.dto;
 import com.raon.tikitaka.domain.product.Product;
 
 public record ProductItemResponse(
-        Long productId,
+        String productId,
         String productName,
         Integer price,
         String productImage,
