@@ -3,7 +3,7 @@ package com.raon.tikitaka.adapter.equipment.dto;
 import com.raon.tikitaka.domain.product.Product;
 
 public record EquipmentItemResponse(
-        Long productId,
+        String productId,
         String productName
 ) {
 

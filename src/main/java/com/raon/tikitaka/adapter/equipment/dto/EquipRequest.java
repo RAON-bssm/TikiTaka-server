@@ -6,17 +6,17 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public record EquipRequest(
-        Long body,
-        Long accessory,
-        Long clothing,
-        Long eyes,
-        Long hairFront,
-        Long hairBack,
-        Long mouth
+        String body,
+        String accessory,
+        String clothing,
+        String eyes,
+        String hairFront,
+        String hairBack,
+        String mouth
 ) {
 
-    public Map<ProductType, Long> toSelections() {
-        Map<ProductType, Long> selections = new LinkedHashMap<>();
+    public Map<ProductType, String> toSelections() {
+        Map<ProductType, String> selections = new LinkedHashMap<>();
         putIfPresent(selections, ProductType.BODY, body);
         putIfPresent(selections, ProductType.ACCESSORY, accessory);
         putIfPresent(selections, ProductType.CLOTHING, clothing);
@@ -27,7 +27,7 @@ public record EquipRequest(
         return selections;
     }
 
-    private void putIfPresent(Map<ProductType, Long> selections, ProductType type, Long productId) {
+    private void putIfPresent(Map<ProductType, String> selections, ProductType type, String productId) {
         if (productId != null) {
             selections.put(type, productId);
         }

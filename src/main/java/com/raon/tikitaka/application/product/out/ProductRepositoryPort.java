@@ -9,5 +9,5 @@ public interface ProductRepositoryPort {
 
     List<Product> findAllActiveProducts();
 
-    Optional<Product> findActiveById(Long productId);
+    Optional<Product> findActiveById(String productId);
 }

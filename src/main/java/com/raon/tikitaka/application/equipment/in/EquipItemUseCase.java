@@ -7,5 +7,5 @@ import java.util.UUID;
 
 public interface EquipItemUseCase {
 
-    void equip(UUID userId, Map<ProductType, Long> selections);
+    void equip(UUID userId, Map<ProductType, String> selections);
 }

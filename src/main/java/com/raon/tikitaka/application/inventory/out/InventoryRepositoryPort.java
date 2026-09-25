@@ -9,7 +9,7 @@ public interface InventoryRepositoryPort {
 
     List<Inventory> findAllByUserIdWithProduct(UUID userId);
 
-    boolean existsByUserIdAndProductId(UUID userId, Long productId);
+    boolean existsByUserIdAndProductId(UUID userId, String productId);
 
     Inventory save(Inventory inventory);
 }

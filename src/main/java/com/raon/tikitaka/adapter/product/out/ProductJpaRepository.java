@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 import java.util.Optional;
 
-public interface ProductJpaRepository extends JpaRepository<Product, Long> {
+public interface ProductJpaRepository extends JpaRepository<Product, String> {
 
     @Query("""
             select p from Product p
@@ -19,5 +19,5 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
             select p from Product p
             where p.productId = :productId and p.isActive = true
             """)
-    Optional<Product> findActiveById(Long productId);
+    Optional<Product> findActiveById(String productId);
 }
