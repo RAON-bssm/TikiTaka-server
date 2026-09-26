@@ -60,8 +60,8 @@ public class AiChatClientAdapter implements ChatClientPort {
     @Override
     public ChatAnswer ask(Chatbot chatbot, ChatUserContext user, List<ChatTurn> history, String message) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("persona_id", chatbot.getChatbotId());
-        body.put("system_prompt", chatbot.getPersonaPrompt());
+        body.put("chatbot_id", chatbot.getChatbotId());
+        body.put("persona_prompt", chatbot.getPersonaPrompt());
         body.put("history", toHistoryPayload(history));
         body.put("message", message);
 
@@ -80,13 +80,13 @@ public class AiChatClientAdapter implements ChatClientPort {
         }
 
         JsonNode response = parse(raw, chatbot.getChatbotId());
-        if (!response.hasNonNull("answer")) {
-            log.error("AI 서버 응답에 answer가 없습니다. chatbotId={}, body={}", chatbot.getChatbotId(), raw);
+        if (!response.hasNonNull("reply")) {
+            log.error("AI 서버 응답에 reply가 없습니다. chatbotId={}, body={}", chatbot.getChatbotId(), raw);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "챗봇 응답을 처리하지 못했습니다.");
         }
 
         logUsage(chatbot.getChatbotId(), response, System.currentTimeMillis() - startedAt);
-        return new ChatAnswer(response.path("answer").asString(), List.of());
+        return new ChatAnswer(response.path("reply").asString(), List.of());
     }
 
     @Override
