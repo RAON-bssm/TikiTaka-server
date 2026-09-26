@@ -17,8 +17,15 @@ if [ -z "$USER_ID" ]; then
   exit 1
 fi
 
-# .env에서 서버와 같은 서명 키를 읽는다
+# .env에서 서버와 같은 서명 키를 읽는다. docker compose는 .env를 파싱할 때
+# 값을 감싼 따옴표를 벗기므로, 여기서도 똑같이 벗겨야 서버가 실제로 쓰는 시크릿과 같아진다.
+# 안 벗기면 따옴표가 시크릿에 그대로 남아 서명이 어긋나고, 이 스크립트로 만든 토큰은
+# 전부 401(유효하지 않은 토큰)로 거절된다.
 SECRET=$(grep '^JWT_SECRET=' .env | cut -d= -f2-)
+SECRET="${SECRET%\"}"
+SECRET="${SECRET#\"}"
+SECRET="${SECRET%\'}"
+SECRET="${SECRET#\'}"
 if [ -z "$SECRET" ]; then
   echo ".env에서 JWT_SECRET을 찾을 수 없습니다." >&2
   exit 1
