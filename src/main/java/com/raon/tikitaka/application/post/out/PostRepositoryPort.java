@@ -12,6 +12,8 @@ public interface PostRepositoryPort {
 
     List<Post> findAllActiveByBoardId(Long boardId);
 
+    List<Post> findAllActiveByUserId(UUID userId);
+
     Optional<Post> findActiveById(UUID postId);
 
     Post save(Post post);
