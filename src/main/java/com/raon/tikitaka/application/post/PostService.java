@@ -124,17 +124,21 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         Match match = board.getMatch();
         Stage stage = match.getStage();
 
+        // stage.getAvgLocationMemberCount()는 지역 점수 계산에만 쓰이지만, 아래 개인 점수
+        // upsert(addUserScore)가 clearAutomatically라 실행 직후 영속성 컨텍스트를 비운다.
+        // stage가 lazy 프록시인 경로(게시물 삭제 시 post.getBoard()를 그대로 쓰는 경우)에서는
+        // clear 이후에 이 필드를 읽으면 LazyInitializationException이 나므로 먼저 읽어둔다.
+        Double c = locationScored ? stage.getAvgLocationMemberCount() : null;
+        if (locationScored && c == null) {
+            // 매치가 있는데 C가 없으면 매칭 배치가 스냅샷을 안 채운 데이터 버그라 바로 예외를 던진다
+            throw new IllegalStateException("라운드의 평균 동네 인원(C)이 없습니다. stageId=" + stage.getStageId());
+        }
+
         long userDelta = Math.round(score * rankingProperties.baseMultiplier()) * direction;
         rankingRepositoryPort.addUserScore(stage.getStageId(), author.getUserId(), userDelta);
 
         if (!locationScored) {
             return;     // 원정 경기. 개인 점수만 쌓고 지역 점수는 건드리지 않는다
-        }
-
-        Double c = stage.getAvgLocationMemberCount();
-        if (c == null) {
-            // 매치가 있는데 C가 없으면 매칭 배치가 스냅샷을 안 채운 데이터 버그라 바로 예외를 던진다
-            throw new IllegalStateException("라운드의 평균 동네 인원(C)이 없습니다. stageId=" + stage.getStageId());
         }
 
         // n은 작성자 팀의 매칭 시점 인원 스냅샷. BYE 매치는 team1 == team2라 어느 쪽이든 같다
