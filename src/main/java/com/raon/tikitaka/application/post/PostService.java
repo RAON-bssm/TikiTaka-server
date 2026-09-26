@@ -4,7 +4,10 @@ import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
 import com.raon.tikitaka.application.post.in.GetPostListUseCase;
+import com.raon.tikitaka.application.post.in.LikePostUseCase;
+import com.raon.tikitaka.application.post.in.UnlikePostUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
+import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
 import com.raon.tikitaka.domain.board.Board;
@@ -12,6 +15,7 @@ import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.match.Match;
 import com.raon.tikitaka.domain.match.Stage;
 import com.raon.tikitaka.domain.post.Post;
+import com.raon.tikitaka.domain.post.PostLike;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.RankingProperties;
 import lombok.RequiredArgsConstructor;
@@ -20,31 +24,86 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class PostService implements GetPostListUseCase, GetPostDetailUseCase, CreatePostUseCase, UpdatePostUseCase, DeletePostUseCase {
+public class PostService implements GetPostListUseCase, GetPostDetailUseCase, CreatePostUseCase, UpdatePostUseCase,
+        DeletePostUseCase, LikePostUseCase, UnlikePostUseCase {
 
     private final PostRepositoryPort postRepositoryPort;
+    private final PostLikeRepositoryPort postLikeRepositoryPort;
     private final RankingRepositoryPort rankingRepositoryPort;
     private final RankingProperties rankingProperties;
 
     @Override
-    public List<Post> getPosts(Long boardId) {
-        return postRepositoryPort.findAllActiveByBoardId(boardId);
+    public List<PostSummary> getPosts(Long boardId) {
+        List<Post> posts = postRepositoryPort.findAllActiveByBoardId(boardId);
+        Map<UUID, Integer> likeCounts = countLikes(posts.stream().map(Post::getPostId).toList());
+
+        List<PostSummary> summaries = new ArrayList<>();
+        for (Post post : posts) {
+            summaries.add(new PostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0)));
+        }
+        return summaries;
     }
 
     @Override
-    public Post getPost(UUID postId) {
+    public PostDetail getPost(UUID postId, UUID userId) {
+        Post post = getActivePost(postId);
+        int likeCount = countLikes(List.of(postId)).getOrDefault(postId, 0);
+        boolean likedByMe = userId != null
+                && postLikeRepositoryPort.existsByPostAndUser(post, postRepositoryPort.getUser(userId));
+        return new PostDetail(post, likeCount, likedByMe);
+    }
+
+    @Override
+    @Transactional
+    public void like(UUID postId, UUID userId) {
+        Post post = getActivePost(postId);
+        Users user = postRepositoryPort.getUser(userId);
+
+        // 이미 눌렀으면 아무것도 하지 않는다. uk_post_like_post_user는 동시성 상황의
+        // 이중 삽입을 막는 최후 방어선일 뿐, 정상 흐름은 여기서 먼저 걸러낸다
+        if (postLikeRepositoryPort.existsByPostAndUser(post, user)) {
+            return;
+        }
+        postLikeRepositoryPort.save(PostLike.create(post, user));
+    }
+
+    @Override
+    @Transactional
+    public void unlike(UUID postId, UUID userId) {
+        Post post = getActivePost(postId);
+        Users user = postRepositoryPort.getUser(userId);
+
+        // 누른 적이 없어도 delete는 0건 삭제로 끝나므로 그 자체로 idempotent하다
+        postLikeRepositoryPort.deleteByPostAndUser(post, user);
+    }
+
+    private Post getActivePost(UUID postId) {
         Optional<Post> post = postRepositoryPort.findActiveById(postId);
         if (post.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
         }
         return post.get();
+    }
+
+    private Map<UUID, Integer> countLikes(List<UUID> postIds) {
+        if (postIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Integer> counts = new HashMap<>();
+        for (PostLikeCountRow row : postLikeRepositoryPort.countByPostIds(postIds)) {
+            counts.put(row.getPostId(), row.getLikeCount().intValue());
+        }
+        return counts;
     }
 
     @Override
@@ -90,7 +149,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     @Override
     @Transactional
     public void updatePost(UUID postId, UUID requesterId, boolean isAdmin, String content) {
-        Post post = getPost(postId);
+        Post post = getActivePost(postId);
         validateOwner(post, requesterId, isAdmin);
         post.updateContent(content);
     }
@@ -98,7 +157,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     @Override
     @Transactional
     public void deletePost(UUID postId, UUID requesterId, boolean isAdmin) {
-        Post post = getPost(postId);
+        Post post = getActivePost(postId);
         validateOwner(post, requesterId, isAdmin);
         post.deactivate();
 

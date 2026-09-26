@@ -1,5 +1,6 @@
 package com.raon.tikitaka.adapter.post.dto;
 
+import com.raon.tikitaka.application.post.PostSummary;
 import com.raon.tikitaka.domain.post.Post;
 
 import java.time.LocalDateTime;
@@ -15,10 +16,12 @@ public record PostSummaryResponse(
         LocalDateTime updatedAt,
         String content,
         String cityName,
-        String location
+        String location,
+        Integer likeCount
 ) {
 
-    public static PostSummaryResponse from(Post post) {
+    public static PostSummaryResponse from(PostSummary summary) {
+        Post post = summary.post();
         return new PostSummaryResponse(
                 post.getPostId(),
                 post.getUserId().getUserId(),
@@ -29,7 +32,8 @@ public record PostSummaryResponse(
                 post.getUpdatedAt(),
                 post.getContent(),
                 post.getTeamLocation().getCityName(),
-                post.getLocation()
+                post.getLocation(),
+                summary.likeCount()
         );
     }
 }
