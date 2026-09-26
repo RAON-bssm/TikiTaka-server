@@ -1,5 +1,6 @@
 package com.raon.tikitaka.adapter.post.dto;
 
+import com.raon.tikitaka.application.post.PostDetail;
 import com.raon.tikitaka.domain.post.Post;
 
 import java.time.LocalDateTime;
@@ -15,11 +16,13 @@ public record PostDetailResponse(
         String cityName,
         String location,
         Integer likeCount,
+        boolean likedByMe,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
 
-    public static PostDetailResponse from(Post post) {
+    public static PostDetailResponse from(PostDetail detail) {
+        Post post = detail.post();
         return new PostDetailResponse(
                 post.getUserId().getUserId(),
                 post.getUserId().getUserName(),
@@ -29,7 +32,8 @@ public record PostDetailResponse(
                 post.getAiReview(),
                 post.getTeamLocation().getCityName(),
                 post.getLocation(),
-                0,
+                detail.likeCount(),
+                detail.likedByMe(),
                 post.getCreatedAt(),
                 post.getUpdatedAt()
         );
