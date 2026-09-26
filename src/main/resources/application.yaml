@@ -41,6 +41,7 @@ gemini:
   prompt: ${GEMINI_PROMPT}
 
 chatbot:
+  mode: ${CHATBOT_MODE:simple}   # simple = 페르소나 챗봇, rag = 벡터DB 검색형. 구현체를 고른다
   base-url: ${CHATBOT_BASE_URL:http://ai:8000}
   connect-timeout: 3s
   read-timeout: 120s        # 로컬 LLM은 느리다. 기본값이면 앱이 먼저 끊긴다
