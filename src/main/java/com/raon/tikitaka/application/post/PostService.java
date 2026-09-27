@@ -3,6 +3,7 @@ package com.raon.tikitaka.application.post;
 import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
+import com.raon.tikitaka.application.post.in.GetMyPostsUseCase;
 import com.raon.tikitaka.application.post.in.GetPostListUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
@@ -27,7 +28,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class PostService implements GetPostListUseCase, GetPostDetailUseCase, CreatePostUseCase, UpdatePostUseCase, DeletePostUseCase {
+public class PostService implements GetPostListUseCase, GetPostDetailUseCase, CreatePostUseCase, UpdatePostUseCase, DeletePostUseCase, GetMyPostsUseCase {
 
     private final PostRepositoryPort postRepositoryPort;
     private final RankingRepositoryPort rankingRepositoryPort;
@@ -36,6 +37,11 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     @Override
     public List<Post> getPosts(Long boardId) {
         return postRepositoryPort.findAllActiveByBoardId(boardId);
+    }
+
+    @Override
+    public List<Post> getMyPosts(UUID userId) {
+        return postRepositoryPort.findAllActiveByUserId(userId);
     }
 
     @Override
