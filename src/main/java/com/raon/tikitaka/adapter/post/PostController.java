@@ -9,6 +9,8 @@ import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
 import com.raon.tikitaka.application.post.in.GetPostListUseCase;
+import com.raon.tikitaka.application.post.in.LikePostUseCase;
+import com.raon.tikitaka.application.post.in.UnlikePostUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
 import com.raon.tikitaka.application.board.in.GetBoardUseCase;
 import com.raon.tikitaka.application.review.AiReviewResult;
@@ -20,6 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -47,6 +50,8 @@ public class PostController {
     private final CreatePostUseCase createPostUseCase;
     private final UpdatePostUseCase updatePostUseCase;
     private final DeletePostUseCase deletePostUseCase;
+    private final LikePostUseCase likePostUseCase;
+    private final UnlikePostUseCase unlikePostUseCase;
     private final StorageUseCase storageUseCase;
     private final ReviewUseCase reviewUseCase;
     private final GetBoardUseCase getBoardUseCase;
@@ -57,10 +62,26 @@ public class PostController {
         return ApiResponse.of(200, "게시물 목록 조회 성공", response);
     }
 
+    /**
+     * GET /api/post/**는 SecurityConfig에서 permitAll이라 비로그인 조회 시
+     * userId는 null로 들어오고, 이 경우 좋아요 여부는 항상 false다.
+     */
     @GetMapping("/{postId:" + UUID_PATTERN + "}")
-    public ApiResponse<PostDetailResponse> getPost(@PathVariable UUID postId) {
-        PostDetailResponse response = PostDetailResponse.from(getPostDetailUseCase.getPost(postId));
+    public ApiResponse<PostDetailResponse> getPost(@AuthenticationPrincipal UUID userId, @PathVariable UUID postId) {
+        PostDetailResponse response = PostDetailResponse.from(getPostDetailUseCase.getPost(postId, userId));
         return ApiResponse.of(200, "게시물 조회 성공", response);
+    }
+
+    @PostMapping("/{postId:" + UUID_PATTERN + "}/like")
+    public ApiResponse<Void> like(@AuthenticationPrincipal UUID userId, @PathVariable UUID postId) {
+        likePostUseCase.like(postId, userId);
+        return ApiResponse.of(200, "좋아요 성공", null);
+    }
+
+    @DeleteMapping("/{postId:" + UUID_PATTERN + "}/like")
+    public ApiResponse<Void> unlike(@AuthenticationPrincipal UUID userId, @PathVariable UUID postId) {
+        unlikePostUseCase.unlike(postId, userId);
+        return ApiResponse.of(200, "좋아요 취소 성공", null);
     }
 
     @PostMapping(consumes = "multipart/form-data")
