@@ -34,6 +34,11 @@ public class PostPersistenceAdapter implements PostRepositoryPort {
     }
 
     @Override
+    public List<Post> findAllActiveByUserId(UUID userId) {
+        return postJpaRepository.findAllActiveByUserId(userId);
+    }
+
+    @Override
     public Post save(Post post) {
         return postJpaRepository.save(post);
     }
