@@ -91,20 +91,18 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     }
 
     private Post getActivePost(UUID postId) {
-
-    public List<Post> getMyPosts(UUID userId) {
-        return postRepositoryPort.findAllActiveByUserId(userId);
-    }
-
-    @Override
-    public Post getPost(UUID postId) {
-
         Optional<Post> post = postRepositoryPort.findActiveById(postId);
         if (post.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
         }
         return post.get();
     }
+
+    public List<Post> getMyPosts(UUID userId) {
+        return postRepositoryPort.findAllActiveByUserId(userId);
+    }
+
+
 
     private Map<UUID, Integer> countLikes(List<UUID> postIds) {
         if (postIds.isEmpty()) {
