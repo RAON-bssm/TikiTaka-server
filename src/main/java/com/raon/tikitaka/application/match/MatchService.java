@@ -73,7 +73,9 @@ public class MatchService implements OpenRoundUseCase, GetMatchResultsUseCase {
         if (lastEnded.isEmpty()) {
             return new ArrayList<>();   // 아직 끝난 라운드가 없으면 빈 목록
         }
-        Long stageId = lastEnded.get().getStageId();
+        Stage stage = lastEnded.get();
+        Long stageId = stage.getStageId();
+        LocalDateTime matchDate = stage.getStartedAt();
 
         List<Match> matches = matchRepositoryPort.findAllByStageIdWithTeams(stageId);
 
@@ -105,7 +107,8 @@ public class MatchService implements OpenRoundUseCase, GetMatchResultsUseCase {
                     match.getMission(),
                     winTeam,
                     lostTeam,
-                    match.getMatchType().getDescription()));
+                    match.getMatchType().getDescription(),
+                    matchDate));
         }
         return results;
     }
