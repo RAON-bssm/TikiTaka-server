@@ -4,13 +4,15 @@ import com.raon.tikitaka.domain.product.Product;
 
 public record EquipmentItemResponse(
         String productId,
-        String productName
+        String productName,
+        String productImage
 ) {
 
     public static EquipmentItemResponse from(Product product) {
         return new EquipmentItemResponse(
                 product.getProductId(),
-                product.getProductName()
+                product.getProductName(),
+                product.getProductImage()
         );
     }
 }
