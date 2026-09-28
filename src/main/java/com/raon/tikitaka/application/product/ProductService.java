@@ -5,6 +5,7 @@ import com.raon.tikitaka.application.product.in.GetProductListUseCase;
 import com.raon.tikitaka.application.product.in.PurchaseProductUseCase;
 import com.raon.tikitaka.application.product.out.ProductRepositoryPort;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
+import com.raon.tikitaka.domain.enums.ProductType;
 import com.raon.tikitaka.domain.product.Product;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.domain.userItem.Inventory;
@@ -12,8 +13,10 @@ import com.raon.tikitaka.global.exception.AlreadyOwnedProductException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Set;
@@ -39,7 +42,7 @@ public class ProductService implements GetProductListUseCase, PurchaseProductUse
                 .map(Product::getProductId)
                 .collect(Collectors.toSet());
 
-        return productRepositoryPort.findAllActiveProducts().stream()
+        return productRepositoryPort.findAllActiveExcludingType(ProductType.GASHAPON).stream()
                 .filter(product -> !ownedProductIds.contains(product.getProductId()))
                 .toList();
     }
@@ -52,6 +55,10 @@ public class ProductService implements GetProductListUseCase, PurchaseProductUse
 
         Product product = productRepositoryPort.findActiveById(productId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 상품입니다."));
+
+        if (product.getProductType() == ProductType.GASHAPON) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "가샤폰 상품은 상점에서 구매할 수 없습니다. /api/product/gashapon을 이용해주세요.");
+        }
 
         if (inventoryRepositoryPort.existsByUserIdAndProductId(userId, productId)) {
             throw new AlreadyOwnedProductException(productId);
