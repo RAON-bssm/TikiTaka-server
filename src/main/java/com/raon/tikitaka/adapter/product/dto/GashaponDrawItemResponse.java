@@ -8,6 +8,7 @@ public record GashaponDrawItemResponse(
         String productName,
         String productImage,
         String productType,
+        String description,
         boolean duplicate,
         String message
 ) {
@@ -24,6 +25,7 @@ public record GashaponDrawItemResponse(
                 product.getProductName(),
                 product.getProductImage(),
                 product.getProductType().name().toLowerCase(),
+                product.getDescription(),
                 duplicate,
                 duplicate ? DUPLICATE_MESSAGE : NEW_MESSAGE
         );
