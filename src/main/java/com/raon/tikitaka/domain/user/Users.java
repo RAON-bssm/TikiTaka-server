@@ -136,7 +136,7 @@ public class Users {
 
     public void usePoint(int amount) {
         if (this.point < amount) {
-            throw new InsufficientPointException();
+            throw new InsufficientPointException(this.point, amount);
         }
         this.point -= amount;
     }

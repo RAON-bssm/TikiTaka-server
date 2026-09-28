@@ -29,8 +29,8 @@ public class GashaponService implements DrawGashaponUseCase {
     // 가샤폰 상품 ID → 1회 구매당 뽑는 횟수.
     // 종류가 늘어나면 여기에 한 줄만 추가하면 된다.
     private static final Map<String, Integer> DRAW_COUNT_BY_PRODUCT_ID = Map.of(
-            "gashapon_1set", 1,
-            "gashapon_5set", 5
+            "gashapon-1set", 1,
+            "gashapon-5set", 5
     );
 
     private final UserRepositoryPort userRepositoryPort;
