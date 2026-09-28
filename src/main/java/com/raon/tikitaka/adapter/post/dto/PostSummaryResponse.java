@@ -17,7 +17,8 @@ public record PostSummaryResponse(
         String content,
         String cityName,
         String location,
-        Integer likeCount
+        Integer likeCount,
+        boolean likedByMe
 ) {
 
     public static PostSummaryResponse from(PostSummary summary) {
@@ -33,7 +34,8 @@ public record PostSummaryResponse(
                 post.getContent(),
                 post.getTeamLocation().getCityName(),
                 post.getLocation(),
-                summary.likeCount()
+                summary.likeCount(),
+                summary.likedByMe()
         );
     }
 }
