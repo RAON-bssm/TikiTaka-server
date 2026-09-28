@@ -1,7 +1,11 @@
 package com.raon.tikitaka.adapter.product;
 
+import com.raon.tikitaka.adapter.product.dto.GashaponDrawRequest;
+import com.raon.tikitaka.adapter.product.dto.GashaponDrawResponse;
 import com.raon.tikitaka.adapter.product.dto.ProductListResponse;
 import com.raon.tikitaka.adapter.product.dto.PurchaseProductRequest;
+import com.raon.tikitaka.application.gashapon.GashaponDrawResult;
+import com.raon.tikitaka.application.gashapon.in.DrawGashaponUseCase;
 import com.raon.tikitaka.application.product.in.GetProductListUseCase;
 import com.raon.tikitaka.application.product.in.PurchaseProductUseCase;
 import com.raon.tikitaka.global.response.ApiResponse;
@@ -13,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +27,7 @@ public class ProductController {
 
     private final GetProductListUseCase getProductListUseCase;
     private final PurchaseProductUseCase purchaseProductUseCase;
+    private final DrawGashaponUseCase drawGashaponUseCase;
 
     @GetMapping
     public ApiResponse<ProductListResponse> getProducts(@AuthenticationPrincipal UUID userId) {
@@ -33,5 +39,11 @@ public class ProductController {
     public ApiResponse<Void> purchase(@AuthenticationPrincipal UUID userId, @RequestBody PurchaseProductRequest request) {
         purchaseProductUseCase.purchase(userId, request.productId());
         return ApiResponse.of(201, "상품 구매 성공", null);
+    }
+
+    @PatchMapping("/gashapon")
+    public ApiResponse<GashaponDrawResponse> drawGashapon(@AuthenticationPrincipal UUID userId, @RequestBody GashaponDrawRequest request) {
+        List<GashaponDrawResult> results = drawGashaponUseCase.draw(userId, request.productId());
+        return ApiResponse.of(201, "장비 뽑기 성공", GashaponDrawResponse.from(results));
     }
 }

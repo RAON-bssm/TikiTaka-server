@@ -1,5 +1,6 @@
 package com.raon.tikitaka.application.product.out;
 
+import com.raon.tikitaka.domain.enums.ProductType;
 import com.raon.tikitaka.domain.product.Product;
 
 import java.util.List;
@@ -10,4 +11,6 @@ public interface ProductRepositoryPort {
     List<Product> findAllActiveProducts();
 
     Optional<Product> findActiveById(String productId);
+
+    List<Product> findAllActiveExcludingType(ProductType productType);
 }
