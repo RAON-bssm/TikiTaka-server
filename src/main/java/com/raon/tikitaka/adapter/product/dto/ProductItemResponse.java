@@ -7,7 +7,8 @@ public record ProductItemResponse(
         String productName,
         Integer price,
         String productImage,
-        String productType
+        String productType,
+        String description
 ) {
 
     public static ProductItemResponse from(Product product) {
@@ -16,7 +17,8 @@ public record ProductItemResponse(
                 product.getProductName(),
                 product.getPrice(),
                 product.getProductImage(),
-                product.getProductType().name().toLowerCase()
+                product.getProductType().name().toLowerCase(),
+                product.getDescription()
         );
     }
 }
