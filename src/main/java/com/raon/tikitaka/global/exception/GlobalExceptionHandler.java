@@ -2,6 +2,7 @@ package com.raon.tikitaka.global.exception;
 
 import com.raon.tikitaka.global.response.ApiResponse;
 import com.raon.tikitaka.global.security.AuthErrorResponse;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -23,6 +24,16 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(e.getStatusCode())
                 .body(ApiResponse.of(e.getStatusCode().value(), message, null));
+    }
+
+    /**
+     * 상품/장비/인벤토리 서비스가 findById(...).orElseThrow(EntityNotFoundException::new)로
+     * 던지는 예외. 핸들러가 없으면 스프링 기본 처리로 500이 나가 존재하지 않는 리소스 조회가
+     * 서버 에러로 잘못 보고된다.
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEntityNotFound(EntityNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.of(404, e.getMessage(), null));
     }
 
     @ExceptionHandler(InsufficientPointException.class)
