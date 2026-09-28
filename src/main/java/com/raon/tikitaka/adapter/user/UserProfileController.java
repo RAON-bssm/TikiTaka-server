@@ -6,11 +6,13 @@ import com.raon.tikitaka.application.user.in.GetUserProfileUseCase;
 import com.raon.tikitaka.application.user.in.UpdateProfileUseCase;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -36,6 +38,7 @@ public class UserProfileController {
     }
 
     @PatchMapping("/profile")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> updateProfile(@AuthenticationPrincipal UUID userId,
                                             @RequestBody UpdateProfileRequest request) {
         updateProfileUseCase.updateProfile(userId, request.userName(), request.mainLocationId());

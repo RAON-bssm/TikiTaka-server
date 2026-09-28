@@ -16,12 +16,14 @@ import com.raon.tikitaka.application.auth.in.SignupUseCase;
 import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -70,6 +72,7 @@ public class AuthController {
     }
 
     @PostMapping("/api/auth/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> logout(@AuthenticationPrincipal UUID userId) {
         logoutUseCase.logout(userId);
         return ApiResponse.of(204, "로그아웃 성공", null);

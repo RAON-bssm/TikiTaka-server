@@ -104,6 +104,7 @@ public class PostController {
     }
 
     @PatchMapping("/patch/{postId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> updatePost(
             @AuthenticationPrincipal UUID requesterId,
             Authentication authentication,
@@ -115,6 +116,7 @@ public class PostController {
     }
 
     @PatchMapping("/delete/{postId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> deletePost(
             @AuthenticationPrincipal UUID requesterId,
             Authentication authentication,
