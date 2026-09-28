@@ -47,7 +47,7 @@ public class EquipmentController {
     @PatchMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> equip(@AuthenticationPrincipal UUID userId, @RequestBody EquipRequest request) {
-        equipItemUseCase.equip(userId, request.toSelections());
+        equipItemUseCase.equip(userId, request.toSelections(), request.toColorSelections());
         return ApiResponse.of(204, "장비 착용 성공", null);
     }
 }
