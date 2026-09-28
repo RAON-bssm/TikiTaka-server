@@ -12,7 +12,8 @@ public enum ProductType {
     EYES("눈"),
     HAIR_FRONT("앞머리"),
     HAIR_BACK("뒷머리"),
-    MOUTH("입");
+    MOUTH("입"),
+    GASHAPON("가샤폰");
 
     private final String description;
 }

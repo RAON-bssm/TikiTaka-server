@@ -1,6 +1,7 @@
 package com.raon.tikitaka.adapter.product.out;
 
 import com.raon.tikitaka.application.product.out.ProductRepositoryPort;
+import com.raon.tikitaka.domain.enums.ProductType;
 import com.raon.tikitaka.domain.product.Product;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -22,5 +23,10 @@ public class ProductPersistenceAdapter implements ProductRepositoryPort {
     @Override
     public Optional<Product> findActiveById(String productId) {
         return productJpaRepository.findActiveById(productId);
+    }
+
+    @Override
+    public List<Product> findAllActiveExcludingType(ProductType productType) {
+        return productJpaRepository.findAllActiveExcludingType(productType);
     }
 }

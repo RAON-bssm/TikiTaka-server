@@ -1,5 +1,6 @@
 package com.raon.tikitaka.adapter.product.out;
 
+import com.raon.tikitaka.domain.enums.ProductType;
 import com.raon.tikitaka.domain.product.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -20,4 +21,10 @@ public interface ProductJpaRepository extends JpaRepository<Product, String> {
             where p.productId = :productId and p.isActive = true
             """)
     Optional<Product> findActiveById(String productId);
+
+    @Query("""
+            select p from Product p
+            where p.isActive = true and p.productType <> :productType
+            """)
+    List<Product> findAllActiveExcludingType(ProductType productType);
 }
