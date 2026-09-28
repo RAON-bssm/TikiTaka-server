@@ -1,5 +1,6 @@
 package com.raon.tikitaka.adapter.equipment.dto;
 
+import com.raon.tikitaka.domain.enums.ColorGroup;
 import com.raon.tikitaka.domain.enums.ProductType;
 
 import java.util.LinkedHashMap;
@@ -12,7 +13,9 @@ public record EquipRequest(
         String eyes,
         String hairFront,
         String hairBack,
-        String mouth
+        String mouth,
+        String hairColor,
+        String eyesColor
 ) {
 
     public Map<ProductType, String> toSelections() {
@@ -27,9 +30,16 @@ public record EquipRequest(
         return selections;
     }
 
-    private void putIfPresent(Map<ProductType, String> selections, ProductType type, String productId) {
-        if (productId != null) {
-            selections.put(type, productId);
+    public Map<ColorGroup, String> toColorSelections() {
+        Map<ColorGroup, String> selections = new LinkedHashMap<>();
+        putIfPresent(selections, ColorGroup.HAIR, hairColor);
+        putIfPresent(selections, ColorGroup.EYES, eyesColor);
+        return selections;
+    }
+
+    private <T> void putIfPresent(Map<T, String> selections, T key, String value) {
+        if (value != null) {
+            selections.put(key, value);
         }
     }
 }
