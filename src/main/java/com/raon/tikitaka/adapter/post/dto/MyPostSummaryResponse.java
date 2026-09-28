@@ -1,5 +1,6 @@
 package com.raon.tikitaka.adapter.post.dto;
 
+import com.raon.tikitaka.application.post.MyPostSummary;
 import com.raon.tikitaka.domain.match.Match;
 import com.raon.tikitaka.domain.post.Post;
 
@@ -26,10 +27,13 @@ public record MyPostSummaryResponse(
         String team2Name,
         String matchType,
         Integer season,
-        Integer round
+        Integer round,
+        Integer likeCount,
+        boolean likedByMe
 ) {
 
-    public static MyPostSummaryResponse from(Post post) {
+    public static MyPostSummaryResponse from(MyPostSummary summary) {
+        Post post = summary.post();
         Match match = post.getBoard().getMatch();
         return new MyPostSummaryResponse(
                 post.getPostId(),
@@ -46,7 +50,9 @@ public record MyPostSummaryResponse(
                 match.getTeam2().getFullName(),
                 match.getMatchType().getDescription(),
                 match.getStage().getSeason(),
-                match.getStage().getRound()
+                match.getStage().getRound(),
+                summary.likeCount(),
+                summary.likedByMe()
         );
     }
 }

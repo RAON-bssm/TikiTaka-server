@@ -56,9 +56,13 @@ public class PostController {
     private final ReviewUseCase reviewUseCase;
     private final GetBoardUseCase getBoardUseCase;
 
+    /**
+     * GET /api/post/**는 SecurityConfig에서 permitAll이라 비로그인 조회 시
+     * userId는 null로 들어오고, 이 경우 각 게시물의 좋아요 여부는 항상 false다.
+     */
     @GetMapping("/{boardId:\\d+}")
-    public ApiResponse<PostListResponse> getPosts(@PathVariable Long boardId) {
-        PostListResponse response = PostListResponse.from(getPostListUseCase.getPosts(boardId));
+    public ApiResponse<PostListResponse> getPosts(@AuthenticationPrincipal UUID userId, @PathVariable Long boardId) {
+        PostListResponse response = PostListResponse.from(getPostListUseCase.getPosts(boardId, userId));
         return ApiResponse.of(200, "게시물 목록 조회 성공", response);
     }
 

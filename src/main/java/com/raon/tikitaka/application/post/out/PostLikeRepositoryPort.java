@@ -21,4 +21,10 @@ public interface PostLikeRepositoryPort {
      * 결과에서 빠지므로 호출부가 0으로 채워야 한다.
      */
     List<PostLikeCountRow> countByPostIds(List<UUID> postIds);
+
+    /**
+     * postIds 중 userId가 좋아요를 누른 게시물 id 목록. 목록 조회에서 N+1 없이
+     * likedByMe를 한 번에 채우기 위함이다.
+     */
+    List<UUID> findLikedPostIds(List<UUID> postIds, UUID userId);
 }

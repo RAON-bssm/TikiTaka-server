@@ -27,9 +27,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -45,13 +47,16 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private final RankingProperties rankingProperties;
 
     @Override
-    public List<PostSummary> getPosts(Long boardId) {
+    public List<PostSummary> getPosts(Long boardId, UUID userId) {
         List<Post> posts = postRepositoryPort.findAllActiveByBoardId(boardId);
-        Map<UUID, Integer> likeCounts = countLikes(posts.stream().map(Post::getPostId).toList());
+        List<UUID> postIds = posts.stream().map(Post::getPostId).toList();
+        Map<UUID, Integer> likeCounts = countLikes(postIds);
+        Set<UUID> likedPostIds = findLikedPostIds(postIds, userId);
 
         List<PostSummary> summaries = new ArrayList<>();
         for (Post post : posts) {
-            summaries.add(new PostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0)));
+            summaries.add(new PostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0),
+                    likedPostIds.contains(post.getPostId())));
         }
         return summaries;
     }
@@ -98,8 +103,19 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         return post.get();
     }
 
-    public List<Post> getMyPosts(UUID userId) {
-        return postRepositoryPort.findAllActiveByUserId(userId);
+    @Override
+    public List<MyPostSummary> getMyPosts(UUID userId) {
+        List<Post> posts = postRepositoryPort.findAllActiveByUserId(userId);
+        List<UUID> postIds = posts.stream().map(Post::getPostId).toList();
+        Map<UUID, Integer> likeCounts = countLikes(postIds);
+        Set<UUID> likedPostIds = findLikedPostIds(postIds, userId);
+
+        List<MyPostSummary> summaries = new ArrayList<>();
+        for (Post post : posts) {
+            summaries.add(new MyPostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0),
+                    likedPostIds.contains(post.getPostId())));
+        }
+        return summaries;
     }
 
 
@@ -113,6 +129,17 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
             counts.put(row.getPostId(), row.getLikeCount().intValue());
         }
         return counts;
+    }
+
+    /**
+     * userId가 null(비로그인, GET /api/post/** permitAll)이면 조회 자체를 생략하고
+     * 항상 빈 집합을 돌려준다.
+     */
+    private Set<UUID> findLikedPostIds(List<UUID> postIds, UUID userId) {
+        if (userId == null || postIds.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(postLikeRepositoryPort.findLikedPostIds(postIds, userId));
     }
 
     @Override

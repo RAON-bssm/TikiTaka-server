@@ -36,4 +36,9 @@ public class PostLikePersistenceAdapter implements PostLikeRepositoryPort {
     public List<PostLikeCountRow> countByPostIds(List<UUID> postIds) {
         return postLikeJpaRepository.countByPostIds(postIds);
     }
+
+    @Override
+    public List<UUID> findLikedPostIds(List<UUID> postIds, UUID userId) {
+        return postLikeJpaRepository.findLikedPostIds(postIds, userId);
+    }
 }

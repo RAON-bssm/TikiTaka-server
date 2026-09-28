@@ -29,4 +29,16 @@ public interface PostLikeJpaRepository extends JpaRepository<PostLike, UUID> {
              group by post_id
             """, nativeQuery = true)
     List<PostLikeCountRow> countByPostIds(@Param("postIds") List<UUID> postIds);
+
+    /**
+     * postIds 중 userId가 좋아요를 누른 게시물 id만 골라낸다. 목록 조회에서
+     * 게시물마다 existsByPostAndUser를 호출하는 N+1을 피하기 위함이다.
+     */
+    @Query(value = """
+            select post_id
+              from post_like
+             where post_id in (:postIds)
+               and user_id = :userId
+            """, nativeQuery = true)
+    List<UUID> findLikedPostIds(@Param("postIds") List<UUID> postIds, @Param("userId") UUID userId);
 }
