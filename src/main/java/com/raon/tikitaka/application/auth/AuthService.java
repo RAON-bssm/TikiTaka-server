@@ -7,13 +7,18 @@ import com.raon.tikitaka.application.auth.in.ReissueUseCase;
 import com.raon.tikitaka.application.auth.in.SignupUseCase;
 import com.raon.tikitaka.application.auth.in.WithdrawUseCase;
 import com.raon.tikitaka.application.auth.out.OAuthClientPort;
+import com.raon.tikitaka.application.inventory.out.InventoryRepositoryPort;
 import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
+import com.raon.tikitaka.application.product.out.ProductRepositoryPort;
 import com.raon.tikitaka.application.user.out.TokenRepositoryPort;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.enums.LoginProvider;
+import com.raon.tikitaka.domain.enums.ProductType;
 import com.raon.tikitaka.domain.location.Location;
+import com.raon.tikitaka.domain.product.Product;
 import com.raon.tikitaka.domain.token.Token;
 import com.raon.tikitaka.domain.user.Users;
+import com.raon.tikitaka.domain.userItem.Inventory;
 import com.raon.tikitaka.global.exception.DuplicateUserNameException;
 import com.raon.tikitaka.global.exception.InvalidTokenException;
 import com.raon.tikitaka.global.security.jwt.JwtProvider;
@@ -25,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,6 +44,8 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
     private final UserRepositoryPort userRepositoryPort;
     private final TokenRepositoryPort tokenRepositoryPort;
     private final LocationRepositoryPort locationRepositoryPort;
+    private final ProductRepositoryPort productRepositoryPort;
+    private final InventoryRepositoryPort inventoryRepositoryPort;
     private final JwtProvider jwtProvider;
 
     @Override
@@ -77,10 +85,23 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
         }
 
         Users user = userRepositoryPort.save(Users.of(userName, provider, providerId, mainLocation.get()));
+        grantStarterItems(user);
 
         String accessToken = jwtProvider.createAccessToken(user.getUserId(), user.getRole());
         String refreshToken = issueAndStoreRefreshToken(user.getUserId(), provider);
         return new TokenResult(accessToken, refreshToken);
+    }
+
+    /**
+     * 가격 0원 기본 아이템 자동 지급. 상점/뽑기에서는 가격 0원 아이템을 제외했으므로
+     * (findAllActiveExcludingType이 price > 0만 반환) 이게 유일한 지급 경로다.
+     */
+    private void grantStarterItems(Users user) {
+        List<Product> starterItems = productRepositoryPort.findAllActiveFreeItemsExcludingType(ProductType.GASHAPON);
+        List<Inventory> inventories = starterItems.stream()
+                .map(product -> Inventory.of(user, product))
+                .toList();
+        inventoryRepositoryPort.saveAll(inventories);
     }
 
     @Override

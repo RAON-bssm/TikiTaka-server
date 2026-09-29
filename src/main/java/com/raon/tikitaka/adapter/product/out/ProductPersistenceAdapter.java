@@ -29,4 +29,9 @@ public class ProductPersistenceAdapter implements ProductRepositoryPort {
     public List<Product> findAllActiveExcludingType(ProductType productType) {
         return productJpaRepository.findAllActiveExcludingType(productType);
     }
+
+    @Override
+    public List<Product> findAllActiveFreeItemsExcludingType(ProductType productType) {
+        return productJpaRepository.findAllActiveFreeItemsExcludingType(productType);
+    }
 }
