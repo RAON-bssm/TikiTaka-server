@@ -3,7 +3,9 @@ package com.raon.tikitaka.adapter.user.out;
 import com.raon.tikitaka.domain.enums.ProductType;
 import com.raon.tikitaka.domain.userItem.Equipment;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -18,5 +20,10 @@ public interface EquipmentJpaRepository extends JpaRepository<Equipment, Long> {
             """)
     List<Equipment> findAllByUserIdWithProduct(UUID userId);
 
-    void deleteAllByUser_UserIdAndProduct_ProductTypeIn(UUID userId, Collection<ProductType> productTypes);
+    @Modifying
+    @Query("""
+            delete from Equipment e
+            where e.user.userId = :userId and e.product.productType in :productTypes
+            """)
+    void deleteAllByUser_UserIdAndProduct_ProductTypeIn(@Param("userId") UUID userId, @Param("productTypes") Collection<ProductType> productTypes);
 }
