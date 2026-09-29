@@ -5,6 +5,7 @@ import com.raon.tikitaka.application.auth.in.LoginUseCase;
 import com.raon.tikitaka.application.auth.in.LogoutUseCase;
 import com.raon.tikitaka.application.auth.in.ReissueUseCase;
 import com.raon.tikitaka.application.auth.in.SignupUseCase;
+import com.raon.tikitaka.application.auth.in.WithdrawUseCase;
 import com.raon.tikitaka.application.auth.out.OAuthClientPort;
 import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
 import com.raon.tikitaka.application.user.out.TokenRepositoryPort;
@@ -17,6 +18,7 @@ import com.raon.tikitaka.global.exception.DuplicateUserNameException;
 import com.raon.tikitaka.global.exception.InvalidTokenException;
 import com.raon.tikitaka.global.security.jwt.JwtProvider;
 import io.jsonwebtoken.Claims;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -30,7 +32,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional
 public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase, LogoutUseCase,
-        CheckUserNameUseCase {
+        CheckUserNameUseCase, WithdrawUseCase {
 
     private final OAuthClientPort oAuthClientPort;
     private final UserRepositoryPort userRepositoryPort;
@@ -105,6 +107,19 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
 
     @Override
     public void logout(UUID userId) {
+        tokenRepositoryPort.deleteByUserId(userId);
+    }
+
+    /**
+     * 회원 탈퇴. 닉네임/소셜 식별자를 익명화하고 refresh token을 지워 즉시 재로그인을 막는다.
+     * 게시물/인벤토리 등은 user_id를 non-null FK로 참조하고 있어 하드 삭제하지 않고
+     * WITHDRAWN 상태로만 남긴다(닉네임이 이미 익명화됐으므로 게시물 작성자 표기도 자동으로 가려진다).
+     */
+    @Override
+    public void withdraw(UUID userId) {
+        Users user = userRepositoryPort.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
+        user.withdraw();
         tokenRepositoryPort.deleteByUserId(userId);
     }
 

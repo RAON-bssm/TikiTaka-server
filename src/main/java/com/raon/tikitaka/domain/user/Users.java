@@ -86,6 +86,12 @@ public class Users {
     @ColumnDefault("0")
     private Integer point;
 
+    /**
+     * 탈퇴 처리 시각. 탈퇴 전에는 null이다.
+     */
+    @Column(name = "withdrawn_at")
+    private LocalDateTime withdrawnAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -201,6 +207,20 @@ public class Users {
 
     public void markDormant() {
         this.status = UserStatus.DORMANT;
+    }
+
+    /**
+     * 회원 탈퇴. 즉시 처리하되 하드 삭제는 하지 않는다 — 게시물/인벤토리 등이
+     * user_id를 non-null FK로 참조하고 있어 완전 삭제는 이 데이터들을 전부 정리해야 해서 위험하다.
+     * 대신 개인 식별 정보(닉네임, 소셜 식별자)를 지워서 익명화하고 상태만 WITHDRAWN으로 바꾼다.
+     * userName은 익명화 후에도 unique 제약을 만족해야 하므로 userId를 붙여 유일성을 보장한다.
+     * providerId도 바꿔서 원래 소셜 계정 식별자를 비워주므로, 같은 소셜 계정으로 재가입(신규 가입)이 가능하다.
+     */
+    public void withdraw() {
+        this.userName = "탈퇴한 사용자_" + this.userId;
+        this.providerId = "WITHDRAWN_" + this.userId;
+        this.status = UserStatus.WITHDRAWN;
+        this.withdrawnAt = LocalDateTime.now();
     }
 
 }

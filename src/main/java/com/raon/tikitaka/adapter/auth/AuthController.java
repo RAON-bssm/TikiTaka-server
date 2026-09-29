@@ -13,6 +13,7 @@ import com.raon.tikitaka.application.auth.in.LoginUseCase;
 import com.raon.tikitaka.application.auth.in.LogoutUseCase;
 import com.raon.tikitaka.application.auth.in.ReissueUseCase;
 import com.raon.tikitaka.application.auth.in.SignupUseCase;
+import com.raon.tikitaka.application.auth.in.WithdrawUseCase;
 import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class AuthController {
     private final ReissueUseCase reissueUseCase;
     private final LogoutUseCase logoutUseCase;
     private final CheckUserNameUseCase checkUserNameUseCase;
+    private final WithdrawUseCase withdrawUseCase;
 
     @PostMapping("/api/login/{provider}")
     public ApiResponse<LoginResponse> login(@PathVariable LoginProvider provider, @RequestBody LoginRequest request) {
@@ -76,5 +78,16 @@ public class AuthController {
     public ApiResponse<Void> logout(@AuthenticationPrincipal UUID userId) {
         logoutUseCase.logout(userId);
         return ApiResponse.of(204, "로그아웃 성공", null);
+    }
+
+    /**
+     * 회원 탈퇴. 즉시 처리되며 되돌릴 수 없다.
+     * 같은 소셜 계정으로 다시 로그인하면 신규 가입으로 처리된다.
+     */
+    @PostMapping("/api/auth/withdraw")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ApiResponse<Void> withdraw(@AuthenticationPrincipal UUID userId) {
+        withdrawUseCase.withdraw(userId);
+        return ApiResponse.of(204, "회원 탈퇴 성공", null);
     }
 }
