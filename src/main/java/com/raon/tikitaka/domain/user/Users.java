@@ -148,6 +148,16 @@ public class Users {
     }
 
     /**
+     * 포인트 적립. 0 이하는 무시한다.
+     */
+    public void earnPoint(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        this.point += amount;
+    }
+
+    /**
      * 지금 있는 지역. 한 번도 옮긴 적이 없거나 컬럼 추가 이전 데이터면 본진을 돌려준다.
      */
     public Location getCurrentLocation() {

@@ -158,11 +158,23 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         // 게시물 작성도 활동이므로 lastActiveAt을 갱신하고 휴면이었다면 ACTIVE로 복귀한다
         author.touch();
 
+        // 게시물 작성 포인트 적립. 삭제해도 회수하지 않는다(이미 상점/뽑기에 썼을 수 있음).
+        // 아래 accrueScores의 upsert가 flush 후 영속성 컨텍스트를 clear하므로 반드시 그 전에 적립해야
+        // 변경 감지로 반영된다
+        author.earnPoint(calculatePostPoint(score));
+
         // 점수 실시간 가산
         accrueScores(board, teamLocation, author, score, locationScored, 1);
 
         // 생성된 id를 돌려준다. 클라이언트가 업로드 직후 상세로 바로 이동할 수 있어야 한다.
         return saved.getPostId();
+    }
+
+    /**
+     * 게시물 작성 포인트. round(AI점수 * K / pointDivisor)
+     */
+    private int calculatePostPoint(int score) {
+        return (int) Math.round(score * rankingProperties.baseMultiplier() / rankingProperties.pointDivisor());
     }
 
     /**
