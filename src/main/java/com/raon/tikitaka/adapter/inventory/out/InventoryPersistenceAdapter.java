@@ -28,4 +28,9 @@ public class InventoryPersistenceAdapter implements InventoryRepositoryPort {
     public Inventory save(Inventory inventory) {
         return inventoryJpaRepository.save(inventory);
     }
+
+    @Override
+    public List<Inventory> saveAll(List<Inventory> inventories) {
+        return inventoryJpaRepository.saveAll(inventories);
+    }
 }

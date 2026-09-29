@@ -12,4 +12,6 @@ public interface InventoryRepositoryPort {
     boolean existsByUserIdAndProductId(UUID userId, String productId);
 
     Inventory save(Inventory inventory);
+
+    List<Inventory> saveAll(List<Inventory> inventories);
 }

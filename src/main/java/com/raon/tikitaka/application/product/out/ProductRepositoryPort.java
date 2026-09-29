@@ -13,4 +13,6 @@ public interface ProductRepositoryPort {
     Optional<Product> findActiveById(String productId);
 
     List<Product> findAllActiveExcludingType(ProductType productType);
+
+    List<Product> findAllActiveFreeItemsExcludingType(ProductType productType);
 }
