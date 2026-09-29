@@ -17,7 +17,9 @@ public record EquipmentResponse(
         EquipmentItemResponse eyes,
         EquipmentItemResponse hairFront,
         EquipmentItemResponse hairBack,
-        EquipmentItemResponse mouth
+        EquipmentItemResponse mouth,
+        String hairColor,
+        String eyesColor
 ) {
 
     public static EquipmentResponse from(EquippedItems equippedItems) {
@@ -27,14 +29,21 @@ public record EquipmentResponse(
         Map<ProductType, Product> byType = products.stream()
                 .collect(Collectors.toMap(Product::getProductType, product -> product, (a, b) -> a));
 
+        // 상품 미장착 상태에서도 유저가 골라둔 색은 항상 볼 수 있도록 최상위 필드로도 내려준다.
+        // (아래 hairFront/hairBack/eyes에 얹히는 색은 그 부위가 실제로 장착돼 있어야만 나온다)
+        Color hairColor = colors.get(ColorGroup.HAIR);
+        Color eyesColor = colors.get(ColorGroup.EYES);
+
         return new EquipmentResponse(
                 toResponse(byType.get(ProductType.BODY), null),
                 toResponse(byType.get(ProductType.ACCESSORY), null),
                 toResponse(byType.get(ProductType.CLOTHING), null),
-                toResponse(byType.get(ProductType.EYES), colors.get(ColorGroup.EYES)),
-                toResponse(byType.get(ProductType.HAIR_FRONT), colors.get(ColorGroup.HAIR)),
-                toResponse(byType.get(ProductType.HAIR_BACK), colors.get(ColorGroup.HAIR)),
-                toResponse(byType.get(ProductType.MOUTH), null)
+                toResponse(byType.get(ProductType.EYES), eyesColor),
+                toResponse(byType.get(ProductType.HAIR_FRONT), hairColor),
+                toResponse(byType.get(ProductType.HAIR_BACK), hairColor),
+                toResponse(byType.get(ProductType.MOUTH), null),
+                hairColor != null ? hairColor.getColorCode() : null,
+                eyesColor != null ? eyesColor.getColorCode() : null
         );
     }
 
