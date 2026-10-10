@@ -6,11 +6,19 @@ import com.raon.tikitaka.application.chat.in.GetChatHistoryUseCase;
 import com.raon.tikitaka.application.chat.in.GetChatbotListUseCase;
 import com.raon.tikitaka.application.chat.in.SendChatUseCase;
 import com.raon.tikitaka.application.chat.out.ChatClientPort;
+import com.raon.tikitaka.application.chat.out.ChatbotEquipmentRepositoryPort;
+import com.raon.tikitaka.application.chat.out.ChatbotEquippedColorRepositoryPort;
 import com.raon.tikitaka.application.chat.out.ChatMessageRepositoryPort;
 import com.raon.tikitaka.application.chat.out.ChatbotRepositoryPort;
+import com.raon.tikitaka.application.equipment.EquippedItems;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.chat.ChatMessage;
 import com.raon.tikitaka.domain.chat.Chatbot;
+import com.raon.tikitaka.domain.chat.ChatbotEquipment;
+import com.raon.tikitaka.domain.chat.ChatbotEquippedColor;
+import com.raon.tikitaka.domain.color.Color;
+import com.raon.tikitaka.domain.enums.ColorGroup;
+import com.raon.tikitaka.domain.product.Product;
 import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.ChatbotProperties;
@@ -26,9 +34,13 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 챗봇 대화 서비스. 스프링의 역할은 중계와 이력 관리다.
@@ -48,6 +60,8 @@ public class ChatService implements SendChatUseCase, GetChatHistoryUseCase,
     private final ChatbotRepositoryPort chatbotRepositoryPort;
     private final ChatMessageRepositoryPort chatMessageRepositoryPort;
     private final ChatClientPort chatClientPort;
+    private final ChatbotEquipmentRepositoryPort chatbotEquipmentRepositoryPort;
+    private final ChatbotEquippedColorRepositoryPort chatbotEquippedColorRepositoryPort;
     private final ChatbotProperties chatbotProperties;
     private final ObjectMapper objectMapper;
 
@@ -99,14 +113,35 @@ public class ChatService implements SendChatUseCase, GetChatHistoryUseCase,
 
     @Override
     public List<ChatbotSummary> getChatbots(UUID userId) {
+        List<Chatbot> chatbots = chatbotRepositoryPort.findAllActive();
+        List<String> chatbotIds = chatbots.stream().map(Chatbot::getChatbotId).toList();
+
+        // 장비는 지도에 챗봇 전체를 한 번에 그리므로 챗봇 수와 무관하게 쿼리 2번으로 묶어 가져온다
+        Map<String, List<Product>> productsByChatbot = chatbotEquipmentRepositoryPort.findAllByChatbotIds(chatbotIds).stream()
+                .collect(Collectors.groupingBy(
+                        equipment -> equipment.getChatbot().getChatbotId(),
+                        Collectors.mapping(ChatbotEquipment::getProduct, Collectors.toList())
+                ));
+        Map<String, Map<ColorGroup, Color>> colorsByChatbot = new HashMap<>();
+        for (ChatbotEquippedColor equippedColor : chatbotEquippedColorRepositoryPort.findAllByChatbotIds(chatbotIds)) {
+            colorsByChatbot
+                    .computeIfAbsent(equippedColor.getChatbot().getChatbotId(), id -> new EnumMap<>(ColorGroup.class))
+                    .put(equippedColor.getColorGroup(), equippedColor.getColor());
+        }
+
         List<ChatbotSummary> summaries = new ArrayList<>();
-        for (Chatbot chatbot : chatbotRepositoryPort.findAllActive()) {
+        for (Chatbot chatbot : chatbots) {
             // 챗봇 수가 적어 건별 조회로 충분하다. 늘어나면 lateral join 한 방으로 바꾼다
             Optional<ChatMessage> latest = chatMessageRepositoryPort.findLatest(userId, chatbot.getChatbotId());
+            EquippedItems equipment = new EquippedItems(
+                    productsByChatbot.getOrDefault(chatbot.getChatbotId(), List.of()),
+                    colorsByChatbot.getOrDefault(chatbot.getChatbotId(), Map.of())
+            );
             summaries.add(new ChatbotSummary(
                     chatbot,
                     latest.map(ChatMessage::getContent).orElse(null),
-                    latest.map(ChatMessage::getCreatedAt).orElse(null)
+                    latest.map(ChatMessage::getCreatedAt).orElse(null),
+                    equipment
             ));
         }
         return summaries;
