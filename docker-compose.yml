@@ -24,5 +24,8 @@ services:
       CHATBOT_MODE: ${CHATBOT_MODE:-simple}
       CHATBOT_BASE_URL: ${CHATBOT_BASE_URL:-http://ai:8000}
       DORMANT_DAYS: ${DORMANT_DAYS:-7}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      REPORT_ADMIN_EMAIL: ${REPORT_ADMIN_EMAIL:-raon.bssm@gmail.com}
 
 
