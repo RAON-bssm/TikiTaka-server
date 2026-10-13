@@ -6,6 +6,7 @@ import com.raon.tikitaka.adapter.auth.dto.ReissueRequest;
 import com.raon.tikitaka.adapter.auth.dto.SignupRequest;
 import com.raon.tikitaka.adapter.auth.dto.TokenResponse;
 import com.raon.tikitaka.adapter.auth.dto.UserNameAvailabilityResponse;
+import com.raon.tikitaka.adapter.auth.dto.WithdrawRequest;
 import com.raon.tikitaka.application.auth.LoginResult;
 import com.raon.tikitaka.application.auth.TokenResult;
 import com.raon.tikitaka.application.auth.in.CheckUserNameUseCase;
@@ -83,11 +84,14 @@ public class AuthController {
     /**
      * 회원 탈퇴. 즉시 처리되며 되돌릴 수 없다.
      * 같은 소셜 계정으로 다시 로그인하면 신규 가입으로 처리된다.
+     * Apple 유저는 바디에 authorization_code가 필요하다(탈퇴 직전 Apple 재인증으로 받은 코드).
+     * 카카오/구글 유저는 기존처럼 바디 없이 호출한다.
      */
     @PostMapping("/api/auth/withdraw")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ApiResponse<Void> withdraw(@AuthenticationPrincipal UUID userId) {
-        withdrawUseCase.withdraw(userId);
+    public ApiResponse<Void> withdraw(@AuthenticationPrincipal UUID userId,
+                                      @RequestBody(required = false) WithdrawRequest request) {
+        withdrawUseCase.withdraw(userId, request == null ? null : request.authorizationCode());
         return ApiResponse.of(204, "회원 탈퇴 성공", null);
     }
 }

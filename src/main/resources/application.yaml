@@ -49,6 +49,10 @@ chatbot:
 
 apple:
   client-id: ${APPLE_CLIENT_ID}   # identity token의 aud와 비교할 앱 번들 ID
+  # 아래 3개는 탈퇴 시 Apple 연동 해지(revoke)용. 비어 있어도 기동은 되고, Apple 유저 탈퇴만 500으로 실패한다
+  team-id: ${APPLE_TEAM_ID:}         # Apple Developer Team ID
+  key-id: ${APPLE_KEY_ID:}           # Sign in with Apple 키의 Key ID
+  private-key: ${APPLE_PRIVATE_KEY:} # .p8 파일 내용 그대로 (BEGIN/END 줄 포함)
 
 jwt:
   secret: ${JWT_SECRET}
