@@ -23,7 +23,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class ReportService implements ReportPostUseCase, ReportUserUseCase {
 
-    static final int DETAIL_MAX_LENGTH = 200;
+    static final int DETAIL_MAX_LENGTH = 10000;
 
     private final ReportRepositoryPort reportRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;

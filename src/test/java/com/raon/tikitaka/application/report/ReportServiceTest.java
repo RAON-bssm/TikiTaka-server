@@ -96,8 +96,8 @@ class ReportServiceTest {
     }
 
     @Test
-    void detail이_200자를_넘으면_400() {
-        assertStatus(() -> reportService.reportPost(reporterId, postId, ReportReason.ABUSE, "가".repeat(201)),
+    void detail이_10000자를_넘으면_400() {
+        assertStatus(() -> reportService.reportPost(reporterId, postId, ReportReason.ABUSE, "가".repeat(10001)),
                 HttpStatus.BAD_REQUEST);
     }
 

@@ -28,7 +28,7 @@ public class ReportMailNotifier {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss (VV)");
-    private static final int DETAIL_PREVIEW_LENGTH = 200;
+    private static final int DETAIL_PREVIEW_LENGTH = 10000;
 
     private final JavaMailSender mailSender;
     private final String adminEmail;
