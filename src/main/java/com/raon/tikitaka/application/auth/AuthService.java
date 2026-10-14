@@ -6,6 +6,7 @@ import com.raon.tikitaka.application.auth.in.LogoutUseCase;
 import com.raon.tikitaka.application.auth.in.ReissueUseCase;
 import com.raon.tikitaka.application.auth.in.SignupUseCase;
 import com.raon.tikitaka.application.auth.in.WithdrawUseCase;
+import com.raon.tikitaka.application.auth.out.AppleRevokePort;
 import com.raon.tikitaka.application.auth.out.OAuthClientPort;
 import com.raon.tikitaka.application.inventory.out.InventoryRepositoryPort;
 import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -41,6 +43,7 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
         CheckUserNameUseCase, WithdrawUseCase {
 
     private final OAuthClientPort oAuthClientPort;
+    private final AppleRevokePort appleRevokePort;
     private final UserRepositoryPort userRepositoryPort;
     private final TokenRepositoryPort tokenRepositoryPort;
     private final LocationRepositoryPort locationRepositoryPort;
@@ -135,11 +138,21 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
      * 회원 탈퇴. 닉네임/소셜 식별자를 익명화하고 refresh token을 지워 즉시 재로그인을 막는다.
      * 게시물/인벤토리 등은 user_id를 non-null FK로 참조하고 있어 하드 삭제하지 않고
      * WITHDRAWN 상태로만 남긴다(닉네임이 이미 익명화됐으므로 게시물 작성자 표기도 자동으로 가려진다).
+     *
+     * Apple 유저는 Apple 연동 해지(revoke)를 먼저 한다. 해지가 실패하면 예외로 끝나 DB는 바뀌지 않으므로
+     * 앱은 Apple 재인증으로 새 code를 받아 다시 시도하면 된다.
      */
     @Override
-    public void withdraw(UUID userId) {
+    public void withdraw(UUID userId, String authorizationCode) {
         Users user = userRepositoryPort.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 유저입니다."));
+        if (user.getProvider() == LoginProvider.APPLE) {
+            if (!StringUtils.hasText(authorizationCode)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Apple 계정은 탈퇴 시 Apple 재인증이 필요합니다.");
+            }
+            // user.withdraw()가 providerId를 익명화하기 전에, 원래 Apple 식별자로 본인 확인을 해야 한다
+            appleRevokePort.revoke(authorizationCode, user.getProviderId());
+        }
         user.withdraw();
         tokenRepositoryPort.deleteByUserId(userId);
     }

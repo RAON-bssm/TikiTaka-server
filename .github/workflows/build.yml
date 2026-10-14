@@ -36,6 +36,7 @@ jobs:
       AWS_S3_BUCKET_NAME: test-bucket
       GEMINI_API_KEY: test
       GEMINI_PROMPT: test
+      APPLE_CLIENT_ID: com.example.test
 
     steps:
       - name: Checkout

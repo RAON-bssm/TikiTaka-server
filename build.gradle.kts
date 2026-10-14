@@ -32,6 +32,9 @@ dependencies {
 	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
 	runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
 
+	// Apple identity token 검증 (JWKS 기반 서명 검증)
+	implementation("org.springframework.security:spring-security-oauth2-jose")
+
 	// WebClient (소셜 로그인 유저정보 조회 · Gemini 호출)
 	implementation("org.springframework:spring-webflux")
 	implementation("io.projectreactor.netty:reactor-netty-http")
