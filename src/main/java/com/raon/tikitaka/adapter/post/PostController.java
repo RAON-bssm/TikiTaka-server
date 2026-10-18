@@ -16,6 +16,7 @@ import com.raon.tikitaka.application.board.in.GetBoardUseCase;
 import com.raon.tikitaka.application.review.AiReviewResult;
 import com.raon.tikitaka.application.review.in.ReviewUseCase;
 import com.raon.tikitaka.application.storage.in.StorageUseCase;
+import com.raon.tikitaka.global.guard.RequestGuard;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -55,6 +56,7 @@ public class PostController {
     private final StorageUseCase storageUseCase;
     private final ReviewUseCase reviewUseCase;
     private final GetBoardUseCase getBoardUseCase;
+    private final RequestGuard requestGuard;
 
     /**
      * GET /api/post/**는 SecurityConfig에서 permitAll이라 비로그인 조회 시
@@ -76,15 +78,19 @@ public class PostController {
         return ApiResponse.of(200, "게시물 조회 성공", response);
     }
 
+    /**
+     * 같은 게시물에 대한 좋아요·취소는 같은 키를 공유하고, 겹치면 앞선 요청이 끝난 뒤 순서대로 실행한다.
+     * 좋아요를 누르자마자 취소를 눌러도 취소 요청이 버려지지 않고, 마지막에 누른 쪽이 최종 상태가 된다.
+     */
     @PostMapping("/{postId:" + UUID_PATTERN + "}/like")
     public ApiResponse<Void> like(@AuthenticationPrincipal UUID userId, @PathVariable UUID postId) {
-        likePostUseCase.like(postId, userId);
+        requestGuard.executeWaiting(likeKey(userId, postId), LIKE_BUSY_MESSAGE, () -> likePostUseCase.like(postId, userId));
         return ApiResponse.of(200, "좋아요 성공", null);
     }
 
     @DeleteMapping("/{postId:" + UUID_PATTERN + "}/like")
     public ApiResponse<Void> unlike(@AuthenticationPrincipal UUID userId, @PathVariable UUID postId) {
-        unlikePostUseCase.unlike(postId, userId);
+        requestGuard.executeWaiting(likeKey(userId, postId), LIKE_BUSY_MESSAGE, () -> unlikePostUseCase.unlike(postId, userId));
         return ApiResponse.of(200, "좋아요 취소 성공", null);
     }
 
@@ -94,16 +100,24 @@ public class PostController {
             @AuthenticationPrincipal UUID authorId,
             @ModelAttribute CreatePostRequest request
     ) {
-        MultipartFile image = validateImage(request.image());
-        byte[] imageBytes = readImageBytes(image);
+        // 업로드 버튼 더블탭으로 S3 업로드·AI 심사·포인트 적립·점수 가산이 두 번 일어나지 않도록 본문 전체를 감싼다
+        UUID postId = requestGuard.execute("post-create:" + authorId, "게시물을 등록하는 중이에요.", () -> {
+            MultipartFile image = validateImage(request.image());
+            byte[] imageBytes = readImageBytes(image);
 
-        // 작성자가 지금 있는 동네 기준으로 게시판 접근을 검증한다. 종료된 라운드나 다른 동네 게시판이면 404
-        String mission = getBoardUseCase.getMission(request.boardId(), authorId);
-        String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
-        AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());
-        int score = validateScore(review.score());
+            // 작성자가 지금 있는 동네 기준으로 게시판 접근을 검증한다. 종료된 라운드나 다른 동네 게시판이면 404
+            String mission = getBoardUseCase.getMission(request.boardId(), authorId);
+            String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
+            AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());
+            int score = validateScore(review.score());
 
-        UUID postId = createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score, review.review());
+            // 포인트 적립이 일어나는 구간만 포인트 키로 감싼다. 처리 시간이 긴 업로드·AI 호출 동안
+            // 상점 구매나 뽑기까지 막지 않기 위해서다. 이 시점엔 S3 업로드와 AI 호출 비용을 이미 썼으므로
+            // 겹친 구매·뽑기(수십 ms)가 끝나길 기다렸다가 등록하고, 바로 거절하지 않는다
+            return requestGuard.executeWaiting(RequestGuard.pointsKey(authorId), RequestGuard.POINTS_BUSY_MESSAGE,
+                    () -> createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score,
+                            review.review()));
+        });
         return ApiResponse.of(201, "게시물 생성 성공", CreatePostResponse.of(postId));
     }
 
@@ -126,8 +140,16 @@ public class PostController {
             Authentication authentication,
             @PathVariable UUID postId
     ) {
-        deletePostUseCase.deletePost(postId, requesterId, isAdmin(authentication));
+        // 동시에 두 번 들어오면 둘 다 활성으로 읽고 점수를 두 번 차감한다. 작성자와 관리자가 겹칠 수도 있어 게시물 기준 키다
+        requestGuard.execute("post-delete:" + postId, "게시물을 삭제하는 중이에요.",
+                () -> deletePostUseCase.deletePost(postId, requesterId, isAdmin(authentication)));
         return ApiResponse.of(204, "게시물 삭제 성공", null);
+    }
+
+    private static final String LIKE_BUSY_MESSAGE = "이전 좋아요 요청을 처리하는 중이에요.";
+
+    private static String likeKey(UUID userId, UUID postId) {
+        return "like:" + userId + ":" + postId;
     }
 
     /**

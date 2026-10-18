@@ -74,6 +74,12 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
         LoginProvider provider = LoginProvider.valueOf(claims.get("provider", String.class));
         String providerId = claims.getSubject();
 
+        // 같은 소셜 계정으로 이미 가입했으면 닉네임 검사보다 먼저 알려준다. 가입을 두 번 보낸 같은 사용자가
+        // "이미 사용 중인 닉네임"이라는 엉뚱한 메시지를 받지 않게 하기 위해서다
+        if (userRepositoryPort.findByProviderAndProviderId(provider, providerId).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 계정입니다.");
+        }
+
         if (userRepositoryPort.existsByUserName(userName)) {
             throw new DuplicateUserNameException(userName);
         }
