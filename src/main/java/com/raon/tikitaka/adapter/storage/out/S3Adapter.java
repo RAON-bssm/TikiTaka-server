@@ -6,9 +6,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.DeleteObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
@@ -71,6 +73,22 @@ public class S3Adapter implements StoragePort {
                 .uri(URI.create(presignedUrl.toString()))
                 .contentType(mediaType)
                 .bodyValue(content)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+    }
+
+    /** 업로드와 같은 방식으로 짧게 유효한 서명 URL을 만들어 DELETE한다. 서버 자격 증명에 s3:DeleteObject 권한이 필요하다 */
+    @Override
+    public void delete(String key) {
+        DeleteObjectPresignRequest presignRequest = DeleteObjectPresignRequest.builder()
+                .signatureDuration(SERVER_UPLOAD_SIGNATURE_DURATION)
+                .deleteObjectRequest(DeleteObjectRequest.builder().bucket(bucket).key(key).build())
+                .build();
+        URL presignedUrl = s3Presigner.presignDeleteObject(presignRequest).url();
+
+        webClient.delete()
+                .uri(URI.create(presignedUrl.toString()))
                 .retrieve()
                 .toBodilessEntity()
                 .block();

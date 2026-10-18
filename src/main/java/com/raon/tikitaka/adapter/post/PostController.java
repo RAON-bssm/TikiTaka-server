@@ -108,15 +108,22 @@ public class PostController {
             // 작성자가 지금 있는 동네 기준으로 게시판 접근을 검증한다. 종료된 라운드나 다른 동네 게시판이면 404
             String mission = getBoardUseCase.getMission(request.boardId(), authorId);
             String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
-            AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());
-            int score = validateScore(review.score());
+            // 업로드 뒤 어느 단계에서 실패하든(AI 심사, 점수 검증, 포인트 대기, 저장) 게시물 없이 이미지만 S3에 남지 않도록
+            // 치운다. 정리가 실패해도 원래 예외를 그대로 던진다
+            try {
+                AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());
+                int score = validateScore(review.score());
 
-            // 포인트 적립이 일어나는 구간만 포인트 키로 감싼다. 처리 시간이 긴 업로드·AI 호출 동안
-            // 상점 구매나 뽑기까지 막지 않기 위해서다. 이 시점엔 S3 업로드와 AI 호출 비용을 이미 썼으므로
-            // 겹친 구매·뽑기(수십 ms)가 끝나길 기다렸다가 등록하고, 바로 거절하지 않는다
-            return requestGuard.executeWaiting(RequestGuard.pointsKey(authorId), RequestGuard.POINTS_BUSY_MESSAGE,
-                    () -> createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score,
-                            review.review()));
+                // 포인트 적립이 일어나는 구간만 포인트 키로 감싼다. 처리 시간이 긴 업로드·AI 호출 동안
+                // 상점 구매나 뽑기까지 막지 않기 위해서다. 이 시점엔 S3 업로드와 AI 호출 비용을 이미 썼으므로
+                // 겹친 구매·뽑기(수십 ms)가 끝나길 기다렸다가 등록하고, 바로 거절하지 않는다
+                return requestGuard.executeWaiting(RequestGuard.pointsKey(authorId), RequestGuard.POINTS_BUSY_MESSAGE,
+                        () -> createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score,
+                                review.review()));
+            } catch (RuntimeException e) {
+                storageUseCase.deleteImageQuietly(key);
+                throw e;
+            }
         });
         return ApiResponse.of(201, "게시물 생성 성공", CreatePostResponse.of(postId));
     }

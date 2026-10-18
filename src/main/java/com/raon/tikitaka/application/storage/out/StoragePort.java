@@ -10,4 +10,6 @@ public interface StoragePort {
     URL issueViewUrl(String key, Duration expiration);
 
     void upload(String key, byte[] content, String contentType);
+
+    void delete(String key);
 }
