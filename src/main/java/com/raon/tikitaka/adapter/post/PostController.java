@@ -79,19 +79,18 @@ public class PostController {
     }
 
     /**
-     * 좋아요/취소는 idempotent로 설계됐고 앱은 낙관적 UI를 쓴다. 그래서 같은 게시물에 대한
-     * 좋아요·취소가 처리 중일 때 겹친 요청은 409 대신 실행하지 않고 성공으로 응답한다.
-     * 좋아요와 취소는 같은 키를 공유한다.
+     * 같은 게시물에 대한 좋아요·취소는 같은 키를 공유하고, 겹치면 앞선 요청이 끝난 뒤 순서대로 실행한다.
+     * 좋아요를 누르자마자 취소를 눌러도 취소 요청이 버려지지 않고, 마지막에 누른 쪽이 최종 상태가 된다.
      */
     @PostMapping("/{postId:" + UUID_PATTERN + "}/like")
     public ApiResponse<Void> like(@AuthenticationPrincipal UUID userId, @PathVariable UUID postId) {
-        requestGuard.runIfIdle(likeKey(userId, postId), () -> likePostUseCase.like(postId, userId));
+        requestGuard.executeWaiting(likeKey(userId, postId), LIKE_BUSY_MESSAGE, () -> likePostUseCase.like(postId, userId));
         return ApiResponse.of(200, "좋아요 성공", null);
     }
 
     @DeleteMapping("/{postId:" + UUID_PATTERN + "}/like")
     public ApiResponse<Void> unlike(@AuthenticationPrincipal UUID userId, @PathVariable UUID postId) {
-        requestGuard.runIfIdle(likeKey(userId, postId), () -> unlikePostUseCase.unlike(postId, userId));
+        requestGuard.executeWaiting(likeKey(userId, postId), LIKE_BUSY_MESSAGE, () -> unlikePostUseCase.unlike(postId, userId));
         return ApiResponse.of(200, "좋아요 취소 성공", null);
     }
 
@@ -113,8 +112,9 @@ public class PostController {
             int score = validateScore(review.score());
 
             // 포인트 적립이 일어나는 구간만 포인트 키로 감싼다. 처리 시간이 긴 업로드·AI 호출 동안
-            // 상점 구매나 뽑기까지 막지 않기 위해서다
-            return requestGuard.execute(RequestGuard.pointsKey(authorId), RequestGuard.POINTS_BUSY_MESSAGE,
+            // 상점 구매나 뽑기까지 막지 않기 위해서다. 이 시점엔 S3 업로드와 AI 호출 비용을 이미 썼으므로
+            // 겹친 구매·뽑기(수십 ms)가 끝나길 기다렸다가 등록하고, 바로 거절하지 않는다
+            return requestGuard.executeWaiting(RequestGuard.pointsKey(authorId), RequestGuard.POINTS_BUSY_MESSAGE,
                     () -> createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score,
                             review.review()));
         });
@@ -145,6 +145,8 @@ public class PostController {
                 () -> deletePostUseCase.deletePost(postId, requesterId, isAdmin(authentication)));
         return ApiResponse.of(204, "게시물 삭제 성공", null);
     }
+
+    private static final String LIKE_BUSY_MESSAGE = "이전 좋아요 요청을 처리하는 중이에요.";
 
     private static String likeKey(UUID userId, UUID postId) {
         return "like:" + userId + ":" + postId;

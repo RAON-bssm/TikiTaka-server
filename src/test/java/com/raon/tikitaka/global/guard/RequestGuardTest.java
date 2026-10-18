@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -90,28 +93,97 @@ class RequestGuardTest {
     void 정상_종료_후에도_키가_해제된다() {
         assertThat(guard.execute("k", "처리 중", () -> 1)).isEqualTo(1);
         assertThat(guard.execute("k", "처리 중", () -> 2)).isEqualTo(2);
-        assertThat(guard.runIfIdle("k", () -> { })).isTrue();
-        assertThat(guard.runIfIdle("k", () -> { })).isTrue();
+        assertThat(guard.executeWaiting("k", "처리 중", () -> 3)).isEqualTo(3);
+        assertThat(guard.trackedKeyCount()).isZero();
     }
 
     @Test
-    void runIfIdle은_처리_중인_키면_실행하지_않고_false를_돌려준다() throws Exception {
+    void executeWaiting은_앞선_요청이_끝난_뒤_먼저_온_순서대로_실행한다() throws Exception {
+        CountDownLatch firstStarted = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        List<String> order = Collections.synchronizedList(new ArrayList<>());
+        ExecutorService pool = Executors.newFixedThreadPool(3);
+        try {
+            Future<?> first = pool.submit(() -> guard.executeWaiting("k", "처리 중", () -> {
+                firstStarted.countDown();
+                await(releaseFirst);
+                order.add("first");
+            }));
+            assertThat(firstStarted.await(5, TimeUnit.SECONDS)).isTrue();
+
+            Future<?> second = pool.submit(() -> guard.executeWaiting("k", "처리 중", () -> order.add("second")));
+            // second가 락 대기열에 들어간 뒤에 third가 도착하도록 순서를 만든다
+            waitUntilQueued(guard, "k", 1);
+            Future<?> third = pool.submit(() -> guard.executeWaiting("k", "처리 중", () -> order.add("third")));
+            waitUntilQueued(guard, "k", 2);
+
+            // 앞선 요청이 끝나기 전에는 뒤 요청이 실행되지 않는다
+            assertThat(order).isEmpty();
+
+            releaseFirst.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+            third.get(5, TimeUnit.SECONDS);
+
+            assertThat(order).containsExactly("first", "second", "third");
+            assertThat(guard.trackedKeyCount()).isZero();
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void executeWaiting이_기다리는_동안_execute는_바로_409로_거절된다() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        AtomicInteger executions = new AtomicInteger();
-
-        CompletableFuture<Boolean> first = CompletableFuture.supplyAsync(() -> guard.runIfIdle("k", () -> {
-            executions.incrementAndGet();
+        CompletableFuture<Void> first = CompletableFuture.runAsync(() -> guard.executeWaiting("k", "처리 중", () -> {
             started.countDown();
             await(release);
         }));
         assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
 
-        assertThat(guard.runIfIdle("k", executions::incrementAndGet)).isFalse();
+        assertThatThrownBy(() -> guard.execute("k", "처리 중", () -> "x"))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
 
         release.countDown();
-        assertThat(first.get(5, TimeUnit.SECONDS)).isTrue();
-        assertThat(executions).hasValue(1);
+        first.get(5, TimeUnit.SECONDS);
+    }
+
+    /**
+     * 거절은 다른 스레드에서 해야 한다. ReentrantLock은 재진입이 되므로 락을 쥔 스레드가
+     * 같은 키로 다시 execute하면 거절되지 않고 그대로 실행된다.
+     */
+    @Test
+    void 거절된_뒤에도_키가_정리된다() throws Exception {
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CompletableFuture<Void> holder = CompletableFuture.runAsync(() -> guard.execute("k", "처리 중", () -> {
+            started.countDown();
+            await(release);
+        }));
+        assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+
+        assertThatThrownBy(() -> guard.execute("k", "처리 중", () -> 1))
+                .isInstanceOf(ResponseStatusException.class);
+
+        release.countDown();
+        holder.get(5, TimeUnit.SECONDS);
+        assertThat(guard.trackedKeyCount()).isZero();
+    }
+
+    /**
+     * key의 락 대기열에 expected개가 들어갈 때까지 기다린다. 고정 sleep을 쓰면 느린 환경에서
+     * 대기열 진입 전에 다음 단계로 넘어가 순서 검증이 가끔 깨진다.
+     */
+    private static void waitUntilQueued(RequestGuard guard, String key, int expected) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (guard.queuedCount(key) < expected) {
+            if (System.nanoTime() > deadline) {
+                throw new IllegalStateException("대기열 진입 timeout: " + key);
+            }
+            Thread.sleep(5);
+        }
     }
 
     private static void await(CountDownLatch latch) {

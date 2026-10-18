@@ -17,6 +17,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -28,7 +31,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -80,26 +82,34 @@ class PostControllerGuardTest {
     }
 
     @Test
-    void 처리_중인_좋아요와_겹친_요청은_실행하지_않고_200() throws Exception {
+    void 좋아요_처리_중에_취소를_누르면_버려지지_않고_좋아요_뒤에_실행된다() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
+        List<String> order = Collections.synchronizedList(new ArrayList<>());
         doAnswer(inv -> {
             started.countDown();
             release.await(5, TimeUnit.SECONDS);
+            order.add("like");
             return null;
         }).when(likePostUseCase).like(postId, userId);
+        doAnswer(inv -> {
+            order.add("unlike");
+            return null;
+        }).when(unlikePostUseCase).unlike(postId, userId);
 
-        CompletableFuture<ApiResponse<Void>> first =
+        CompletableFuture<ApiResponse<Void>> like =
                 CompletableFuture.supplyAsync(() -> controller.like(userId, postId));
         assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
 
-        // 좋아요·취소는 같은 키를 공유한다
-        assertThat(controller.like(userId, postId).status()).isEqualTo(200);
-        assertThat(controller.unlike(userId, postId).status()).isEqualTo(200);
+        CompletableFuture<ApiResponse<Void>> unlike =
+                CompletableFuture.supplyAsync(() -> controller.unlike(userId, postId));
+        Thread.sleep(100);
+        // 좋아요가 끝나기 전에는 취소가 실행되지 않고 기다린다
+        assertThat(order).isEmpty();
 
         release.countDown();
-        assertThat(first.get(5, TimeUnit.SECONDS).status()).isEqualTo(200);
-        verify(likePostUseCase, times(1)).like(postId, userId);
-        verify(unlikePostUseCase, never()).unlike(any(), any());
+        assertThat(like.get(5, TimeUnit.SECONDS).status()).isEqualTo(200);
+        assertThat(unlike.get(5, TimeUnit.SECONDS).status()).isEqualTo(200);
+        assertThat(order).containsExactly("like", "unlike");
     }
 }
