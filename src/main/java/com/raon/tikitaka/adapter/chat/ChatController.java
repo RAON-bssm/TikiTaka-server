@@ -10,6 +10,7 @@ import com.raon.tikitaka.application.chat.in.CheckChatHealthUseCase;
 import com.raon.tikitaka.application.chat.in.ClearChatUseCase;
 import com.raon.tikitaka.application.chat.in.GetChatHistoryUseCase;
 import com.raon.tikitaka.application.chat.in.SendChatUseCase;
+import com.raon.tikitaka.global.guard.RequestGuard;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -41,6 +42,7 @@ public class ChatController {
     private final GetChatHistoryUseCase getChatHistoryUseCase;
     private final ClearChatUseCase clearChatUseCase;
     private final CheckChatHealthUseCase checkChatHealthUseCase;
+    private final RequestGuard requestGuard;
 
     @PostMapping
     public ApiResponse<ChatAnswerResponse> send(
@@ -48,7 +50,10 @@ public class ChatController {
             @RequestParam("chatbot_id") String chatbotId,
             @RequestBody ChatRequest request
     ) {
-        ChatMessageView answer = sendChatUseCase.send(userId, chatbotId, request.message());
+        // 요청 한 번이 AI 호출 한 번(최대 120초)이라 더블탭이면 호출과 저장이 두 번 일어난다
+        ChatMessageView answer = requestGuard.execute("chat:" + userId + ":" + chatbotId,
+                "이전 메시지의 답변을 기다리는 중이에요.",
+                () -> sendChatUseCase.send(userId, chatbotId, request.message()));
         return ApiResponse.of(200, "질문 전송 성공", ChatAnswerResponse.from(answer));
     }
 

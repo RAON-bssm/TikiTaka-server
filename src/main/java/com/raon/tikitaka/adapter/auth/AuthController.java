@@ -16,6 +16,7 @@ import com.raon.tikitaka.application.auth.in.ReissueUseCase;
 import com.raon.tikitaka.application.auth.in.SignupUseCase;
 import com.raon.tikitaka.application.auth.in.WithdrawUseCase;
 import com.raon.tikitaka.domain.enums.LoginProvider;
+import com.raon.tikitaka.global.guard.RequestGuard;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.UUID;
 
 @RestController
@@ -40,6 +45,7 @@ public class AuthController {
     private final LogoutUseCase logoutUseCase;
     private final CheckUserNameUseCase checkUserNameUseCase;
     private final WithdrawUseCase withdrawUseCase;
+    private final RequestGuard requestGuard;
 
     @PostMapping("/api/login/{provider}")
     public ApiResponse<LoginResponse> login(@PathVariable LoginProvider provider, @RequestBody LoginRequest request) {
@@ -64,7 +70,9 @@ public class AuthController {
 
     @PostMapping("/api/auth/signup")
     public ApiResponse<TokenResponse> signup(@RequestBody SignupRequest request) {
-        TokenResult result = signupUseCase.signup(request.signupToken(), request.userName(), request.mainLocationId());
+        // permitAll이라 userId가 없다. 가입 토큰이 곧 가입 시도 하나를 가리키므로 토큰 해시로 키를 잡는다
+        TokenResult result = requestGuard.execute("signup:" + sha256(request.signupToken()), "가입을 처리하는 중이에요.",
+                () -> signupUseCase.signup(request.signupToken(), request.userName(), request.mainLocationId()));
         return ApiResponse.of(200, "회원가입 성공", new TokenResponse(result.accessToken(), result.refreshToken()));
     }
 
@@ -93,5 +101,18 @@ public class AuthController {
                                       @RequestBody(required = false) WithdrawRequest request) {
         withdrawUseCase.withdraw(userId, request == null ? null : request.authorizationCode());
         return ApiResponse.of(204, "회원 탈퇴 성공", null);
+    }
+
+    /**
+     * 가입 토큰 원문을 메모리에 들고 있지 않도록 해시로 바꿔 가드 키에 쓴다.
+     */
+    private static String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(String.valueOf(value).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256을 사용할 수 없습니다.", e);
+        }
     }
 }

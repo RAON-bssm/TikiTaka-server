@@ -8,6 +8,7 @@ import com.raon.tikitaka.application.gashapon.GashaponDrawResult;
 import com.raon.tikitaka.application.gashapon.in.DrawGashaponUseCase;
 import com.raon.tikitaka.application.product.in.GetProductListUseCase;
 import com.raon.tikitaka.application.product.in.PurchaseProductUseCase;
+import com.raon.tikitaka.global.guard.RequestGuard;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,7 @@ public class ProductController {
     private final GetProductListUseCase getProductListUseCase;
     private final PurchaseProductUseCase purchaseProductUseCase;
     private final DrawGashaponUseCase drawGashaponUseCase;
+    private final RequestGuard requestGuard;
 
     @GetMapping
     public ApiResponse<ProductListResponse> getProducts(@AuthenticationPrincipal UUID userId) {
@@ -40,13 +42,16 @@ public class ProductController {
     @PatchMapping("/store")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> purchase(@AuthenticationPrincipal UUID userId, @RequestBody PurchaseProductRequest request) {
-        purchaseProductUseCase.purchase(userId, request.productId());
+        // 포인트를 바꾸는 경로는 모두 같은 키를 쓴다. 겹치면 Users.point 갱신 하나가 사라진다
+        requestGuard.execute(RequestGuard.pointsKey(userId), RequestGuard.POINTS_BUSY_MESSAGE,
+                () -> purchaseProductUseCase.purchase(userId, request.productId()));
         return ApiResponse.of(201, "상품 구매 성공", null);
     }
 
     @PatchMapping("/gashapon")
     public ApiResponse<GashaponDrawResponse> drawGashapon(@AuthenticationPrincipal UUID userId, @RequestBody GashaponDrawRequest request) {
-        List<GashaponDrawResult> results = drawGashaponUseCase.draw(userId, request.productId());
+        List<GashaponDrawResult> results = requestGuard.execute(RequestGuard.pointsKey(userId),
+                RequestGuard.POINTS_BUSY_MESSAGE, () -> drawGashaponUseCase.draw(userId, request.productId()));
         return ApiResponse.of(201, "장비 뽑기 성공", GashaponDrawResponse.from(results));
     }
 }
