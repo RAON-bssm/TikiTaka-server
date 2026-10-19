@@ -8,6 +8,7 @@ import com.raon.tikitaka.domain.block.UserBlock;
 import com.raon.tikitaka.domain.enums.UserStatus;
 import com.raon.tikitaka.domain.user.Users;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class BlockService implements BlockUserUseCase, UnblockUserUseCase, GetBlockedUsersUseCase {
 
     private final BlockRepositoryPort blockRepositoryPort;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -38,7 +40,12 @@ public class BlockService implements BlockUserUseCase, UnblockUserUseCase, GetBl
         if (blockRepositoryPort.existsByBlockerAndBlocked(blockerId, blockedId)) {
             return;
         }
-        blockRepositoryPort.save(UserBlock.of(blocker, blocked));
+        UserBlock block = blockRepositoryPort.save(UserBlock.of(blocker, blocked));
+
+        // 새로 만든 차단만 알린다. 리스너는 커밋 후 다른 스레드에서 돌기 때문에 필요한 값은 여기서 미리 꺼낸다
+        eventPublisher.publishEvent(new BlockSubmittedEvent(
+                block.getId(), blocker.getUserName(), blockerId.toString(),
+                blocked.getUserName(), blockedId.toString(), block.getCreatedAt()));
     }
 
     @Override
