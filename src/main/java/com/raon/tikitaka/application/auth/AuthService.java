@@ -8,6 +8,7 @@ import com.raon.tikitaka.application.auth.in.SignupUseCase;
 import com.raon.tikitaka.application.auth.in.WithdrawUseCase;
 import com.raon.tikitaka.application.auth.out.AppleRevokePort;
 import com.raon.tikitaka.application.auth.out.OAuthClientPort;
+import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
 import com.raon.tikitaka.application.inventory.out.InventoryRepositoryPort;
 import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
 import com.raon.tikitaka.application.product.out.ProductRepositoryPort;
@@ -49,6 +50,7 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
     private final LocationRepositoryPort locationRepositoryPort;
     private final ProductRepositoryPort productRepositoryPort;
     private final InventoryRepositoryPort inventoryRepositoryPort;
+    private final BlockRepositoryPort blockRepositoryPort;
     private final JwtProvider jwtProvider;
 
     @Override
@@ -160,6 +162,8 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
             appleRevokePort.revoke(authorizationCode, user.getProviderId());
         }
         user.withdraw();
+        // 익명화된 계정에 차단 관계를 남길 이유가 없다. 유저 행은 남으므로 FK 때문이 아니라 정리 목적이다
+        blockRepositoryPort.deleteAllInvolving(userId);
         tokenRepositoryPort.deleteByUserId(userId);
     }
 

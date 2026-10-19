@@ -120,10 +120,17 @@ public class RankingService implements FinalizeSeasonUseCase, GetLocationRanking
         return rankingRepositoryPort.findLocationRanking(current.getStageId());
     }
 
+    /**
+     * 목록에서는 내가 차단한 유저를 빼되 남은 유저의 등수는 전체 기준 그대로 둔다.
+     * /api/users/rank는 인증이 필요해 userId가 사실상 항상 있지만, 없으면 필터 없이 조회한다.
+     */
     @Override
     public UserRankingResult getUserRanking(UUID userId) {
         Stage current = currentStage();
-        List<UserRankRow> ranking = rankingRepositoryPort.findTopUserRanking(current.getStageId(), USER_RANKING_LIMIT);
+        List<UserRankRow> ranking = userId == null
+                ? rankingRepositoryPort.findTopUserRanking(current.getStageId(), USER_RANKING_LIMIT)
+                : rankingRepositoryPort.findTopUserRankingExcludingBlockedBy(current.getStageId(), userId,
+                        USER_RANKING_LIMIT);
 
         Optional<UserRankRow> mine = rankingRepositoryPort.findMyUserRanking(current.getStageId(), userId);
         UserRankRow myRanking = null;   // 이번 라운드 미참여면 null이고 응답에서 필드가 생략된다

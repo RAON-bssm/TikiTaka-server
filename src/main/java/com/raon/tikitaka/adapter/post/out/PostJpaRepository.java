@@ -20,6 +20,24 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
             """)
     List<Post> findAllActiveByBoardId(@Param("boardId") Long boardId);
 
+    /**
+     * findAllActiveByBoardId에서 viewerId가 차단한 유저의 게시물을 뺀 것.
+     * (:viewerId is null or ...) 한 쿼리로 합치면 PostgreSQL이 null UUID 파라미터의 타입을 추론하지 못해
+     * "could not determine data type of parameter" 오류가 날 수 있어, 비로그인용과 쿼리를 나눴다.
+     */
+    @Query("""
+            select p from Post p
+            join fetch p.userId
+            join fetch p.teamLocation
+            where p.board.boardId = :boardId and p.isActive = true
+              and not exists (select 1 from UserBlock b
+                               where b.blocker.userId = :viewerId
+                                 and b.blocked.userId = p.userId.userId)
+            order by p.createdAt desc
+            """)
+    List<Post> findAllActiveByBoardIdExcludingBlockedBy(@Param("boardId") Long boardId,
+                                                        @Param("viewerId") UUID viewerId);
+
     @Query("""
             select p from Post p
             join fetch p.userId

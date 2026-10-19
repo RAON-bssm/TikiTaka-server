@@ -1,6 +1,7 @@
 package com.raon.tikitaka.application.auth;
 
 import com.raon.tikitaka.application.auth.out.AppleRevokePort;
+import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
 import com.raon.tikitaka.application.user.out.TokenRepositoryPort;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.enums.LoginProvider;
@@ -34,6 +35,7 @@ class AuthServiceWithdrawTest {
     @Mock UserRepositoryPort userRepositoryPort;
     @Mock TokenRepositoryPort tokenRepositoryPort;
     @Mock AppleRevokePort appleRevokePort;
+    @Mock BlockRepositoryPort blockRepositoryPort;
     @InjectMocks AuthService authService;
 
     @Test
@@ -45,6 +47,7 @@ class AuthServiceWithdrawTest {
         // 익명화 전의 providerId로 호출됐다 = revoke가 user.withdraw()보다 먼저 실행됐다
         verify(appleRevokePort).revoke("auth-code", APPLE_SUB);
         assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+        verify(blockRepositoryPort).deleteAllInvolving(USER_ID);
         verify(tokenRepositoryPort).deleteByUserId(USER_ID);
     }
 
@@ -57,6 +60,7 @@ class AuthServiceWithdrawTest {
                         e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
         verify(appleRevokePort, never()).revoke(any(), any());
         assertThat(user.getStatus()).isNotEqualTo(UserStatus.WITHDRAWN);
+        verify(blockRepositoryPort, never()).deleteAllInvolving(any());
         verify(tokenRepositoryPort, never()).deleteByUserId(any());
     }
 
@@ -70,6 +74,7 @@ class AuthServiceWithdrawTest {
                 .isInstanceOf(ResponseStatusException.class);
         assertThat(user.getStatus()).isNotEqualTo(UserStatus.WITHDRAWN);
         assertThat(user.getProviderId()).isEqualTo(APPLE_SUB);
+        verify(blockRepositoryPort, never()).deleteAllInvolving(any());
         verify(tokenRepositoryPort, never()).deleteByUserId(any());
     }
 
@@ -81,6 +86,7 @@ class AuthServiceWithdrawTest {
 
         verify(appleRevokePort, never()).revoke(any(), any());
         assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+        verify(blockRepositoryPort).deleteAllInvolving(USER_ID);
         verify(tokenRepositoryPort).deleteByUserId(USER_ID);
     }
 

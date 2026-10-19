@@ -1,5 +1,6 @@
 package com.raon.tikitaka.application.post;
 
+import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
 import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
@@ -45,10 +46,17 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private final PostLikeRepositoryPort postLikeRepositoryPort;
     private final RankingRepositoryPort rankingRepositoryPort;
     private final RankingProperties rankingProperties;
+    private final BlockRepositoryPort blockRepositoryPort;
 
+    /**
+     * 로그인 상태면 내가 차단한 유저의 글을 뺀다. 조회할 때마다 DB 조건으로 거르므로 차단 직후 다음 조회부터 반영된다.
+     * 차단은 한 방향이라 차단당한 쪽의 목록은 그대로다.
+     */
     @Override
     public List<PostSummary> getPosts(Long boardId, UUID userId) {
-        List<Post> posts = postRepositoryPort.findAllActiveByBoardId(boardId);
+        List<Post> posts = userId == null
+                ? postRepositoryPort.findAllActiveByBoardId(boardId)
+                : postRepositoryPort.findAllActiveByBoardIdExcludingBlockedBy(boardId, userId);
         List<UUID> postIds = posts.stream().map(Post::getPostId).toList();
         Map<UUID, Integer> likeCounts = countLikes(postIds);
         Set<UUID> likedPostIds = findLikedPostIds(postIds, userId);
@@ -61,9 +69,15 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         return summaries;
     }
 
+    /**
+     * 내가 차단한 유저의 글은 삭제된 글과 똑같이 404로 응답한다. 링크나 알림으로 직접 들어와도 보이지 않게 하기 위해서다.
+     */
     @Override
     public PostDetail getPost(UUID postId, UUID userId) {
         Post post = getActivePost(postId);
+        if (userId != null && blockRepositoryPort.existsByBlockerAndBlocked(userId, post.getUserId().getUserId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
+        }
         int likeCount = countLikes(List.of(postId)).getOrDefault(postId, 0);
         boolean likedByMe = userId != null
                 && postLikeRepositoryPort.existsByPostAndUser(post, postRepositoryPort.getUser(userId));

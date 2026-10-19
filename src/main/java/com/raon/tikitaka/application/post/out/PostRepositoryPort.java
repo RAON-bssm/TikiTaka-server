@@ -12,6 +12,11 @@ public interface PostRepositoryPort {
 
     List<Post> findAllActiveByBoardId(Long boardId);
 
+    /**
+     * 게시판의 게시물 중 viewerId가 차단한 유저의 글을 뺀 목록. viewerId는 null이면 안 된다.
+     */
+    List<Post> findAllActiveByBoardIdExcludingBlockedBy(Long boardId, UUID viewerId);
+
     List<Post> findAllActiveByUserId(UUID userId);
 
     Optional<Post> findActiveById(UUID postId);

@@ -29,6 +29,11 @@ public class PostPersistenceAdapter implements PostRepositoryPort {
     }
 
     @Override
+    public List<Post> findAllActiveByBoardIdExcludingBlockedBy(Long boardId, UUID viewerId) {
+        return postJpaRepository.findAllActiveByBoardIdExcludingBlockedBy(boardId, viewerId);
+    }
+
+    @Override
     public Optional<Post> findActiveById(UUID postId) {
         return postJpaRepository.findActiveById(postId);
     }
