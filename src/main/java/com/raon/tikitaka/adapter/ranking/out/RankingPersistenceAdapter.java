@@ -45,6 +45,11 @@ public class RankingPersistenceAdapter implements RankingRepositoryPort {
     }
 
     @Override
+    public List<UserRankRow> findTopUserRankingExcludingBlockedBy(Long stageId, UUID viewerId, int limit) {
+        return userRankingJpaRepository.findTopRankingExcludingBlockedBy(stageId, viewerId, limit);
+    }
+
+    @Override
     public Optional<UserRankRow> findMyUserRanking(Long stageId, UUID userId) {
         return userRankingJpaRepository.findMyRanking(stageId, userId);
     }

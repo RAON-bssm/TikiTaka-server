@@ -48,6 +48,31 @@ public interface UserRankingJpaRepository extends JpaRepository<UserRanking, Lon
     List<UserRankRow> findTopRanking(@Param("stageId") Long stageId, @Param("limit") int limit);
 
     /**
+     * findTopRanking에서 viewerId가 차단한 유저를 뺀 것.
+     * 차단 조건을 rank()와 같은 where에 넣으면 순위가 당겨지므로, 서브쿼리에서 전체 기준 등수를 먼저 매기고
+     * 바깥에서 차단 유저를 거른 뒤 limit을 건다. 남은 유저의 등수는 원래 값 그대로이고, 빠진 만큼 아래에서 채워진다.
+     */
+    @Query(value = """
+            select t.userId, t.userName, t.userScore, t.userRank
+              from (select u.user_id as userId,
+                           u.user_name as userName,
+                           cast(ur.user_score as bigint) as userScore,
+                           cast(rank() over (order by ur.user_score desc) as int) as userRank
+                      from user_ranking ur
+                      join users u on u.user_id = ur.user_id
+                     where ur.stage_id = :stageId) t
+             where not exists (select 1
+                                 from user_block b
+                                where b.blocker_id = :viewerId
+                                  and b.blocked_id = t.userId)
+             order by t.userRank, t.userName
+             limit :limit
+            """, nativeQuery = true)
+    List<UserRankRow> findTopRankingExcludingBlockedBy(@Param("stageId") Long stageId,
+                                                       @Param("viewerId") UUID viewerId,
+                                                       @Param("limit") int limit);
+
+    /**
      * 본인 순위 조회. 서브쿼리로 전체 등수를 매긴 뒤 바깥에서 한 명을 골라낸다.
      * 상위 목록에서 찾는 방식이면 목록 밖 유저의 순위를 알 수 없다.
      */

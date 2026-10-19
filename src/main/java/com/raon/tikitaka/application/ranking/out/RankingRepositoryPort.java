@@ -39,6 +39,11 @@ public interface RankingRepositoryPort {
     List<UserRankRow> findTopUserRanking(Long stageId, int limit);
 
     /**
+     * findTopUserRanking에서 viewerId가 차단한 유저를 뺀 목록. 등수는 차단과 무관한 전체 기준 값을 유지한다.
+     */
+    List<UserRankRow> findTopUserRankingExcludingBlockedBy(Long stageId, UUID viewerId, int limit);
+
+    /**
      * 라운드에서 본인의 순위. 미참여면 비어 있다.
      */
     Optional<UserRankRow> findMyUserRanking(Long stageId, UUID userId);
