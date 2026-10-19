@@ -131,9 +131,11 @@ class BlockServiceTest {
     // ===== 해제 =====
 
     @Test
-    void 해제는_차단한_적이_없어도_반복해도_성공한다() {
+    void 대상이_정상이면_차단한_적이_없어도_반복해도_성공한다() {
         Users blocker = user(blockerId, "차단자", UserStatus.ACTIVE);
+        Users blocked = user(blockedId, "대상", UserStatus.ACTIVE);
         when(blockRepositoryPort.findUser(blockerId)).thenReturn(Optional.of(blocker));
+        when(blockRepositoryPort.findUser(blockedId)).thenReturn(Optional.of(blocked));
 
         blockService.unblock(blockerId, blockedId);
         blockService.unblock(blockerId, blockedId);
@@ -142,9 +144,39 @@ class BlockServiceTest {
     }
 
     @Test
-    void 자기_자신_해제는_400() {
-        assertStatus(() -> blockService.unblock(blockerId, blockerId), HttpStatus.BAD_REQUEST);
+    void 없는_유저_해제는_404() {
+        Users blocker = user(blockerId, "차단자", UserStatus.ACTIVE);
+        when(blockRepositoryPort.findUser(blockerId)).thenReturn(Optional.of(blocker));
+        when(blockRepositoryPort.findUser(blockedId)).thenReturn(Optional.empty());
+
+        assertStatus(() -> blockService.unblock(blockerId, blockedId), HttpStatus.NOT_FOUND);
         verify(blockRepositoryPort, never()).deleteByBlockerAndBlocked(any(), any());
+    }
+
+    @Test
+    void 탈퇴한_유저_해제는_404() {
+        Users blocker = user(blockerId, "차단자", UserStatus.ACTIVE);
+        Users withdrawn = user(blockedId, "탈퇴한 사용자_x", UserStatus.WITHDRAWN);
+        when(blockRepositoryPort.findUser(blockerId)).thenReturn(Optional.of(blocker));
+        when(blockRepositoryPort.findUser(blockedId)).thenReturn(Optional.of(withdrawn));
+
+        assertStatus(() -> blockService.unblock(blockerId, blockedId), HttpStatus.NOT_FOUND);
+        verify(blockRepositoryPort, never()).deleteByBlockerAndBlocked(any(), any());
+    }
+
+    @Test
+    void 자기_자신_해제는_유저_조회보다_먼저_400() {
+        assertStatus(() -> blockService.unblock(blockerId, blockerId), HttpStatus.BAD_REQUEST);
+        verify(blockRepositoryPort, never()).findUser(any());
+        verify(blockRepositoryPort, never()).deleteByBlockerAndBlocked(any(), any());
+    }
+
+    @Test
+    void 해제에서_요청자_401이_대상_404보다_먼저다() {
+        when(blockRepositoryPort.findUser(blockerId)).thenReturn(Optional.empty());
+
+        assertStatus(() -> blockService.unblock(blockerId, blockedId), HttpStatus.UNAUTHORIZED);
+        verify(blockRepositoryPort, never()).findUser(blockedId);
     }
 
     // ===== 목록 =====

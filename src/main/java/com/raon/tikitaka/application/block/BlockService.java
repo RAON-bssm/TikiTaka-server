@@ -31,9 +31,7 @@ public class BlockService implements BlockUserUseCase, UnblockUserUseCase, GetBl
     public void block(UUID blockerId, UUID blockedId) {
         validateNotSelf(blockerId, blockedId);
         Users blocker = getRequester(blockerId);
-        Users blocked = blockRepositoryPort.findUser(blockedId)
-                .filter(user -> user.getStatus() != UserStatus.WITHDRAWN)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        Users blocked = getTarget(blockedId);
 
         // 이미 차단 중이면 아무것도 하지 않는다. uk_user_block_blocker_blocked는 동시성 상황의
         // 이중 삽입을 막는 최후 방어선일 뿐, 정상 흐름은 여기서 먼저 걸러낸다
@@ -53,8 +51,9 @@ public class BlockService implements BlockUserUseCase, UnblockUserUseCase, GetBl
     public void unblock(UUID blockerId, UUID blockedId) {
         validateNotSelf(blockerId, blockedId);
         getRequester(blockerId);
+        getTarget(blockedId);
 
-        // 차단한 적이 없거나 대상이 탈퇴해 이미 지워졌어도 delete는 0건 삭제로 끝나므로 그 자체로 idempotent하다
+        // 대상이 존재하는 한, 차단한 적이 없어도 delete는 0건 삭제로 끝나므로 그 자체로 idempotent하다
         blockRepositoryPort.deleteByBlockerAndBlocked(blockerId, blockedId);
     }
 
@@ -72,6 +71,15 @@ public class BlockService implements BlockUserUseCase, UnblockUserUseCase, GetBl
         if (blockedId.equals(blockerId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자기 자신은 차단할 수 없습니다.");
         }
+    }
+
+    /**
+     * 차단·해제 대상. 없거나 탈퇴한 유저는 404로 끊는다.
+     */
+    private Users getTarget(UUID targetId) {
+        return blockRepositoryPort.findUser(targetId)
+                .filter(user -> user.getStatus() != UserStatus.WITHDRAWN)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
     }
 
     /**
