@@ -98,8 +98,11 @@ public class S3Adapter implements StoragePort {
                 .retrieve()
                 .toEntity(byte[].class)
                 .block(DOWNLOAD_TIMEOUT);
-        if (response == null || response.getBody() == null) {
-            throw new IllegalStateException("S3 이미지 본문이 비어 있습니다. key=" + key);
+        // retrieve()는 4xx/5xx만 예외로 바꾸고 3xx(리전이 다를 때의 PermanentRedirect 등)는 그대로 넘긴다.
+        // 그 본문은 이미지가 아니라 S3 오류 XML이므로 2xx가 아니면 실패로 본다
+        if (response == null || !response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            throw new IllegalStateException("S3 이미지를 읽지 못했습니다. key=" + key
+                    + ", status=" + (response == null ? null : response.getStatusCode()));
         }
         MediaType contentType = response.getHeaders().getContentType();
         return new StoredImage(response.getBody(), contentType != null ? contentType.toString() : null);

@@ -15,6 +15,7 @@ import java.net.URI;
 import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -61,5 +62,23 @@ class S3AdapterDownloadTest {
 
         assertThat(stored.content()).isEqualTo(image);
         assertThat(stored.contentType()).isEqualTo("image/jpeg");
+    }
+
+    @Test
+    void 응답이_2xx가_아니면_S3_오류_본문을_이미지로_쓰지_않고_실패한다() throws Exception {
+        // 리전이 다르면 S3가 301 PermanentRedirect와 오류 XML을 준다. WebClient는 3xx를 예외로 바꾸지 않는다
+        byte[] errorXml = "<Error><Code>PermanentRedirect</Code></Error>".getBytes();
+        server.createContext("/moved.jpg", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "application/xml");
+            exchange.sendResponseHeaders(301, errorXml.length);
+            exchange.getResponseBody().write(errorXml);
+            exchange.close();
+        });
+        PresignedGetObjectRequest presigned = mock(PresignedGetObjectRequest.class);
+        when(presigned.url()).thenReturn(
+                URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/moved.jpg").toURL());
+        when(presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(presigned);
+
+        assertThatThrownBy(() -> adapter.download("moved.jpg")).isInstanceOf(IllegalStateException.class);
     }
 }
