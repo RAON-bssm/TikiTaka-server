@@ -79,6 +79,7 @@ public interface UserRankingJpaRepository extends JpaRepository<UserRanking, Lon
     /**
      * 본인 순위 조회. 서브쿼리로 전체 등수를 매긴 뒤 바깥에서 한 명을 골라낸다.
      * 상위 목록에서 찾는 방식이면 목록 밖 유저의 순위를 알 수 없다.
+     * 등수가 목록과 어긋나지 않도록 findTopRanking과 같게 탈퇴 유저를 rank() 전에 거른다.
      */
     @Query(value = """
             select t.userId, t.userName, t.userScore, t.userRank
@@ -88,7 +89,8 @@ public interface UserRankingJpaRepository extends JpaRepository<UserRanking, Lon
                            cast(rank() over (order by ur.user_score desc) as int) as userRank
                       from user_ranking ur
                       join users u on u.user_id = ur.user_id
-                     where ur.stage_id = :stageId) t
+                     where ur.stage_id = :stageId
+                       and u.status <> 'WITHDRAWN') t
              where t.userId = :userId
             """, nativeQuery = true)
     Optional<UserRankRow> findMyRanking(@Param("stageId") Long stageId, @Param("userId") UUID userId);
