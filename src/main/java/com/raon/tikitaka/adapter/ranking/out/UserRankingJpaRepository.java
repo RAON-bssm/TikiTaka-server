@@ -33,6 +33,7 @@ public interface UserRankingJpaRepository extends JpaRepository<UserRanking, Lon
     /**
      * 라운드 개인 랭킹 상위 limit명. 게시물을 올린 유저만 행이 있어 미참여자는 나오지 않는다.
      * 동점은 rank() 기본 동작대로 같은 등수로 매기고 다음 등수는 건너뛴다.
+     * 탈퇴한 유저는 행과 점수는 남기되 rank() 대상에서 빼서, 탈퇴로 순위 번호에 구멍이 생기지 않게 한다.
      */
     @Query(value = """
             select u.user_id as userId,
@@ -42,6 +43,7 @@ public interface UserRankingJpaRepository extends JpaRepository<UserRanking, Lon
               from user_ranking ur
               join users u on u.user_id = ur.user_id
              where ur.stage_id = :stageId
+               and u.status <> 'WITHDRAWN'
              order by userRank, u.user_name
              limit :limit
             """, nativeQuery = true)
@@ -51,6 +53,7 @@ public interface UserRankingJpaRepository extends JpaRepository<UserRanking, Lon
      * findTopRanking에서 viewerId가 차단한 유저를 뺀 것.
      * 차단 조건을 rank()와 같은 where에 넣으면 순위가 당겨지므로, 서브쿼리에서 전체 기준 등수를 먼저 매기고
      * 바깥에서 차단 유저를 거른 뒤 limit을 건다. 남은 유저의 등수는 원래 값 그대로이고, 빠진 만큼 아래에서 채워진다.
+     * 탈퇴 유저는 차단과 달리 모두에게서 영구히 빠지므로 findTopRanking과 같게 서브쿼리 안에서 rank() 전에 거른다.
      */
     @Query(value = """
             select t.userId, t.userName, t.userScore, t.userRank
@@ -60,7 +63,8 @@ public interface UserRankingJpaRepository extends JpaRepository<UserRanking, Lon
                            cast(rank() over (order by ur.user_score desc) as int) as userRank
                       from user_ranking ur
                       join users u on u.user_id = ur.user_id
-                     where ur.stage_id = :stageId) t
+                     where ur.stage_id = :stageId
+                       and u.status <> 'WITHDRAWN') t
              where not exists (select 1
                                  from user_block b
                                 where b.blocker_id = :viewerId
