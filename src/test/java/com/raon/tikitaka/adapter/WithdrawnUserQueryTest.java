@@ -150,6 +150,21 @@ class WithdrawnUserQueryTest {
                 .containsExactly(tuple(second.getUserId(), 1), tuple(fourth.getUserId(), 3));
     }
 
+    @Test
+    void 일등이_탈퇴하면_내_순위도_목록과_같게_당겨진다() {
+        Users first = ranked("first", 100);
+        Users second = ranked("second", 90);
+        Users third = ranked("third", 80);
+        withdraw(first);
+
+        assertThat(userRankingJpaRepository.findMyRanking(stage.getStageId(), second.getUserId()))
+                .hasValueSatisfying(row -> assertThat(row.getUserRank()).isEqualTo(1));
+        assertThat(userRankingJpaRepository.findMyRanking(stage.getStageId(), third.getUserId()))
+                .hasValueSatisfying(row -> assertThat(row.getUserRank()).isEqualTo(2));
+        // 탈퇴한 유저 본인의 행은 순위 대상이 아니다
+        assertThat(userRankingJpaRepository.findMyRanking(stage.getStageId(), first.getUserId())).isEmpty();
+    }
+
     // ===== 점수 유지 =====
 
     @Test
