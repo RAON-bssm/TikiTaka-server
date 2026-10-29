@@ -1,14 +1,19 @@
 package com.raon.tikitaka.adapter;
 
 import com.raon.tikitaka.adapter.block.out.BlockPersistenceAdapter;
+import com.raon.tikitaka.adapter.location.out.LocationPersistenceAdapter;
+import com.raon.tikitaka.adapter.match.out.StagePersistenceAdapter;
 import com.raon.tikitaka.adapter.post.out.PostJpaRepository;
 import com.raon.tikitaka.adapter.post.out.PostLikePersistenceAdapter;
 import com.raon.tikitaka.adapter.post.out.PostPersistenceAdapter;
 import com.raon.tikitaka.adapter.post.out.PostReviewQueuePersistenceAdapter;
 import com.raon.tikitaka.adapter.ranking.out.RankingPersistenceAdapter;
+import com.raon.tikitaka.adapter.ranking.out.SeasonResultPersistenceAdapter;
 import com.raon.tikitaka.application.post.PostService;
 import com.raon.tikitaka.application.post.review.ClaimedReview;
+import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
 import com.raon.tikitaka.application.post.review.PostReviewQueueService;
+import com.raon.tikitaka.application.ranking.RankingService;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.domain.enums.MatchType;
@@ -20,6 +25,7 @@ import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.PostReviewProperties;
 import com.raon.tikitaka.global.config.RankingProperties;
+import com.raon.tikitaka.global.config.SeasonProperties;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,8 +63,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Import({PostService.class, PostPersistenceAdapter.class, PostLikePersistenceAdapter.class,
         RankingPersistenceAdapter.class, BlockPersistenceAdapter.class, PostReviewQueuePersistenceAdapter.class,
-        PostReviewQueueService.class})
-@EnableConfigurationProperties({RankingProperties.class, PostReviewProperties.class})
+        PostReviewQueueService.class, RankingService.class, StagePersistenceAdapter.class,
+        SeasonResultPersistenceAdapter.class, LocationPersistenceAdapter.class})
+@EnableConfigurationProperties({RankingProperties.class, PostReviewProperties.class, SeasonProperties.class})
 class PostReviewConcurrencyTest {
 
     @DynamicPropertySource
@@ -73,6 +80,8 @@ class PostReviewConcurrencyTest {
     @Autowired PostService postService;
     @Autowired PostReviewQueueService postReviewQueueService;
     @Autowired PostJpaRepository postJpaRepository;
+    @Autowired PostReviewQueuePort postReviewQueuePort;
+    @Autowired RankingService rankingService;
 
     private TransactionTemplate tx;
     private Long homeId;
@@ -105,8 +114,8 @@ class PostReviewConcurrencyTest {
     @AfterEach
     void tearDown() {
         tx.executeWithoutResult(status -> em.createNativeQuery("""
-                truncate table post_like, report, user_block, user_ranking, location_ranking, post, board, match,
-                               stage, token, users, location restart identity cascade
+                truncate table post_like, report, user_block, user_ranking, location_ranking, season_location_result,
+                               post, board, match, stage, token, users, location restart identity cascade
                 """).executeUpdate());
     }
 
@@ -221,13 +230,112 @@ class PostReviewConcurrencyTest {
         assertThat(point()).isEqualTo(271);
     }
 
+    // ===== 시즌 확정 =====
+
+    @Test
+    void 시즌_확정_시_그_시즌의_PENDING_글은_EXPIRED가_되고_점수_포인트_랭킹에_반영되지_않는다() {
+        Long endedBoardId = endedSeason(9);
+        UUID expiring = pendingPost(endedBoardId, LocalDateTime.now());
+        UUID otherSeason = pendingPost(LocalDateTime.now());      // setUp의 시즌 1, 진행 중
+
+        rankingService.execute();
+
+        assertThat(postStatus(expiring)).isEqualTo(PostStatus.EXPIRED);
+        assertThat(postStatus(otherSeason)).isEqualTo(PostStatus.PENDING);
+        assertThat(seasonResultRows(9)).isEqualTo(2);
+        // 확정 뒤에 워커가 늦게 심사를 끝내도 반영되지 않는다
+        assertThat(postService.completeReview(expiring, 80, "좋아요")).isFalse();
+        assertThat(userScoreRows()).isZero();
+        assertThat(point()).isZero();
+    }
+
+    @Test
+    void 확정과_심사_완료가_겹칠_때_심사_완료가_먼저면_확정이_기다렸다가_그_점수를_계산에_넣는다() throws Exception {
+        Long endedBoardId = endedSeason(9);
+        UUID postId = pendingPost(endedBoardId, LocalDateTime.now());
+        CountDownLatch completed = new CountDownLatch(1);
+        CountDownLatch commit = new CountDownLatch(1);
+        CompletableFuture<Void> reviewing = CompletableFuture.runAsync(() -> tx.executeWithoutResult(status -> {
+            assertThat(postService.completeReview(postId, 80, "좋아요")).isTrue();
+            completed.countDown();
+            await(commit);
+        }));
+        assertThat(completed.await(5, TimeUnit.SECONDS)).isTrue();
+
+        CompletableFuture<Void> finalizing = CompletableFuture.runAsync(() -> rankingService.execute());
+        Thread.sleep(300);
+        assertThat(finalizing).isNotDone();     // EXPIRED update가 글 행 잠금을 기다린다
+
+        commit.countDown();
+        reviewing.get(5, TimeUnit.SECONDS);
+        finalizing.get(5, TimeUnit.SECONDS);
+
+        assertThat(postStatus(postId)).isEqualTo(PostStatus.DONE);
+        assertThat(seasonFinalScore(9, homeId)).isEqualTo(5421L);
+    }
+
+    @Test
+    void 확정과_심사_완료가_겹칠_때_확정이_먼저면_심사_완료는_아무것도_반영하지_않는다() throws Exception {
+        Long endedBoardId = endedSeason(9);
+        UUID postId = pendingPost(endedBoardId, LocalDateTime.now());
+        CountDownLatch expired = new CountDownLatch(1);
+        CountDownLatch commit = new CountDownLatch(1);
+        CompletableFuture<Void> finalizing = CompletableFuture.runAsync(() -> tx.executeWithoutResult(status -> {
+            assertThat(postReviewQueuePort.expirePendingBySeason(9)).isEqualTo(1);
+            expired.countDown();
+            await(commit);
+        }));
+        assertThat(expired.await(5, TimeUnit.SECONDS)).isTrue();
+
+        CompletableFuture<Boolean> reviewing = CompletableFuture.supplyAsync(
+                () -> postService.completeReview(postId, 80, "좋아요"));
+        Thread.sleep(300);
+        assertThat(reviewing).isNotDone();
+
+        commit.countDown();
+        finalizing.get(5, TimeUnit.SECONDS);
+
+        assertThat(reviewing.get(5, TimeUnit.SECONDS)).isFalse();
+        assertThat(postStatus(postId)).isEqualTo(PostStatus.EXPIRED);
+        assertThat(userScoreRows()).isZero();
+        assertThat(point()).isZero();
+    }
+
     // ===== helpers =====
 
+    /**
+     * 라운드 4개가 모두 끝난 시즌을 만들고 마지막 라운드 게시판 id를 돌려준다. 확정 대상이 된다.
+     */
+    private Long endedSeason(int season) {
+        return inTx(() -> {
+            Location home = em.find(Location.class, homeId);
+            Location away = em.createQuery("select l from Location l where l.locationId <> :id", Location.class)
+                    .setParameter("id", homeId).getSingleResult();
+            LocalDateTime start = LocalDateTime.now().minusDays(40);
+            Stage last = null;
+            for (int round = 1; round <= 4; round++) {
+                Stage stage = Stage.create(season, round, start.plusDays((round - 1) * 7L), start.plusDays(round * 7L));
+                stage.assignAvgLocationMemberCount(5.0);
+                em.persist(stage);
+                last = stage;
+            }
+            Match match = Match.create(last, home, away, MatchType.NORMAL, 5, 5, "지난 미션");
+            em.persist(match);
+            Board board = Board.create(match);
+            em.persist(board);
+            return board.getBoardId();
+        });
+    }
+
     private UUID pendingPost(LocalDateTime createdAt) {
+        return pendingPost(boardId, createdAt);
+    }
+
+    private UUID pendingPost(Long targetBoardId, LocalDateTime createdAt) {
         return inTx(() -> {
             Users author = em.find(Users.class, authorId);
             Location home = em.find(Location.class, homeId);
-            Post post = Post.createPending(author, em.find(Board.class, boardId), "내용", "photo.jpg",
+            Post post = Post.createPending(author, em.find(Board.class, targetBoardId), "내용", "photo.jpg",
                     home.getLocationName(), home, true);
             em.persist(post);
             em.flush();
@@ -282,6 +390,21 @@ class PostReviewConcurrencyTest {
         return inTx(() -> ((Number) em.createNativeQuery(
                         "select coalesce(sum(location_score), 0) from location_ranking where stage_id = :stageId")
                 .setParameter("stageId", stageId)
+                .getSingleResult()).longValue());
+    }
+
+    private long seasonResultRows(int season) {
+        return inTx(() -> ((Number) em.createNativeQuery(
+                        "select count(*) from season_location_result where season = :season")
+                .setParameter("season", season)
+                .getSingleResult()).longValue());
+    }
+
+    private long seasonFinalScore(int season, Long locationId) {
+        return inTx(() -> ((Number) em.createNativeQuery(
+                        "select final_score from season_location_result where season = :season and location_id = :id")
+                .setParameter("season", season)
+                .setParameter("id", locationId)
                 .getSingleResult()).longValue());
     }
 

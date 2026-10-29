@@ -167,6 +167,24 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
     int finishReview(@Param("postId") UUID postId, @Param("status") PostStatus status,
                      @Param("attempts") int attempts);
 
+    /**
+     * 시즌 확정 직전에 그 시즌 라운드에 속한 PENDING 글을 한 번에 EXPIRED로 바꾼다.
+     * 심사 완료 처리 중인 글은 행 잠금이 풀릴 때까지 기다렸다가 다시 판단하므로(READ COMMITTED),
+     * 그 사이 DONE이 된 글은 건너뛰고 점수는 확정 계산에 들어간다.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            update post p
+               set status = 'EXPIRED', review_next_at = null, review_started_at = null
+              from board b
+              join match m on m.match_id = b.match_id
+              join stage s on s.stage_id = m.stage_id
+             where p.board_id = b.board_id
+               and s.season = :season
+               and p.status = 'PENDING'
+            """, nativeQuery = true)
+    int expirePendingBySeason(@Param("season") int season);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Post p set p.reviewStartedAt = null where p.postId = :postId")
     int releaseReviewClaim(@Param("postId") UUID postId);

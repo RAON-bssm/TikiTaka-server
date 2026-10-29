@@ -1,13 +1,17 @@
 package com.raon.tikitaka.application.post.review;
 
+import com.raon.tikitaka.application.post.in.RetryPostReviewUseCase;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
 import com.raon.tikitaka.domain.post.Post;
 import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.global.config.PostReviewProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -21,10 +25,11 @@ import java.util.UUID;
  * 심사 완료(PostService.completeReview), 삭제, 시즌 확정의 EXPIRED 처리와 같은 행 잠금을 쓰므로
  * 이미 다른 상태가 된 글을 덮어쓰지 않는다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class PostReviewQueueService {
+public class PostReviewQueueService implements RetryPostReviewUseCase {
 
     private final PostRepositoryPort postRepositoryPort;
     private final PostReviewQueuePort postReviewQueuePort;
@@ -100,5 +105,22 @@ public class PostReviewQueueService {
         if (locked.isPresent() && locked.get().isPending()) {
             postReviewQueuePort.release(postId);
         }
+    }
+
+    /**
+     * 관리자 재심사. FAILED만 받는다. REJECTED는 Gemini가 내용 때문에 거절한 글이라 다시 보내도 같고,
+     * EXPIRED는 시즌이 확정돼 점수를 더할 수 없다. 탈퇴한 작성자의 글도 다른 글과 똑같이 다시 심사한다.
+     */
+    @Override
+    public void retryReview(UUID postId) {
+        Optional<Post> locked = postRepositoryPort.findByIdForUpdate(postId);
+        if (locked.isEmpty() || !locked.get().isActive()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
+        }
+        if (locked.get().getStatus() != PostStatus.FAILED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "심사에 실패한 글만 다시 심사할 수 있습니다.");
+        }
+        postReviewQueuePort.reset(postId);
+        log.info("게시물 재심사 요청: postId={}", postId);
     }
 }

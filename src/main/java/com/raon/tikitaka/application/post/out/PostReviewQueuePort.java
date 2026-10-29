@@ -33,4 +33,9 @@ public interface PostReviewQueuePort {
     void release(UUID postId);
 
     void reset(UUID postId);
+
+    /**
+     * 시즌 라운드에 속한 PENDING 글을 모두 EXPIRED로 바꾸고 바꾼 건수를 돌려준다. 시즌 확정 트랜잭션에서 쓴다.
+     */
+    int expirePendingBySeason(int season);
 }

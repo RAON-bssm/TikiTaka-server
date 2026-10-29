@@ -59,4 +59,9 @@ public class PostReviewQueuePersistenceAdapter implements PostReviewQueuePort {
     public void reset(UUID postId) {
         postJpaRepository.resetReview(postId);
     }
+
+    @Override
+    public int expirePendingBySeason(int season) {
+        return postJpaRepository.expirePendingBySeason(season);
+    }
 }

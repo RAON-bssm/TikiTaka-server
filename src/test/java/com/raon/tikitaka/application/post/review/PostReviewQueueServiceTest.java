@@ -8,7 +8,10 @@ import com.raon.tikitaka.global.config.PostReviewProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -16,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -104,8 +108,47 @@ class PostReviewQueueServiceTest {
         verify(queuePort, never()).scheduleRetry(any(), anyInt(), any());
     }
 
+    // ===== 관리자 재심사 =====
+
+    @Test
+    void FAILED_글은_재심사_대기열로_되돌린다() {
+        lockedPost(PostStatus.FAILED, 5);
+
+        service.retryReview(postId);
+
+        verify(queuePort).reset(postId);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PostStatus.class, names = "FAILED", mode = EnumSource.Mode.EXCLUDE)
+    void FAILED가_아니면_재심사는_409(PostStatus status) {
+        lockedPost(status, 0);
+
+        assertThatThrownBy(() -> service.retryReview(postId))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+        verify(queuePort, never()).reset(any());
+    }
+
+    @Test
+    void 없거나_삭제된_글의_재심사는_404() {
+        when(postRepositoryPort.findByIdForUpdate(postId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.retryReview(postId))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+
+        Post deleted = mock(Post.class);
+        when(deleted.isActive()).thenReturn(false);
+        when(postRepositoryPort.findByIdForUpdate(postId)).thenReturn(Optional.of(deleted));
+        assertThatThrownBy(() -> service.retryReview(postId))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        verify(queuePort, never()).reset(any());
+    }
+
     private void lockedPost(PostStatus status, int attempts) {
         Post post = mock(Post.class);
+        when(post.isActive()).thenReturn(true);
         when(post.getStatus()).thenReturn(status);
         when(post.isPending()).thenReturn(status == PostStatus.PENDING);
         when(post.getReviewAttempts()).thenReturn(attempts);
