@@ -145,7 +145,8 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
     /**
      * 회원 탈퇴. 닉네임/소셜 식별자를 익명화하고 refresh token을 지워 즉시 재로그인을 막는다.
      * 게시물/인벤토리 등은 user_id를 non-null FK로 참조하고 있어 하드 삭제하지 않고
-     * WITHDRAWN 상태로만 남긴다(닉네임이 이미 익명화됐으므로 게시물 작성자 표기도 자동으로 가려진다).
+     * WITHDRAWN 상태로만 남긴다. 게시물과 점수는 그대로 두고, 게시물 목록·상세와 개인 랭킹 조회 쿼리가
+     * WITHDRAWN 작성자를 걸러서 보이지 않게 한다(지역 점수와 경기 결과는 그대로 유지).
      *
      * Apple 유저는 Apple 연동 해지(revoke)를 먼저 한다. 해지가 실패하면 예외로 끝나 DB는 바뀌지 않으므로
      * 앱은 Apple 재인증으로 새 code를 받아 다시 시도하면 된다.

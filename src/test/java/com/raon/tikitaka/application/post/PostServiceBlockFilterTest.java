@@ -102,6 +102,20 @@ class PostServiceBlockFilterTest {
     }
 
     @Test
+    void 탈퇴한_작성자라_조회_쿼리가_빈_결과를_주면_상세는_404() {
+        // 탈퇴 작성자 제외는 findActiveById 쿼리에 있다(WithdrawnUserQueryTest). 여기서는 빈 결과가 404가 되는지만 본다
+        when(postRepositoryPort.findActiveById(postId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.getPost(postId, viewerId))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(e -> {
+                    ResponseStatusException ex = (ResponseStatusException) e;
+                    assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+                    assertThat(ex.getReason()).isEqualTo("게시물을 찾을 수 없습니다.");
+                });
+    }
+
+    @Test
     void 차단하지_않은_작성자의_게시물_상세는_그대로_보인다() {
         Post post = post();
         when(postRepositoryPort.findActiveById(postId)).thenReturn(Optional.of(post));
