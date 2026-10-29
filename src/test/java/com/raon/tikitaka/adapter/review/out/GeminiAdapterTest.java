@@ -70,7 +70,7 @@ class GeminiAdapterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {400, 404})
+    @ValueSource(ints = {400, 422})
     void 그_밖의_4xx는_거절(int status) {
         RuntimeException e = adapter.classify(error(status, new HttpHeaders(), ""));
 
@@ -79,9 +79,9 @@ class GeminiAdapterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {401, 403, 408, 429, 500, 503})
+    @ValueSource(ints = {401, 403, 404, 408, 429, 500, 503})
     void 키_설정_오류와_요청_시간_초과도_재시도_대상(int status) {
-        // 401, 403(키 만료, 권한 설정)과 408은 글 내용 탓이 아니라 거절로 저장하지 않는다
+        // 401, 403(키 만료, 권한 설정), 404(모델 설정)와 408은 글 내용 탓이 아니라 거절로 저장하지 않는다
         assertThat(adapter.classify(error(status, new HttpHeaders(), "")))
                 .isInstanceOf(AiReviewRetryableException.class)
                 .isNotInstanceOf(AiReviewRejectedException.class);

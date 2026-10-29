@@ -43,8 +43,8 @@ public class GeminiAdapter implements AiReviewPort {
      */
     static final Duration MAX_RETRY_AFTER = Duration.ofHours(1);
 
-    /** 요청 자체는 정상일 수 있는 4xx. 키 만료·권한 설정(401, 403)과 요청 시간 초과(408)는 글 내용 탓이 아니다 */
-    private static final Set<Integer> RETRYABLE_CLIENT_ERRORS = Set.of(401, 403, 408);
+    /** 요청 자체는 정상일 수 있는 4xx. 키 만료·권한 설정(401, 403), 모델 설정 오류(404), 요청 시간 초과(408)는 글 내용 탓이 아니다 */
+    private static final Set<Integer> RETRYABLE_CLIENT_ERRORS = Set.of(401, 403, 404, 408);
 
     /** block()의 상한. 응답 타임아웃이 먼저 걸리도록 연결·전송 시간만큼 여유를 둔다 */
     private static final Duration BLOCK_TIMEOUT = RESPONSE_TIMEOUT.plusSeconds(5);
@@ -124,9 +124,9 @@ public class GeminiAdapter implements AiReviewPort {
     }
 
     /**
-     * 429, 5xx와 401, 403, 408은 다시 시도한다. 401, 403은 키·설정 문제라 고치기 전까지 계속 실패하지만,
+     * 429, 5xx와 401, 403, 404, 408은 다시 시도한다. 401, 403, 404는 키·모델 설정 문제라 고치기 전까지 계속 실패하지만,
      * 거절(REJECTED)로 저장하면 관리자 재심사(FAILED만 받음)로 되살릴 수 없어 시도 한도까지 가서 FAILED로 끝나게 둔다.
-     * 그 밖의 4xx(400, 404 등)는 다시 보내도 같으므로 거절한다. 상태 코드는 호출부의 오류 로그에 남는다.
+     * 그 밖의 4xx(400 등)는 다시 보내도 같으므로 거절한다. 상태 코드는 호출부의 오류 로그에 남는다.
      * 다시 시도할 시점은 Retry-After 헤더를 먼저 보고, 없으면 Gemini 오류 본문의 RetryInfo.retryDelay를 본다.
      */
     RuntimeException classify(WebClientResponseException e) {
