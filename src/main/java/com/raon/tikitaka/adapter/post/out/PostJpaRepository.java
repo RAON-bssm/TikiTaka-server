@@ -16,6 +16,7 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
             join fetch p.userId
             join fetch p.teamLocation
             where p.board.boardId = :boardId and p.isActive = true
+              and p.userId.status <> com.raon.tikitaka.domain.enums.UserStatus.WITHDRAWN
             order by p.createdAt desc
             """)
     List<Post> findAllActiveByBoardId(@Param("boardId") Long boardId);
@@ -30,6 +31,7 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
             join fetch p.userId
             join fetch p.teamLocation
             where p.board.boardId = :boardId and p.isActive = true
+              and p.userId.status <> com.raon.tikitaka.domain.enums.UserStatus.WITHDRAWN
               and not exists (select 1 from UserBlock b
                                where b.blocker.userId = :viewerId
                                  and b.blocked.userId = p.userId.userId)
@@ -38,11 +40,16 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
     List<Post> findAllActiveByBoardIdExcludingBlockedBy(@Param("boardId") Long boardId,
                                                         @Param("viewerId") UUID viewerId);
 
+    /**
+     * 상세·수정·삭제·좋아요·신고가 함께 쓴다. 탈퇴한 작성자의 글은 데이터는 남기고 여기서 빈 결과가 되므로
+     * 모든 경로에서 404로 끝난다.
+     */
     @Query("""
             select p from Post p
             join fetch p.userId
             join fetch p.teamLocation
             where p.postId = :postId and p.isActive = true
+              and p.userId.status <> com.raon.tikitaka.domain.enums.UserStatus.WITHDRAWN
             """)
     Optional<Post> findActiveById(@Param("postId") UUID postId);
 
