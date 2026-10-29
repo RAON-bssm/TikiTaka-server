@@ -1,9 +1,11 @@
 package com.raon.tikitaka.adapter.storage.out;
 
+import com.raon.tikitaka.application.storage.StoredImage;
 import com.raon.tikitaka.application.storage.out.StoragePort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -24,8 +26,20 @@ public class S3Adapter implements StoragePort {
 
     private static final Duration SERVER_UPLOAD_SIGNATURE_DURATION = Duration.ofSeconds(30);
 
+    /** 서버가 직접 내려받을 때 쓰는 presigned GET 서명 유효 시간 */
+    private static final Duration SERVER_DOWNLOAD_SIGNATURE_DURATION = Duration.ofSeconds(30);
+
+    private static final Duration DOWNLOAD_TIMEOUT = Duration.ofSeconds(30);
+
+    /**
+     * WebClient 기본 버퍼(256KB)로는 사진을 받지 못한다. 업로드 요청 상한(스프링 기본 10MB)에 맞춘다
+     */
+    private static final int DOWNLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
     private final S3Presigner s3Presigner;
-    private final WebClient webClient = WebClient.builder().build();
+    private final WebClient webClient = WebClient.builder()
+            .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(DOWNLOAD_MAX_BYTES))
+            .build();
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
@@ -74,5 +88,20 @@ public class S3Adapter implements StoragePort {
                 .retrieve()
                 .toBodilessEntity()
                 .block();
+    }
+
+    @Override
+    public StoredImage download(String key) {
+        URL presignedUrl = issueViewUrl(key, SERVER_DOWNLOAD_SIGNATURE_DURATION);
+        ResponseEntity<byte[]> response = webClient.get()
+                .uri(URI.create(presignedUrl.toString()))
+                .retrieve()
+                .toEntity(byte[].class)
+                .block(DOWNLOAD_TIMEOUT);
+        if (response == null || response.getBody() == null) {
+            throw new IllegalStateException("S3 이미지 본문이 비어 있습니다. key=" + key);
+        }
+        MediaType contentType = response.getHeaders().getContentType();
+        return new StoredImage(response.getBody(), contentType != null ? contentType.toString() : null);
     }
 }

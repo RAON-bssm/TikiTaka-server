@@ -13,6 +13,7 @@ import com.raon.tikitaka.application.post.in.LikePostUseCase;
 import com.raon.tikitaka.application.post.in.UnlikePostUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
 import com.raon.tikitaka.application.board.in.GetBoardUseCase;
+import com.raon.tikitaka.application.review.AiReviewInvalidResponseException;
 import com.raon.tikitaka.application.review.AiReviewResult;
 import com.raon.tikitaka.application.review.in.ReviewUseCase;
 import com.raon.tikitaka.application.storage.in.StorageUseCase;
@@ -112,8 +113,8 @@ public class PostController {
             // 작성자가 지금 있는 동네 기준으로 게시판 접근을 검증한다. 종료된 라운드나 다른 동네 게시판이면 404
             String mission = getBoardUseCase.getMission(request.boardId(), authorId);
             String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
-            AiReviewResult review = reviewUseCase.evaluate(mission, request.content(), imageBytes, image.getContentType());
-            int score = validateScore(review.score());
+            AiReviewResult review = evaluate(mission, request.content(), imageBytes, image.getContentType());
+            int score = review.score();
 
             // 포인트 적립이 일어나는 구간만 포인트 키로 감싼다. 처리 시간이 긴 업로드·AI 호출 동안
             // 상점 구매나 뽑기까지 막지 않기 위해서다. 이 시점엔 S3 업로드와 AI 호출 비용을 이미 썼으므로
@@ -173,16 +174,16 @@ public class PostController {
     }
 
     /**
-     * Gemini 응답에서 score가 누락되거나 범위를 벗어난 경우를 걸러낸다.
-     * 누락 시 asInt()가 0을 돌려주는 함정 때문에 GeminiAdapter가 null을 반환하게 했고
-     * 여기서 null이거나 범위 밖이면 게시물을 만들지 않고 502로 끊는다.
+     * 동기 업로드 경로의 AI 심사. 점수 누락·범위 검증은 ReviewService로 옮겼고, 응답 형식 오류면
+     * 예전처럼 게시물을 만들지 않고 502로 끊는다. 그 밖의 Gemini 실패는 예전처럼 그대로 올려 보낸다.
      */
-    private int validateScore(Integer score) {
-        if (score == null || score < 0 || score > 100) {
+    private AiReviewResult evaluate(String mission, String content, byte[] imageBytes, String contentType) {
+        try {
+            return reviewUseCase.evaluate(mission, content, imageBytes, contentType);
+        } catch (AiReviewInvalidResponseException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "AI 심사 점수가 올바르지 않습니다. 잠시 후 다시 시도해주세요.");
         }
-        return score;
     }
 
     private MultipartFile validateImage(MultipartFile image) {
