@@ -92,7 +92,7 @@ class PostServiceBlockFilterTest {
         when(postRepositoryPort.findActiveById(postId)).thenReturn(Optional.of(post));
         when(blockRepositoryPort.existsByBlockerAndBlocked(viewerId, authorId)).thenReturn(true);
 
-        assertThatThrownBy(() -> postService.getPost(postId, viewerId))
+        assertThatThrownBy(() -> postService.getPost(postId, viewerId, false))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(e -> {
                     ResponseStatusException ex = (ResponseStatusException) e;
@@ -106,7 +106,7 @@ class PostServiceBlockFilterTest {
         // 탈퇴 작성자 제외는 findActiveById 쿼리에 있다(WithdrawnUserQueryTest). 여기서는 빈 결과가 404가 되는지만 본다
         when(postRepositoryPort.findActiveById(postId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> postService.getPost(postId, viewerId))
+        assertThatThrownBy(() -> postService.getPost(postId, viewerId, false))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(e -> {
                     ResponseStatusException ex = (ResponseStatusException) e;
@@ -123,7 +123,7 @@ class PostServiceBlockFilterTest {
         Users viewer = mock(Users.class);
         when(postRepositoryPort.getUser(viewerId)).thenReturn(viewer);
 
-        PostDetail detail = postService.getPost(postId, viewerId);
+        PostDetail detail = postService.getPost(postId, viewerId, false);
 
         assertThat(detail.post()).isSameAs(post);
     }
@@ -133,7 +133,7 @@ class PostServiceBlockFilterTest {
         Post post = post();
         when(postRepositoryPort.findActiveById(postId)).thenReturn(Optional.of(post));
 
-        PostDetail detail = postService.getPost(postId, null);
+        PostDetail detail = postService.getPost(postId, null, false);
 
         assertThat(detail.post()).isSameAs(post);
         verify(blockRepositoryPort, never()).existsByBlockerAndBlocked(any(), any());
@@ -147,6 +147,7 @@ class PostServiceBlockFilterTest {
         Post post = mock(Post.class);
         lenient().when(post.getPostId()).thenReturn(postId);
         lenient().when(post.getUserId()).thenReturn(author);
+        lenient().when(post.isDone()).thenReturn(true);
         return post;
     }
 }

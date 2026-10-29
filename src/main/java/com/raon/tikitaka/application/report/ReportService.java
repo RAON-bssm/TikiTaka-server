@@ -33,7 +33,9 @@ public class ReportService implements ReportPostUseCase, ReportUserUseCase {
     public Long reportPost(UUID reporterId, UUID postId, ReportReason reason, String detail) {
         String normalizedDetail = validate(reason, detail);
         Users reporter = getReporter(reporterId);
+        // 피드에 보이는 글(DONE)만 신고할 수 있다. 심사 중이거나 통과하지 못한 글은 없는 글과 같은 404다
         Post post = reportRepositoryPort.findActivePost(postId)
+                .filter(Post::isDone)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다."));
 
         Users author = post.getUserId();

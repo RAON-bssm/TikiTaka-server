@@ -71,10 +71,15 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
     /**
      * 내가 차단한 유저의 글은 삭제된 글과 똑같이 404로 응답한다. 링크나 알림으로 직접 들어와도 보이지 않게 하기 위해서다.
+     * 심사가 끝나지 않았거나(PENDING) 통과하지 못한 글도 작성자 본인과 관리자 외에는 같은 404다.
      */
     @Override
-    public PostDetail getPost(UUID postId, UUID userId) {
+    public PostDetail getPost(UUID postId, UUID userId, boolean isAdmin) {
         Post post = getActivePost(postId);
+        boolean isAuthor = userId != null && post.getUserId().getUserId().equals(userId);
+        if (!post.isDone() && !isAuthor && !isAdmin) {
+            throw notFound();
+        }
         if (userId != null && blockRepositoryPort.existsByBlockerAndBlocked(userId, post.getUserId().getUserId())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
         }
@@ -87,7 +92,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     @Override
     @Transactional
     public void like(UUID postId, UUID userId) {
-        Post post = getActivePost(postId);
+        Post post = getDonePost(postId);
         Users user = postRepositoryPort.getUser(userId);
 
         // 이미 눌렀으면 아무것도 하지 않는다. uk_post_like_post_user는 동시성 상황의
@@ -102,7 +107,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
     @Transactional
     public void unlike(UUID postId, UUID userId) {
-        Post post = getActivePost(postId);
+        Post post = getDonePost(postId);
         Users user = postRepositoryPort.getUser(userId);
 
         // 누른 적이 없어도 delete는 0건 삭제로 끝나므로 그 자체로 idempotent하다
@@ -112,9 +117,24 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private Post getActivePost(UUID postId) {
         Optional<Post> post = postRepositoryPort.findActiveById(postId);
         if (post.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
+            throw notFound();
         }
         return post.get();
+    }
+
+    /**
+     * 좋아요·취소는 피드에 보이는 글(DONE)에만 허용한다. 심사 중인 글은 없는 글과 같은 404다.
+     */
+    private Post getDonePost(UUID postId) {
+        Post post = getActivePost(postId);
+        if (!post.isDone()) {
+            throw notFound();
+        }
+        return post;
+    }
+
+    private static ResponseStatusException notFound() {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
     }
 
     @Override
@@ -213,6 +233,10 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     public void updatePost(UUID postId, UUID requesterId, boolean isAdmin, String content) {
         Post post = getActivePost(postId);
         validateOwner(post, requesterId, isAdmin);
+        // AI가 이미지와 내용을 함께 심사하므로 심사 중에 내용이 바뀌면 점수가 다른 글 기준이 된다
+        if (post.isPending()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "심사 중에는 수정할 수 없어요");
+        }
         post.updateContent(content);
     }
 

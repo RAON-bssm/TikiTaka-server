@@ -130,6 +130,19 @@ class ReportServiceTest {
                 HttpStatus.NOT_FOUND);
     }
 
+    @Test
+    void 심사가_끝나지_않은_게시물은_404() {
+        Users reporter = user(reporterId, "신고자");
+        when(reportRepositoryPort.findUser(reporterId)).thenReturn(Optional.of(reporter));
+        Post pending = mock(Post.class);
+        when(pending.isDone()).thenReturn(false);
+        when(reportRepositoryPort.findActivePost(postId)).thenReturn(Optional.of(pending));
+
+        assertStatus(() -> reportService.reportPost(reporterId, postId, ReportReason.SPAM, null),
+                HttpStatus.NOT_FOUND);
+        verify(reportRepositoryPort, never()).save(any());
+    }
+
     // ===== 유저 신고 =====
 
     @Test
@@ -213,6 +226,7 @@ class ReportServiceTest {
         Post post = mock(Post.class);
         when(post.getUserId()).thenReturn(author);
         lenient().when(post.getBoard()).thenReturn(board);
+        lenient().when(post.isDone()).thenReturn(true);
         return post;
     }
 

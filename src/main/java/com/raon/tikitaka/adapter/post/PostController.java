@@ -16,6 +16,7 @@ import com.raon.tikitaka.application.board.in.GetBoardUseCase;
 import com.raon.tikitaka.application.review.AiReviewResult;
 import com.raon.tikitaka.application.review.in.ReviewUseCase;
 import com.raon.tikitaka.application.storage.in.StorageUseCase;
+import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.global.guard.RequestGuard;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -71,10 +72,13 @@ public class PostController {
     /**
      * GET /api/post/**는 SecurityConfig에서 permitAll이라 비로그인 조회 시
      * userId는 null로 들어오고, 이 경우 좋아요 여부는 항상 false다.
+     * 심사가 끝나지 않은 글은 작성자 본인과 관리자만 볼 수 있어 관리자 여부를 같이 넘긴다.
      */
     @GetMapping("/{postId:" + UUID_PATTERN + "}")
-    public ApiResponse<PostDetailResponse> getPost(@AuthenticationPrincipal UUID userId, @PathVariable UUID postId) {
-        PostDetailResponse response = PostDetailResponse.from(getPostDetailUseCase.getPost(postId, userId));
+    public ApiResponse<PostDetailResponse> getPost(@AuthenticationPrincipal UUID userId, Authentication authentication,
+                                                   @PathVariable UUID postId) {
+        PostDetailResponse response = PostDetailResponse.from(
+                getPostDetailUseCase.getPost(postId, userId, isAdmin(authentication)));
         return ApiResponse.of(200, "게시물 조회 성공", response);
     }
 
@@ -118,7 +122,7 @@ public class PostController {
                     () -> createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score,
                             review.review()));
         });
-        return ApiResponse.of(201, "게시물 생성 성공", CreatePostResponse.of(postId));
+        return ApiResponse.of(201, "게시물 생성 성공", CreatePostResponse.of(postId, PostStatus.DONE));
     }
 
     @PatchMapping("/patch/{postId}")

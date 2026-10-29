@@ -11,11 +11,13 @@ import java.util.UUID;
  * 마이페이지 "게시물 보관함"용 응답. 여러 라운드·게시판을 넘나드는 목록이라
  * 게시물 정보와 함께 그 글이 속했던 게시판·미션 정보도 같이 내려준다.
  * 항상 호출자 본인의 글만 담기므로 user_id·user_name은 넣지 않는다.
+ * 심사 상태와 관계없이 모든 글을 담고 status(PostStatus 이름)로 구분한다.
  */
 public record MyPostSummaryResponse(
         UUID postId,
         String postImage,
         Integer score,
+        String status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         String content,
@@ -39,6 +41,7 @@ public record MyPostSummaryResponse(
                 post.getPostId(),
                 post.getPostImage(),
                 post.getScore(),
+                post.getStatus().name(),
                 post.getCreatedAt(),
                 post.getUpdatedAt(),
                 post.getContent(),
