@@ -91,6 +91,20 @@ class PostReviewProcessorTest {
     }
 
     @Test
+    void 응답_401이_시도_한도까지_반복되면_거절이_아니라_FAILED() {
+        // 키 만료처럼 계속 401이 와도 REJECTED로 저장하지 않는다. 마지막 시도의 실패 기록이 FAILED로 바꾼다
+        when(reviewUseCase.evaluate(any(), any(), any(), any())).thenThrow(GeminiAdapterTestAccess.classify(401));
+        when(queueService.recordFailure(postId, null)).thenReturn(PostStatus.PENDING, PostStatus.PENDING,
+                PostStatus.PENDING, PostStatus.PENDING, PostStatus.FAILED);
+
+        for (int attempt = 1; attempt <= 4; attempt++) {
+            assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.RETRY);
+        }
+        assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.FAILED);
+        verify(queueService, never()).finish(any(), any());
+    }
+
+    @Test
     void 응답_형식_오류도_재시도_대상() {
         when(reviewUseCase.evaluate(any(), any(), any(), any()))
                 .thenThrow(new AiReviewInvalidResponseException("score=null"));

@@ -5,6 +5,9 @@ import com.raon.tikitaka.application.review.AiReviewRejectedException;
 import com.raon.tikitaka.application.review.AiReviewResult;
 import com.raon.tikitaka.application.review.AiReviewRetryableException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import tools.jackson.databind.json.JsonMapper;
@@ -66,12 +69,59 @@ class GeminiAdapterTest {
         assertThat(adapter.classify(error(503, new HttpHeaders(), ""))).isInstanceOf(AiReviewRetryableException.class);
     }
 
-    @Test
-    void 응답_429를_뺀_4xx는_거절() {
-        RuntimeException e = adapter.classify(error(400, new HttpHeaders(), ""));
+    @ParameterizedTest
+    @ValueSource(ints = {400, 404})
+    void 그_밖의_4xx는_거절(int status) {
+        RuntimeException e = adapter.classify(error(status, new HttpHeaders(), ""));
 
         assertThat(e).isInstanceOfSatisfying(AiReviewRejectedException.class,
-                r -> assertThat(r.getStatus()).isEqualTo(400));
+                r -> assertThat(r.getStatus()).isEqualTo(status));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {401, 403, 408, 429, 500, 503})
+    void 키_설정_오류와_요청_시간_초과도_재시도_대상(int status) {
+        // 401, 403(키 만료, 권한 설정)과 408은 글 내용 탓이 아니라 거절로 저장하지 않는다
+        assertThat(adapter.classify(error(status, new HttpHeaders(), "")))
+                .isInstanceOf(AiReviewRetryableException.class)
+                .isNotInstanceOf(AiReviewRejectedException.class);
+    }
+
+    @Test
+    void 응답_401도_Gemini가_준_대기_시간을_담는다() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Retry-After", "30");
+
+        assertThat(adapter.classify(error(401, headers, ""))).isInstanceOfSatisfying(AiReviewRetryableException.class,
+                r -> assertThat(r.getRetryAfter()).isEqualTo(Duration.ofSeconds(30)));
+    }
+
+    // ===== 재시도 대기 시간 상한 =====
+
+    @ParameterizedTest
+    @CsvSource({"1e309, ", "NaN, ", "Infinity, ", "-5, ", "soon, ", "99999999999, 3600000", "3601, 3600000",
+            "17, 17000", "0.5, 500", "0, 0"})
+    void Retry_After_헤더는_유한한_0_이상으로_읽고_1시간으로_자른다(String header, Long expectedMillis) {
+        Duration parsed = GeminiAdapter.parseRetryAfterHeader(header);
+
+        assertThat(parsed == null ? null : parsed.toMillis()).isEqualTo(expectedMillis);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1e309s, ", "NaNs, ", "-5s, ", "abcs, ", "99999999999s, 3600000", "3601s, 3600000",
+            "17s, 17000", "0.5s, 500"})
+    void 본문_retryDelay도_유한한_0_이상으로_읽고_1시간으로_자른다(String delay, Long expectedMillis) {
+        String body = "{\"error\": {\"details\": [{\"retryDelay\": \"" + delay + "\"}]}}";
+
+        Duration parsed = adapter.parseRetryDelay(body);
+
+        assertThat(parsed == null ? null : parsed.toMillis()).isEqualTo(expectedMillis);
+    }
+
+    @Test
+    void 아주_먼_HTTP_날짜도_1시간으로_자른다() {
+        assertThat(GeminiAdapter.parseRetryAfterHeader("Fri, 31 Dec 9999 23:59:59 GMT"))
+                .isEqualTo(GeminiAdapter.MAX_RETRY_AFTER);
     }
 
     @Test
@@ -90,6 +140,19 @@ class GeminiAdapterTest {
 
         assertThat(result.score()).isEqualTo(77);
         assertThat(result.review()).isEqualTo("좋아요");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"100, 100", "0, 0", "85.5, 85", "'\"85\"', 85"})
+    void 범위_안의_정수와_소수와_숫자_문자열은_예전처럼_읽는다(String score, int expected) {
+        assertThat(adapter.parse(response("{\"score\": " + score + "}")).score()).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"4294967396", "1e20", "\"abc\"", "true", "[]"})
+    void int로_나타낼_수_없는_점수는_null로_돌려_검증에_맡긴다(String score) {
+        // 예전에는 asInt()가 예외를 던져 분류되지 않은 오류로 새거나, 잘리면 범위 검사를 통과할 수 있었다
+        assertThat(adapter.parse(response("{\"score\": " + score + "}")).score()).isNull();
     }
 
     @Test

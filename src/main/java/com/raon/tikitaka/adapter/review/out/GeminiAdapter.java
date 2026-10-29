@@ -27,6 +27,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -35,6 +36,15 @@ public class GeminiAdapter implements AiReviewPort {
 
     /** 응답이 오지 않으면 스레드가 영구히 묶이므로 응답 대기 시간에 상한을 둔다 */
     private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(30);
+
+    /**
+     * Gemini가 알려준 재시도 대기 시간의 상한. 이보다 길게 미루면 그 글은 사실상 멈춘 것과 같고,
+     * 터무니없는 값(1e309초 등)이 다음 시도 시각 계산을 넘치게 하지 않게 한다
+     */
+    static final Duration MAX_RETRY_AFTER = Duration.ofHours(1);
+
+    /** 요청 자체는 정상일 수 있는 4xx. 키 만료·권한 설정(401, 403)과 요청 시간 초과(408)는 글 내용 탓이 아니다 */
+    private static final Set<Integer> RETRYABLE_CLIENT_ERRORS = Set.of(401, 403, 408);
 
     /** block()의 상한. 응답 타임아웃이 먼저 걸리도록 연결·전송 시간만큼 여유를 둔다 */
     private static final Duration BLOCK_TIMEOUT = RESPONSE_TIMEOUT.plusSeconds(5);
@@ -114,12 +124,14 @@ public class GeminiAdapter implements AiReviewPort {
     }
 
     /**
-     * 429와 5xx는 다시 시도할 수 있고, 그 밖의 4xx(콘텐츠 정책 차단 등)는 다시 보내도 같다.
+     * 429, 5xx와 401, 403, 408은 다시 시도한다. 401, 403은 키·설정 문제라 고치기 전까지 계속 실패하지만,
+     * 거절(REJECTED)로 저장하면 관리자 재심사(FAILED만 받음)로 되살릴 수 없어 시도 한도까지 가서 FAILED로 끝나게 둔다.
+     * 그 밖의 4xx(400, 404 등)는 다시 보내도 같으므로 거절한다. 상태 코드는 호출부의 오류 로그에 남는다.
      * 다시 시도할 시점은 Retry-After 헤더를 먼저 보고, 없으면 Gemini 오류 본문의 RetryInfo.retryDelay를 본다.
      */
     RuntimeException classify(WebClientResponseException e) {
         int status = e.getStatusCode().value();
-        if (status == 429 || e.getStatusCode().is5xxServerError()) {
+        if (status == 429 || e.getStatusCode().is5xxServerError() || RETRYABLE_CLIENT_ERRORS.contains(status)) {
             return new AiReviewRetryableException("Gemini 일시 오류 status=" + status, retryAfter(e), e);
         }
         return new AiReviewRejectedException("Gemini 요청 거절 status=" + status, status, e);
@@ -133,25 +145,44 @@ public class GeminiAdapter implements AiReviewPort {
         return parseRetryDelay(e.getResponseBodyAsString());
     }
 
-    /** Retry-After는 초 단위 숫자이거나 HTTP 날짜다. 읽을 수 없으면 null을 돌려 기본 백오프를 쓰게 한다 */
+    /**
+     * Retry-After는 초 단위 숫자이거나 HTTP 날짜다. 읽을 수 없거나 음수, 무한대면 null을 돌려 기본 백오프를 쓰게 하고,
+     * MAX_RETRY_AFTER보다 길면 상한으로 줄인다.
+     */
     static Duration parseRetryAfterHeader(String value) {
         if (value == null || value.isBlank()) {
             return null;
         }
         String trimmed = value.trim();
         try {
-            long seconds = Long.parseLong(trimmed);
-            return seconds >= 0 ? Duration.ofSeconds(seconds) : null;
+            return boundedDelay(Double.parseDouble(trimmed));
         } catch (NumberFormatException ignored) {
             // 숫자가 아니면 HTTP 날짜로 읽어본다
         }
         try {
             ZonedDateTime at = ZonedDateTime.parse(trimmed, DateTimeFormatter.RFC_1123_DATE_TIME);
             Duration until = Duration.between(ZonedDateTime.now(at.getZone()), at);
-            return until.isNegative() ? Duration.ZERO : until;
+            if (until.isNegative()) {
+                return Duration.ZERO;
+            }
+            return until.compareTo(MAX_RETRY_AFTER) > 0 ? MAX_RETRY_AFTER : until;
         } catch (DateTimeParseException ignored) {
             return null;
         }
+    }
+
+    /**
+     * 초 단위 대기 시간을 Duration으로 바꾼다. NaN, 무한대, 음수는 null이고 상한을 넘으면 상한이다.
+     * Math.round에 큰 값이 들어가 넘치지 않도록 상한과 먼저 비교한다.
+     */
+    static Duration boundedDelay(double seconds) {
+        if (Double.isNaN(seconds) || Double.isInfinite(seconds) || seconds < 0) {
+            return null;
+        }
+        if (seconds >= MAX_RETRY_AFTER.toSeconds()) {
+            return MAX_RETRY_AFTER;
+        }
+        return Duration.ofMillis(Math.round(seconds * 1000));
     }
 
     /**
@@ -166,8 +197,7 @@ public class GeminiAdapter implements AiReviewPort {
             for (JsonNode detail : objectMapper.readTree(body).path("error").path("details")) {
                 String delay = detail.path("retryDelay").asString("");
                 if (delay.endsWith("s")) {
-                    double seconds = Double.parseDouble(delay.substring(0, delay.length() - 1));
-                    return Duration.ofMillis(Math.round(seconds * 1000));
+                    return boundedDelay(Double.parseDouble(delay.substring(0, delay.length() - 1)));
                 }
             }
         } catch (JacksonException | NumberFormatException ignored) {
@@ -230,13 +260,33 @@ public class GeminiAdapter implements AiReviewPort {
             throw new AiReviewInvalidResponseException("Gemini 응답이 JSON 형식이 아닙니다", e);
         }
 
-        // score가 누락되면 asInt()가 0을 반환해 0점 게시물이 저장될 수 있다
-        // 누락 시 null을 돌려주고 ReviewService의 범위 검증이 재시도 대상 예외로 거른다
-        Integer score = null;
-        if (result.hasNonNull("score")) {
-            score = result.path("score").asInt();
+        return new AiReviewResult(readScore(result.path("score")), result.path("review").asString());
+    }
+
+    /**
+     * score가 누락되면 asInt()가 0을 반환해 0점 게시물이 저장될 수 있다.
+     * 누락이나 int로 나타낼 수 없는 값은 null을 돌려주고 ReviewService의 범위 검증이 재시도 대상 예외로 거른다.
+     * 정수는 int 범위 안일 때만 읽는다. 소수(85.5 -> 85)와 숫자 문자열("85")은 예전처럼 asInt()로 읽는다.
+     * int 범위 밖 정수, 숫자가 아닌 문자열, 불리언, 배열처럼 asInt()가 예외를 던지는 값도 null이다.
+     */
+    private static Integer readScore(JsonNode node) {
+        if (node.isMissingNode() || node.isNull()) {
+            return null;
         }
-        return new AiReviewResult(score, result.path("review").asString());
+        if (node.isIntegralNumber() && !node.canConvertToInt()) {
+            return null;
+        }
+        if (node.isFloatingPointNumber()) {
+            double value = node.asDouble();
+            if (Double.isNaN(value) || value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
+                return null;
+            }
+        }
+        try {
+            return node.asInt();
+        } catch (JacksonException e) {
+            return null;
+        }
     }
 
     /** 값이 없거나 비어 있으면 null */
