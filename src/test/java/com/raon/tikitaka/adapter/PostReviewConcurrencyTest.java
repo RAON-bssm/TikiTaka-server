@@ -154,6 +154,43 @@ class PostReviewConcurrencyTest {
         assertThat(claimed).extracting(ClaimedReview::postId).containsExactly(next);
     }
 
+    @Test
+    void 선점_시각은_DB에_저장했다_읽어도_같은_값이다() {
+        UUID postId = pendingPost(LocalDateTime.now());
+
+        ClaimedReview claimed = postReviewQueueService.claim(1).get(0);
+
+        assertThat(claimed.claimedAt().getNano() % 1_000).isZero();
+        assertThat(reviewStartedAt(postId)).isEqualTo(claimed.claimedAt());
+    }
+
+    @Test
+    void 선점이_만료돼_다른_작업이_다시_가져가면_앞_작업은_상태와_선점을_바꾸지_못한다() {
+        UUID postId = pendingPost(LocalDateTime.now());
+        ClaimedReview first = postReviewQueueService.claim(1).get(0);
+        // 앞 작업이 5분 넘게 끝나지 않은 상황. 선점 시각을 과거로 돌려 만료시킨다
+        inTx(() -> em.createNativeQuery("update post set review_started_at = :at where post_id = :postId")
+                .setParameter("at", first.claimedAt().minusMinutes(6))
+                .setParameter("postId", postId)
+                .executeUpdate());
+        ClaimedReview second = postReviewQueueService.claim(1).get(0);
+        assertThat(second.postId()).isEqualTo(postId);
+
+        // 늦게 끝난 앞 작업의 기록은 모두 무시된다
+        assertThat(postReviewQueueService.recordFailure(postId, first.claimedAt(), null)).isNull();
+        assertThat(postReviewQueueService.finish(postId, first.claimedAt(), PostStatus.REJECTED)).isFalse();
+        assertThat(postReviewQueueService.release(postId, first.claimedAt())).isFalse();
+        assertThat(postStatus(postId)).isEqualTo(PostStatus.PENDING);
+        assertThat(reviewStartedAt(postId)).isEqualTo(second.claimedAt());
+        assertThat(reviewAttempts(postId)).isZero();
+
+        // 지금 선점한 작업은 그대로 기록한다
+        assertThat(postReviewQueueService.recordFailure(postId, second.claimedAt(), null))
+                .isEqualTo(PostStatus.PENDING);
+        assertThat(reviewAttempts(postId)).isEqualTo(1);
+        assertThat(reviewStartedAt(postId)).isNull();
+    }
+
     // ===== 탈퇴한 작성자 =====
 
     @Test
@@ -410,6 +447,24 @@ class PostReviewConcurrencyTest {
                         "select status from post where post_id = :postId")
                 .setParameter("postId", postId)
                 .getSingleResult()));
+    }
+
+    private LocalDateTime reviewStartedAt(UUID postId) {
+        return inTx(() -> {
+            Object value = em.createNativeQuery("select review_started_at from post where post_id = :postId")
+                    .setParameter("postId", postId)
+                    .getSingleResult();
+            if (value == null) {
+                return null;
+            }
+            return value instanceof java.sql.Timestamp ts ? ts.toLocalDateTime() : (LocalDateTime) value;
+        });
+    }
+
+    private int reviewAttempts(UUID postId) {
+        return inTx(() -> ((Number) em.createNativeQuery("select review_attempts from post where post_id = :postId")
+                .setParameter("postId", postId)
+                .getSingleResult()).intValue());
     }
 
     private boolean isActive(UUID postId) {

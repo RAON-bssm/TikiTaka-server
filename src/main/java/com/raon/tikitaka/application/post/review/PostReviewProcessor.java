@@ -61,7 +61,8 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
         // 확정된 시즌에는 점수를 더할 수 없다. 확정 배치가 PENDING을 EXPIRED로 바꾸지만,
         // 그 뒤에 선점된 글(확정 직전 선점 등)이 있을 수 있어 AI를 부르기 전에 한 번 더 본다
         if (seasonResultRepositoryPort.existsBySeason(claimed.season())) {
-            boolean expired = postReviewQueueService.finish(claimed.postId(), PostStatus.EXPIRED);
+            boolean expired = postReviewQueueService.finish(claimed.postId(), claimed.claimedAt(),
+                    PostStatus.EXPIRED);
             return logged(claimed, expired ? ReviewOutcome.EXPIRED : ReviewOutcome.SKIPPED, false, 0);
         }
 
@@ -81,7 +82,8 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
             review = reviewUseCase.evaluate(claimed.mission(), claimed.content(), image.content(),
                     contentType(image, claimed.postImage()));
         } catch (AiReviewRejectedException e) {
-            boolean rejected = postReviewQueueService.finish(claimed.postId(), PostStatus.REJECTED);
+            boolean rejected = postReviewQueueService.finish(claimed.postId(), claimed.claimedAt(),
+                    PostStatus.REJECTED);
             return logged(claimed, rejected ? ReviewOutcome.REJECTED : ReviewOutcome.SKIPPED, true,
                     System.currentTimeMillis() - startedAt);
         } catch (AiReviewRetryableException e) {
@@ -95,7 +97,9 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
         long reviewMs = System.currentTimeMillis() - startedAt;
 
         try {
-            // 포인트를 바꾸므로 상점 구매·가샤폰과 같은 포인트 키로 감싼다. 키는 트랜잭션 밖에서 잡아야 한다
+            // 포인트를 바꾸므로 상점 구매·가샤폰과 같은 포인트 키로 감싼다. 키는 트랜잭션 밖에서 잡아야 한다.
+            // 심사 완료는 선점 주인을 보지 않는다. 선점이 만료돼 두 작업이 같은 글을 끝내도, 먼저 DONE으로 바꾼 쪽만
+            // 반영되고 나중 작업은 PENDING이 아니라 false를 받으므로 점수는 한 번만 들어간다
             boolean applied = requestGuard.executeWaiting(RequestGuard.pointsKey(claimed.authorId()),
                     RequestGuard.POINTS_BUSY_MESSAGE,
                     () -> completePostReviewUseCase.completeReview(claimed.postId(), review.score(), review.review()));
@@ -107,8 +111,8 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
             }
             // 5초 안에 포인트 키 순서가 오지 않았다. 실패가 아니므로 시도 횟수를 올리지 않고 선점만 푼다.
             // 다음 틱에 다시 선점되면 AI를 한 번 더 부른다
-            postReviewQueueService.release(claimed.postId());
-            return logged(claimed, ReviewOutcome.DEFERRED, true, reviewMs);
+            boolean released = postReviewQueueService.release(claimed.postId(), claimed.claimedAt());
+            return logged(claimed, released ? ReviewOutcome.DEFERRED : ReviewOutcome.SKIPPED, true, reviewMs);
         } catch (RuntimeException e) {
             // 반영 중 오류(예: 라운드의 평균 동네 인원 C 누락)는 트랜잭션이 롤백돼 PENDING으로 남는다.
             // 시도 횟수로 세지 않으면 선점 만료 때마다 AI를 다시 부르며 끝없이 돈다
@@ -118,7 +122,7 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
     }
 
     private ReviewOutcome failure(ClaimedReview claimed, Duration retryAfter) {
-        PostStatus status = postReviewQueueService.recordFailure(claimed.postId(), retryAfter);
+        PostStatus status = postReviewQueueService.recordFailure(claimed.postId(), claimed.claimedAt(), retryAfter);
         if (status == PostStatus.FAILED) {
             return ReviewOutcome.FAILED;
         }

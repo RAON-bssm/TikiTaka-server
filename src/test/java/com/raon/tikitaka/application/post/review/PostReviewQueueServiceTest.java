@@ -45,6 +45,7 @@ class PostReviewQueueServiceTest {
             new PostReviewProperties(true, 1, 4, 5, Duration.ofMinutes(1), Duration.ofMinutes(5)), seasonResultPort);
 
     private static final int SEASON = 3;
+    private static final LocalDateTime CLAIMED_AT = LocalDateTime.of(2026, 10, 29, 12, 0, 0, 123_456_000);
 
     private final UUID postId = UUID.randomUUID();
 
@@ -53,7 +54,7 @@ class PostReviewQueueServiceTest {
     void 실패하면_시도_횟수를_올리고_1_2_4_8분_뒤로_미룬다(int before, int after, long waitMinutes) {
         lockedPost(PostStatus.PENDING, before);
 
-        PostStatus status = service.recordFailure(postId, null);
+        PostStatus status = service.recordFailure(postId, CLAIMED_AT, null);
 
         assertThat(status).isEqualTo(PostStatus.PENDING);
         ArgumentCaptor<LocalDateTime> nextAt = ArgumentCaptor.forClass(LocalDateTime.class);
@@ -66,7 +67,7 @@ class PostReviewQueueServiceTest {
     void 다섯_번째_실패면_FAILED() {
         lockedPost(PostStatus.PENDING, 4);
 
-        PostStatus status = service.recordFailure(postId, null);
+        PostStatus status = service.recordFailure(postId, CLAIMED_AT, null);
 
         assertThat(status).isEqualTo(PostStatus.FAILED);
         verify(queuePort).finish(postId, PostStatus.FAILED, 5);
@@ -77,7 +78,7 @@ class PostReviewQueueServiceTest {
     void Gemini가_대기_시간을_주면_기본_백오프_대신_쓴다() {
         lockedPost(PostStatus.PENDING, 0);
 
-        service.recordFailure(postId, Duration.ofSeconds(17));
+        service.recordFailure(postId, CLAIMED_AT, Duration.ofSeconds(17));
 
         ArgumentCaptor<LocalDateTime> nextAt = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(queuePort).scheduleRetry(eq(postId), eq(1), nextAt.capture());
@@ -89,19 +90,56 @@ class PostReviewQueueServiceTest {
     void 이미_PENDING이_아니면_실패를_기록하지_않는다() {
         lockedPost(PostStatus.EXPIRED, 0);
 
-        assertThat(service.recordFailure(postId, null)).isEqualTo(PostStatus.EXPIRED);
+        assertThat(service.recordFailure(postId, CLAIMED_AT, null)).isEqualTo(PostStatus.EXPIRED);
+        verify(queuePort, never()).scheduleRetry(any(), anyInt(), any());
+        verify(queuePort, never()).finish(any(), any(), anyInt());
+    }
+
+    // ===== 선점 주인 확인 =====
+
+    @Test
+    void 다른_작업이_다시_선점한_글은_실패를_기록하지_않고_null() {
+        lockedPost(PostStatus.PENDING, 1);
+
+        assertThat(service.recordFailure(postId, CLAIMED_AT.minusMinutes(6), null)).isNull();
         verify(queuePort, never()).scheduleRetry(any(), anyInt(), any());
         verify(queuePort, never()).finish(any(), any(), anyInt());
     }
 
     @Test
+    void 다른_작업이_다시_선점한_글은_종료_상태로_바꾸지_않는다() {
+        lockedPost(PostStatus.PENDING, 1);
+
+        assertThat(service.finish(postId, CLAIMED_AT.minusMinutes(6), PostStatus.REJECTED)).isFalse();
+        verify(queuePort, never()).finish(any(), any(), anyInt());
+    }
+
+    @Test
+    void 다른_작업이_다시_선점한_글은_선점을_풀지_않는다() {
+        lockedPost(PostStatus.PENDING, 1);
+
+        assertThat(service.release(postId, CLAIMED_AT.minusMinutes(6))).isFalse();
+        verify(queuePort, never()).release(any());
+    }
+
+    @Test
+    void 선점이_이미_풀린_글도_바꾸지_않는다() {
+        lockedPost(PostStatus.PENDING, 1);
+
+        // 다른 작업이 실패를 기록해 review_started_at이 비었다
+        assertThat(service.release(postId, null)).isFalse();
+        assertThat(service.finish(postId, null, PostStatus.REJECTED)).isFalse();
+        verify(queuePort, never()).release(any());
+    }
+
+    @Test
     void 종료_상태로_바꾸기는_PENDING일_때만() {
         lockedPost(PostStatus.DONE, 0);
-        assertThat(service.finish(postId, PostStatus.REJECTED)).isFalse();
+        assertThat(service.finish(postId, CLAIMED_AT, PostStatus.REJECTED)).isFalse();
         verify(queuePort, never()).finish(any(), any(), anyInt());
 
         lockedPost(PostStatus.PENDING, 2);
-        assertThat(service.finish(postId, PostStatus.REJECTED)).isTrue();
+        assertThat(service.finish(postId, CLAIMED_AT, PostStatus.REJECTED)).isTrue();
         verify(queuePort).finish(postId, PostStatus.REJECTED, 2);
     }
 
@@ -109,7 +147,7 @@ class PostReviewQueueServiceTest {
     void 선점_해제는_시도_횟수를_건드리지_않는다() {
         lockedPost(PostStatus.PENDING, 3);
 
-        service.release(postId);
+        assertThat(service.release(postId, CLAIMED_AT)).isTrue();
 
         verify(queuePort).release(postId);
         verify(queuePort, never()).scheduleRetry(any(), anyInt(), any());
@@ -173,6 +211,7 @@ class PostReviewQueueServiceTest {
         when(post.getStatus()).thenReturn(status);
         when(post.isPending()).thenReturn(status == PostStatus.PENDING);
         when(post.getReviewAttempts()).thenReturn(attempts);
+        when(post.getReviewStartedAt()).thenReturn(CLAIMED_AT);
         Stage stage = mock(Stage.class);
         when(stage.getSeason()).thenReturn(SEASON);
         Match match = mock(Match.class);

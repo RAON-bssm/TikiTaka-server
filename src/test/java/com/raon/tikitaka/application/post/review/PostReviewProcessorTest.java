@@ -16,9 +16,12 @@ import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.global.guard.RequestGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -49,8 +52,9 @@ class PostReviewProcessorTest {
 
     private final UUID postId = UUID.randomUUID();
     private final UUID authorId = UUID.randomUUID();
+    private final LocalDateTime claimedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
     private final ClaimedReview claimed = new ClaimedReview(postId, authorId, 3L, "미션", 1, "내용", "photo.jpg", 0,
-            LocalDateTime.now().minusSeconds(10), LocalDateTime.now());
+            claimedAt.minusSeconds(10), claimedAt);
 
     @BeforeEach
     void setUp() {
@@ -66,14 +70,14 @@ class PostReviewProcessorTest {
 
         assertThat(result).isEqualTo(new PostReviewResult(ReviewOutcome.DONE, true));
         verify(completeUseCase).completeReview(postId, 77, "좋아요");
-        verify(queueService, never()).recordFailure(any(), any());
+        verify(queueService, never()).recordFailure(any(), any(), any());
     }
 
     @Test
     void 응답_429면_Gemini가_준_대기_시간으로_재시도를_예약한다() {
         when(reviewUseCase.evaluate(any(), any(), any(), any()))
                 .thenThrow(new AiReviewRetryableException("429", Duration.ofSeconds(17), null));
-        when(queueService.recordFailure(postId, Duration.ofSeconds(17))).thenReturn(PostStatus.PENDING);
+        when(queueService.recordFailure(postId, claimedAt, Duration.ofSeconds(17))).thenReturn(PostStatus.PENDING);
 
         PostReviewResult result = processor.review(claimed);
 
@@ -85,7 +89,7 @@ class PostReviewProcessorTest {
     void 시도_한도에_닿으면_FAILED() {
         when(reviewUseCase.evaluate(any(), any(), any(), any()))
                 .thenThrow(new AiReviewRetryableException("503", null, null));
-        when(queueService.recordFailure(postId, null)).thenReturn(PostStatus.FAILED);
+        when(queueService.recordFailure(postId, claimedAt, null)).thenReturn(PostStatus.FAILED);
 
         assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.FAILED);
     }
@@ -94,21 +98,41 @@ class PostReviewProcessorTest {
     void 응답_401이_시도_한도까지_반복되면_거절이_아니라_FAILED() {
         // 키 만료처럼 계속 401이 와도 REJECTED로 저장하지 않는다. 마지막 시도의 실패 기록이 FAILED로 바꾼다
         when(reviewUseCase.evaluate(any(), any(), any(), any())).thenThrow(GeminiAdapterTestAccess.classify(401));
-        when(queueService.recordFailure(postId, null)).thenReturn(PostStatus.PENDING, PostStatus.PENDING,
+        when(queueService.recordFailure(postId, claimedAt, null)).thenReturn(PostStatus.PENDING, PostStatus.PENDING,
                 PostStatus.PENDING, PostStatus.PENDING, PostStatus.FAILED);
 
         for (int attempt = 1; attempt <= 4; attempt++) {
             assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.RETRY);
         }
         assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.FAILED);
-        verify(queueService, never()).finish(any(), any());
+        verify(queueService, never()).finish(any(), any(), any());
+    }
+
+    @Test
+    void 선점이_만료돼_다른_작업이_가져간_글은_실패를_기록하지_못하고_SKIPPED() {
+        when(reviewUseCase.evaluate(any(), any(), any(), any()))
+                .thenThrow(new AiReviewRetryableException("503", null, null));
+        // 큐 서비스는 선점 주인이 아니면 아무것도 바꾸지 않고 null을 돌려준다
+        when(queueService.recordFailure(postId, claimedAt, null)).thenReturn(null);
+
+        assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.SKIPPED);
+    }
+
+    @Test
+    void 선점이_만료된_뒤_포인트_키_409를_만나면_선점을_풀지_못하고_SKIPPED() {
+        when(reviewUseCase.evaluate(any(), any(), any(), any())).thenReturn(new AiReviewResult(77, "좋아요"));
+        when(completeUseCase.completeReview(postId, 77, "좋아요"))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "busy"));
+        when(queueService.release(postId, claimedAt)).thenReturn(false);
+
+        assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.SKIPPED);
     }
 
     @Test
     void 응답_형식_오류도_재시도_대상() {
         when(reviewUseCase.evaluate(any(), any(), any(), any()))
                 .thenThrow(new AiReviewInvalidResponseException("score=null"));
-        when(queueService.recordFailure(postId, null)).thenReturn(PostStatus.PENDING);
+        when(queueService.recordFailure(postId, claimedAt, null)).thenReturn(PostStatus.PENDING);
 
         assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.RETRY);
     }
@@ -117,18 +141,18 @@ class PostReviewProcessorTest {
     void 응답_400이면_재시도하지_않고_REJECTED() {
         when(reviewUseCase.evaluate(any(), any(), any(), any()))
                 .thenThrow(new AiReviewRejectedException("400", 400, null));
-        when(queueService.finish(postId, PostStatus.REJECTED)).thenReturn(true);
+        when(queueService.finish(postId, claimedAt, PostStatus.REJECTED)).thenReturn(true);
 
         PostReviewResult result = processor.review(claimed);
 
         assertThat(result).isEqualTo(new PostReviewResult(ReviewOutcome.REJECTED, true));
-        verify(queueService, never()).recordFailure(any(), any());
+        verify(queueService, never()).recordFailure(any(), any(), any());
     }
 
     @Test
     void 시즌이_이미_확정됐으면_AI를_부르지_않고_EXPIRED() {
         when(seasonResultPort.existsBySeason(1)).thenReturn(true);
-        when(queueService.finish(postId, PostStatus.EXPIRED)).thenReturn(true);
+        when(queueService.finish(postId, claimedAt, PostStatus.EXPIRED)).thenReturn(true);
 
         PostReviewResult result = processor.review(claimed);
 
@@ -140,7 +164,7 @@ class PostReviewProcessorTest {
     @Test
     void 이미지를_읽지_못하면_AI를_부르지_않고_실패로_센다() {
         when(storagePort.download("photo.jpg")).thenThrow(new IllegalStateException("S3 오류"));
-        when(queueService.recordFailure(postId, null)).thenReturn(PostStatus.PENDING);
+        when(queueService.recordFailure(postId, claimedAt, null)).thenReturn(PostStatus.PENDING);
 
         PostReviewResult result = processor.review(claimed);
 
@@ -155,12 +179,13 @@ class PostReviewProcessorTest {
         when(completeUseCase.completeReview(postId, 77, "좋아요")).thenReturn(false);
 
         assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.SKIPPED);
-        verify(queueService, never()).recordFailure(any(), any());
+        verify(queueService, never()).recordFailure(any(), any(), any());
     }
 
     @Test
     void 포인트_키를_기다리다_409면_실패로_세지_않고_선점만_푼다() throws Exception {
         when(reviewUseCase.evaluate(any(), any(), any(), any())).thenReturn(new AiReviewResult(77, "좋아요"));
+        when(queueService.release(postId, claimedAt)).thenReturn(true);
         CountDownLatch holding = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         // 상점 구매가 포인트 키를 5초 넘게 잡고 있는 상황
@@ -180,8 +205,8 @@ class PostReviewProcessorTest {
         purchase.get(5, TimeUnit.SECONDS);
 
         assertThat(result).isEqualTo(new PostReviewResult(ReviewOutcome.DEFERRED, true));
-        verify(queueService).release(postId);
-        verify(queueService, never()).recordFailure(any(), any());
+        verify(queueService).release(postId, claimedAt);
+        verify(queueService, never()).recordFailure(any(), any(), any());
         verify(completeUseCase, never()).completeReview(any(), anyInt(), any());
     }
 
@@ -190,7 +215,7 @@ class PostReviewProcessorTest {
         when(reviewUseCase.evaluate(any(), any(), any(), any())).thenReturn(new AiReviewResult(77, "좋아요"));
         when(completeUseCase.completeReview(postId, 77, "좋아요"))
                 .thenThrow(new IllegalStateException("라운드의 평균 동네 인원(C)이 없습니다."));
-        when(queueService.recordFailure(postId, null)).thenReturn(PostStatus.PENDING);
+        when(queueService.recordFailure(postId, claimedAt, null)).thenReturn(PostStatus.PENDING);
 
         assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.RETRY);
     }
@@ -217,14 +242,14 @@ class PostReviewProcessorTest {
         };
         PostReviewProcessor realReview = new PostReviewProcessor(queueService, completeUseCase,
                 new ReviewService(port), storagePort, seasonResultPort, requestGuard);
-        when(queueService.finish(postId, PostStatus.REJECTED)).thenReturn(true);
+        when(queueService.finish(postId, claimedAt, PostStatus.REJECTED)).thenReturn(true);
 
         PostReviewResult result = realReview.review(claimed);
 
         assertThat(result).isEqualTo(new PostReviewResult(ReviewOutcome.REJECTED, true));
         assertThat(calls).hasValue(1);
         // 재시도 예약(review_next_at)은 recordFailure로만 생긴다
-        verify(queueService, never()).recordFailure(any(), any());
+        verify(queueService, never()).recordFailure(any(), any(), any());
         verify(completeUseCase, never()).completeReview(any(), anyInt(), any());
     }
 }
