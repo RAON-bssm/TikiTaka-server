@@ -41,4 +41,16 @@ public interface PostReviewQueuePort {
      * 시즌 라운드에 속한 PENDING 글을 모두 EXPIRED로 바꾸고 바꾼 건수를 돌려준다. 시즌 확정 트랜잭션에서 쓴다.
      */
     int expirePendingBySeason(int season);
+
+    /**
+     * 시즌 단위 공유 잠금. 글을 PENDING으로 만드는 트랜잭션이 건다. 공유끼리는 서로 막지 않고,
+     * 시즌 확정이 쥔 배타 잠금과만 충돌한다. 트랜잭션이 끝나면 풀린다.
+     */
+    void lockSeasonShared(int season);
+
+    /**
+     * 시즌 단위 배타 잠금. 시즌 확정이 PENDING 만료부터 결과 저장까지 쥔다.
+     * 진행 중인 글 작성이 끝나길 기다리고, 이후 글 작성은 확정이 끝날 때까지 기다린다.
+     */
+    void lockSeasonExclusive(int season);
 }

@@ -42,6 +42,7 @@ class RankingServiceFinalizeTest {
         rankingService.execute();
 
         InOrder order = inOrder(postReviewQueuePort, rankingRepositoryPort);
+        order.verify(postReviewQueuePort).lockSeasonExclusive(3);
         order.verify(postReviewQueuePort).expirePendingBySeason(3);
         order.verify(rankingRepositoryPort).calculateSeasonRanking(3);
     }

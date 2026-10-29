@@ -14,6 +14,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PostReviewQueuePersistenceAdapter implements PostReviewQueuePort {
 
+    /** advisory lock 키 앞부분. 다른 용도의 advisory lock과 키가 겹치지 않게 구분한다 */
+    private static final int SEASON_LOCK_NAMESPACE = 0x5EA50;
+
     private final PostJpaRepository postJpaRepository;
 
     @Override
@@ -63,5 +66,15 @@ public class PostReviewQueuePersistenceAdapter implements PostReviewQueuePort {
     @Override
     public int expirePendingBySeason(int season) {
         return postJpaRepository.expirePendingBySeason(season);
+    }
+
+    @Override
+    public void lockSeasonShared(int season) {
+        postJpaRepository.lockSeasonShared(SEASON_LOCK_NAMESPACE, season);
+    }
+
+    @Override
+    public void lockSeasonExclusive(int season) {
+        postJpaRepository.lockSeasonExclusive(SEASON_LOCK_NAMESPACE, season);
     }
 }

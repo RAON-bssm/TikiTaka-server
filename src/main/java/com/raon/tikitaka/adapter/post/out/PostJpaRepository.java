@@ -226,6 +226,16 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
             """, nativeQuery = true)
     int expirePendingBySeason(@Param("season") int season);
 
+    /**
+     * 시즌 단위 advisory lock(트랜잭션이 끝나면 자동 해제). 글 작성은 공유, 시즌 확정은 배타로 건다.
+     * select로 호출하며 반환값(void)은 쓰지 않는다. 트랜잭션 안에서만 의미가 있다.
+     */
+    @Query(value = "select pg_advisory_xact_lock_shared(:namespace, :season) is null", nativeQuery = true)
+    boolean lockSeasonShared(@Param("namespace") int namespace, @Param("season") int season);
+
+    @Query(value = "select pg_advisory_xact_lock(:namespace, :season) is null", nativeQuery = true)
+    boolean lockSeasonExclusive(@Param("namespace") int namespace, @Param("season") int season);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Post p set p.reviewStartedAt = null where p.postId = :postId")
     int releaseReviewClaim(@Param("postId") UUID postId);

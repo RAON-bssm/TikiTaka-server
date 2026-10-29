@@ -66,6 +66,7 @@ class PostServiceReviewTest {
         lenient().when(away.getLocationId()).thenReturn(2L);
         Stage stage = mock(Stage.class);
         lenient().when(stage.getStageId()).thenReturn(STAGE_ID);
+        lenient().when(stage.getSeason()).thenReturn(1);
         lenient().when(stage.getAvgLocationMemberCount()).thenReturn(5.0);
         Match match = mock(Match.class);
         lenient().when(match.getStage()).thenReturn(stage);
@@ -92,6 +93,7 @@ class PostServiceReviewTest {
 
         postService.createPending(authorId, 3L, "내용", "photo.jpg");
 
+        verify(queuePort).lockSeasonShared(1);
         ArgumentCaptor<Post> saved = ArgumentCaptor.forClass(Post.class);
         verify(postRepositoryPort).save(saved.capture());
         assertThat(saved.getValue().getStatus()).isEqualTo(PostStatus.PENDING);

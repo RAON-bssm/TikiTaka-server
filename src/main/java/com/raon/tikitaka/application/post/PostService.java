@@ -230,6 +230,9 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     public UUID createPending(UUID authorId, Long boardId, String content, String postImage) {
         Users author = postRepositoryPort.getUser(authorId);
         Board board = postRepositoryPort.getBoard(boardId);
+
+        // 시즌 확정과 직렬화한다. 확정이 진행 중이면 끝날 때까지 기다리고, 내가 먼저면 확정이 이 글까지 EXPIRED로 처리한다
+        postReviewQueuePort.lockSeasonShared(board.getMatch().getStage().getSeason());
         Location teamLocation = resolveTeamLocation(author, board);
         boolean locationScored = author.isAtHome();
 
