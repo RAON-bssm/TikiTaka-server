@@ -3,6 +3,7 @@ package com.raon.tikitaka.adapter.post.out;
 import com.raon.tikitaka.domain.post.Post;
 import com.raon.tikitaka.domain.post.PostStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -79,6 +80,30 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
             order by p.createdAt desc
             """)
     List<Post> findAllActiveByUserId(@Param("userId") UUID userId);
+
+    // ===== 업로드 한도 =====
+
+    /**
+     * since 이후에 만든 글 중 statuses에 해당하는 글의 작성 시각을 최근 순으로 읽는다. 삭제한 글도 포함한다.
+     * idx_post_user_created_at을 타도록 user_id와 created_at으로 거른다.
+     */
+    @Query("""
+            select p.createdAt from Post p
+             where p.userId.userId = :userId
+               and p.createdAt > :since
+               and p.status in :statuses
+             order by p.createdAt desc
+            """)
+    List<LocalDateTime> findRecentUploadTimes(@Param("userId") UUID userId, @Param("since") LocalDateTime since,
+                                              @Param("statuses") Collection<PostStatus> statuses, Limit limit);
+
+    @Query("""
+            select count(p) from Post p
+             where p.userId.userId = :userId
+               and p.status = com.raon.tikitaka.domain.post.PostStatus.PENDING
+               and p.isActive = true
+            """)
+    long countActivePendingByUserId(@Param("userId") UUID userId);
 
     /**
      * id로 글 행을 잠그고 읽는다. 심사 완료·삭제·대기열 상태 변경이 같은 글에서 겹치지 않게 한다.

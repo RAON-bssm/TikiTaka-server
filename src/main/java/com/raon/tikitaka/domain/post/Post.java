@@ -14,7 +14,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "post",
-        indexes = @Index(name = "idx_post_status_review_next_at", columnList = "status, review_next_at"))
+        indexes = {
+                @Index(name = "idx_post_status_review_next_at", columnList = "status, review_next_at"),
+                // 사용자별 업로드 한도가 user_id로 거르고 created_at 최근 순으로 읽는다
+                @Index(name = "idx_post_user_created_at", columnList = "user_id, created_at")
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Post {
