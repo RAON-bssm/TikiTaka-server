@@ -3,6 +3,7 @@ package com.raon.tikitaka.adapter.post;
 import com.raon.tikitaka.adapter.post.dto.CreatePostRequest;
 import com.raon.tikitaka.adapter.post.dto.CreatePostResponse;
 import com.raon.tikitaka.application.board.in.GetBoardUseCase;
+import com.raon.tikitaka.application.post.in.CheckPostUploadLimitUseCase;
 import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
@@ -45,7 +46,8 @@ class PostControllerAsyncTest {
             mock(GetPostDetailUseCase.class), createPostUseCase, mock(UpdatePostUseCase.class),
             mock(DeletePostUseCase.class), mock(LikePostUseCase.class), mock(UnlikePostUseCase.class),
             storageUseCase, reviewUseCase, getBoardUseCase, new RequestGuard(),
-            new PostReviewProperties(true, 1, 4, 5, Duration.ofMinutes(1), Duration.ofMinutes(5)));
+            new PostReviewProperties(true, 1, 4, 5, Duration.ofMinutes(1), Duration.ofMinutes(5)),
+            mock(CheckPostUploadLimitUseCase.class));
 
     private final UUID authorId = UUID.randomUUID();
     private final UUID postId = UUID.randomUUID();

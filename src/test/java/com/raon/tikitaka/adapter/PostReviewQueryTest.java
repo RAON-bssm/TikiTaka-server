@@ -1,6 +1,7 @@
 package com.raon.tikitaka.adapter;
 
 import com.raon.tikitaka.adapter.post.out.PostJpaRepository;
+import com.raon.tikitaka.application.post.PostUploadLimitService;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.domain.enums.MatchType;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Limit;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -179,6 +181,61 @@ class PostReviewQueryTest {
         // findActiveById는 탈퇴 작성자의 글을 숨기지만, 심사 완료는 이 조회로 읽으므로 글을 놓치지 않는다
         assertThat(postJpaRepository.findActiveById(post.getPostId())).isEmpty();
         assertThat(postJpaRepository.findByIdForUpdate(post.getPostId())).isPresent();
+    }
+
+    // ===== 업로드 한도 =====
+
+    @Test
+    void 업로드_횟수는_기간_안의_PENDING_DONE_REJECTED와_삭제한_글을_최근_순으로_센다() {
+        Users author = user("author");
+        Users other = user("other");
+        LocalDateTime now = LocalDateTime.now();
+        Post done = post(author, PostStatus.DONE);
+        Post pending = post(author, PostStatus.PENDING);
+        Post rejected = post(author, PostStatus.REJECTED);
+        Post failed = post(author, PostStatus.FAILED);
+        Post expired = post(author, PostStatus.EXPIRED);
+        Post deleted = post(author, PostStatus.DONE);
+        Post old = post(author, PostStatus.DONE);
+        Post othersPost = post(other, PostStatus.DONE);
+        flushAndClear();
+        setColumn(done, "created_at", now.minusMinutes(1));
+        setColumn(pending, "created_at", now.minusMinutes(2));
+        setColumn(rejected, "created_at", now.minusMinutes(3));
+        setColumn(failed, "created_at", now.minusMinutes(4));
+        setColumn(expired, "created_at", now.minusMinutes(5));
+        setColumn(deleted, "created_at", now.minusMinutes(6));
+        setColumn(old, "created_at", now.minusMinutes(11));
+        setColumn(othersPost, "created_at", now.minusMinutes(1));
+        em.createNativeQuery("update post set is_active = false where post_id = :id")
+                .setParameter("id", deleted.getPostId()).executeUpdate();
+
+        List<LocalDateTime> all = postJpaRepository.findRecentUploadTimes(author.getUserId(), now.minusMinutes(10),
+                PostUploadLimitService.COUNTED_STATUSES, Limit.of(10));
+        List<LocalDateTime> limited = postJpaRepository.findRecentUploadTimes(author.getUserId(), now.minusMinutes(10),
+                PostUploadLimitService.COUNTED_STATUSES, Limit.of(2));
+
+        // FAILED, EXPIRED, 기간 밖(11분 전), 다른 사람 글은 빠지고 삭제한 글은 센다
+        assertThat(all).containsExactly(now.minusMinutes(1), now.minusMinutes(2), now.minusMinutes(3),
+                now.minusMinutes(6));
+        assertThat(limited).containsExactly(now.minusMinutes(1), now.minusMinutes(2));
+    }
+
+    @Test
+    void 심사_대기는_삭제하지_않은_PENDING만_센다() {
+        Users author = user("author");
+        Users other = user("other");
+        post(author, PostStatus.PENDING);
+        post(author, PostStatus.PENDING);
+        Post deletedPending = post(author, PostStatus.PENDING);
+        post(author, PostStatus.DONE);
+        post(author, PostStatus.FAILED);
+        post(other, PostStatus.PENDING);
+        flushAndClear();
+        em.createNativeQuery("update post set is_active = false where post_id = :id")
+                .setParameter("id", deletedPending.getPostId()).executeUpdate();
+
+        assertThat(postJpaRepository.countActivePendingByUserId(author.getUserId())).isEqualTo(2);
     }
 
     // ===== helpers =====

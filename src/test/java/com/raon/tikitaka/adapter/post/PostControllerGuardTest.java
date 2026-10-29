@@ -1,6 +1,7 @@
 package com.raon.tikitaka.adapter.post;
 
 import com.raon.tikitaka.application.board.in.GetBoardUseCase;
+import com.raon.tikitaka.application.post.in.CheckPostUploadLimitUseCase;
 import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
@@ -54,7 +55,8 @@ class PostControllerGuardTest {
         controller = new PostController(mock(GetPostListUseCase.class), mock(GetPostDetailUseCase.class),
                 mock(CreatePostUseCase.class), mock(UpdatePostUseCase.class), deletePostUseCase,
                 likePostUseCase, unlikePostUseCase, mock(StorageUseCase.class), mock(ReviewUseCase.class),
-                mock(GetBoardUseCase.class), new RequestGuard(), syncProperties());
+                mock(GetBoardUseCase.class), new RequestGuard(), syncProperties(),
+                mock(CheckPostUploadLimitUseCase.class));
     }
 
     private static PostReviewProperties syncProperties() {

@@ -5,6 +5,7 @@ import com.raon.tikitaka.adapter.post.dto.CreatePostResponse;
 import com.raon.tikitaka.adapter.post.dto.PostDetailResponse;
 import com.raon.tikitaka.adapter.post.dto.PostListResponse;
 import com.raon.tikitaka.adapter.post.dto.UpdatePostRequest;
+import com.raon.tikitaka.application.post.in.CheckPostUploadLimitUseCase;
 import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
@@ -61,6 +62,7 @@ public class PostController {
     private final GetBoardUseCase getBoardUseCase;
     private final RequestGuard requestGuard;
     private final PostReviewProperties postReviewProperties;
+    private final CheckPostUploadLimitUseCase checkPostUploadLimitUseCase;
 
     /**
      * GET /api/post/**는 SecurityConfig에서 permitAll이라 비로그인 조회 시
@@ -121,6 +123,9 @@ public class PostController {
 
             // 작성자가 지금 있는 동네 기준으로 게시판 접근을 검증한다. 종료된 라운드나 다른 동네 게시판이면 404
             String mission = getBoardUseCase.getMission(request.boardId(), authorId);
+            // 업로드 한도는 S3 업로드 전에 본다. 거절할 요청에 업로드 비용을 쓰지 않고,
+            // 작성자 키 안이라 같은 사용자의 동시 요청이 함께 통과하지 않는다
+            checkPostUploadLimitUseCase.checkUploadLimit(authorId);
             String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
             AiReviewResult review = evaluate(mission, request.content(), imageBytes, image.getContentType());
             int score = review.score();
@@ -146,6 +151,7 @@ public class PostController {
 
             // 미션 값은 쓰지 않고 접근 검증만 한다. 종료된 라운드나 다른 동네 게시판이면 S3 업로드 전에 404
             getBoardUseCase.getMission(request.boardId(), authorId);
+            checkPostUploadLimitUseCase.checkUploadLimit(authorId);
             String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
             return createPostUseCase.createPending(authorId, request.boardId(), request.content(), key);
         });

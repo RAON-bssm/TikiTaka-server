@@ -31,7 +31,7 @@ public class PostUploadLimitService implements CheckPostUploadLimitUseCase {
      * 업로드 횟수로 세는 상태. FAILED(AI 장애)와 EXPIRED(시즌 확정)는 사용자 잘못이 아니라 세지 않는다.
      * 삭제한 글(is_active = false)은 센다. 안 세면 올리고 지우기를 반복해 한도를 피할 수 있다.
      */
-    static final Set<PostStatus> COUNTED_STATUSES = Set.of(PostStatus.PENDING, PostStatus.DONE, PostStatus.REJECTED);
+    public static final Set<PostStatus> COUNTED_STATUSES = Set.of(PostStatus.PENDING, PostStatus.DONE, PostStatus.REJECTED);
 
     private final PostRepositoryPort postRepositoryPort;
     private final PostUploadLimitProperties properties;
