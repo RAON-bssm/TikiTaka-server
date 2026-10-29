@@ -83,6 +83,14 @@ ranking:
   dormant-days: ${DORMANT_DAYS:7}   # 휴면 전환 기준 일수 (개발 환경은 DORMANT_DAYS로 크게 잡는다)
   point-divisor: 20           # 게시물 작성 포인트 = round(AI점수 × K ÷ point-divisor)
 
+post-review:
+  async: ${POST_REVIEW_ASYNC:false}   # true = 업로드는 PENDING 저장까지만, 심사는 워커가 한다. false = 기존 동기 방식
+  concurrency: 1              # 워커 동시 심사 수. 분당 호출 한도가 병목이라 늘려도 처리량은 늘지 않는다
+  max-calls-per-minute: 4     # 워커의 Gemini 호출 한도(최근 60초). Gemini 한도 5회에서 미션 생성 몫 1회를 남긴다
+  max-attempts: 5             # 총 시도 횟수. 다 실패하면 FAILED
+  initial-backoff: 1m         # 첫 실패 뒤 대기. 실패마다 두 배(1, 2, 4, 8분). Gemini가 대기 시간을 주면 그 값을 쓴다
+  claim-timeout: 5m           # 선점 후 이 시간이 지나도 안 끝난 글은 다시 선점(서버 중단 복구)
+
 season:
   round-days: 7               # 라운드 1개 길이
   rounds-per-season: 4        # 시즌당 라운드 수 → 시즌 = 28일

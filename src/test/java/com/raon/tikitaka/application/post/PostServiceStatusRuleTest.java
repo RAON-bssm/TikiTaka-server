@@ -59,7 +59,7 @@ class PostServiceStatusRuleTest {
     void setUp() {
         // 조회·수정·삭제 경로는 점수 설정을 쓰지 않는다(삭제는 점수가 없는 글만 다룬다)
         postService = new PostService(postRepositoryPort, postLikeRepositoryPort, rankingRepositoryPort, null,
-                blockRepositoryPort);
+                blockRepositoryPort, null);
     }
 
     // ===== 상세 =====
@@ -163,7 +163,7 @@ class PostServiceStatusRuleTest {
     @EnumSource(value = PostStatus.class, names = "DONE", mode = EnumSource.Mode.EXCLUDE)
     void 심사가_끝나지_않은_글도_삭제할_수_있고_점수는_건드리지_않는다(PostStatus status) {
         Post post = post(status);
-        when(postRepositoryPort.findActiveById(postId)).thenReturn(Optional.of(post));
+        when(postRepositoryPort.findByIdForUpdate(postId)).thenReturn(Optional.of(post));
 
         postService.deletePost(postId, authorId, false);
 
@@ -182,6 +182,7 @@ class PostServiceStatusRuleTest {
         lenient().when(post.getPostId()).thenReturn(postId);
         lenient().when(post.getUserId()).thenReturn(author);
         lenient().when(post.getStatus()).thenReturn(status);
+        lenient().when(post.isActive()).thenReturn(true);
         lenient().when(post.isDone()).thenReturn(status == PostStatus.DONE);
         lenient().when(post.isPending()).thenReturn(status == PostStatus.PENDING);
         return post;

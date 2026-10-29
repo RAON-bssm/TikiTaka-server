@@ -23,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -118,7 +119,76 @@ class PostReviewQueryTest {
                 .extracting(Post::getStatus).containsExactlyInAnyOrder(PostStatus.values());
     }
 
+    // ===== 대기열 선점 =====
+
+    @Test
+    void 선점은_백오프_중이거나_최근에_선점된_글을_건너뛰고_오래_멈춘_글은_다시_가져간다() {
+        Users author = user("author");
+        LocalDateTime now = LocalDateTime.now();
+        Post fresh = post(author, PostStatus.PENDING);
+        Post backoff = post(author, PostStatus.PENDING);
+        Post claimedRecently = post(author, PostStatus.PENDING);
+        Post stale = post(author, PostStatus.PENDING);
+        Post inactive = post(author, PostStatus.PENDING);
+        post(author, PostStatus.FAILED);
+        flushAndClear();
+        setColumn(fresh, "created_at", now.minusMinutes(10));
+        setColumn(stale, "created_at", now.minusMinutes(9));
+        setColumn(backoff, "review_next_at", now.plusMinutes(1));
+        setColumn(claimedRecently, "review_started_at", now.minusMinutes(1));
+        setColumn(stale, "review_started_at", now.minusMinutes(6));
+        em.createNativeQuery("update post set is_active = false where post_id = :id")
+                .setParameter("id", inactive.getPostId()).executeUpdate();
+
+        List<UUID> ids = postJpaRepository.lockClaimableIds(now, now.minusMinutes(5), 10);
+
+        // 오래된 순. 서버가 처리 도중 죽어 6분째 멈춘 글도 다시 가져간다
+        assertThat(ids).containsExactly(fresh.getPostId(), stale.getPostId());
+    }
+
+    @Test
+    void 선점은_limit만큼만_가져가고_선점_시각만_기록하며_시도_횟수는_그대로다() {
+        Users author = user("author");
+        Post first = post(author, PostStatus.PENDING);
+        Post second = post(author, PostStatus.PENDING);
+        flushAndClear();
+        LocalDateTime now = LocalDateTime.now();
+        setColumn(first, "created_at", now.minusMinutes(2));
+        setColumn(second, "created_at", now.minusMinutes(1));
+
+        List<UUID> ids = postJpaRepository.lockClaimableIds(now, now.minusMinutes(5), 1);
+        postJpaRepository.markClaimed(ids, now);
+
+        assertThat(ids).containsExactly(first.getPostId());
+        Post claimed = postJpaRepository.findById(first.getPostId()).orElseThrow();
+        assertThat(claimed.getReviewStartedAt()).isNotNull();
+        assertThat(claimed.getReviewAttempts()).isZero();
+        // 다시 선점하려 해도 방금 선점한 글은 빠진다
+        assertThat(postJpaRepository.lockClaimableIds(now, now.minusMinutes(5), 10))
+                .containsExactly(second.getPostId());
+    }
+
+    @Test
+    void 잠금_조회는_탈퇴한_작성자의_글과_삭제된_글도_돌려준다() {
+        Users withdrawn = user("withdrawn");
+        Post post = post(withdrawn, PostStatus.PENDING);
+        flushAndClear();
+        em.find(Users.class, withdrawn.getUserId()).withdraw();
+        flushAndClear();
+
+        // findActiveById는 탈퇴 작성자의 글을 숨기지만, 심사 완료는 이 조회로 읽으므로 글을 놓치지 않는다
+        assertThat(postJpaRepository.findActiveById(post.getPostId())).isEmpty();
+        assertThat(postJpaRepository.findByIdForUpdate(post.getPostId())).isPresent();
+    }
+
     // ===== helpers =====
+
+    private void setColumn(Post post, String column, LocalDateTime value) {
+        em.createNativeQuery("update post set " + column + " = :value where post_id = :id")
+                .setParameter("value", value)
+                .setParameter("id", post.getPostId())
+                .executeUpdate();
+    }
 
     private Location location(String name) {
         em.createNativeQuery("insert into location (city_name, location_name) values ('부산광역시', :name)")

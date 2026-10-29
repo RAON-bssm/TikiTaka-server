@@ -18,6 +18,7 @@ import com.raon.tikitaka.application.review.AiReviewResult;
 import com.raon.tikitaka.application.review.in.ReviewUseCase;
 import com.raon.tikitaka.application.storage.in.StorageUseCase;
 import com.raon.tikitaka.domain.post.PostStatus;
+import com.raon.tikitaka.global.config.PostReviewProperties;
 import com.raon.tikitaka.global.guard.RequestGuard;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +60,7 @@ public class PostController {
     private final ReviewUseCase reviewUseCase;
     private final GetBoardUseCase getBoardUseCase;
     private final RequestGuard requestGuard;
+    private final PostReviewProperties postReviewProperties;
 
     /**
      * GET /api/post/**는 SecurityConfig에서 permitAll이라 비로그인 조회 시
@@ -99,12 +101,19 @@ public class PostController {
         return ApiResponse.of(200, "좋아요 취소 성공", null);
     }
 
+    /**
+     * post-review.async가 true면 S3 업로드 후 PENDING으로 저장하고 바로 응답한다. AI 심사와 포인트·점수 반영은
+     * 심사 워커(PostReviewWorker)가 뒤에서 한다. false면 기존처럼 이 요청 안에서 심사까지 끝낸다.
+     */
     @PostMapping(consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CreatePostResponse> createPost(
             @AuthenticationPrincipal UUID authorId,
             @ModelAttribute CreatePostRequest request
     ) {
+        if (postReviewProperties.async()) {
+            return createPending(authorId, request);
+        }
         // 업로드 버튼 더블탭으로 S3 업로드·AI 심사·포인트 적립·점수 가산이 두 번 일어나지 않도록 본문 전체를 감싼다
         UUID postId = requestGuard.execute("post-create:" + authorId, "게시물을 등록하는 중이에요.", () -> {
             MultipartFile image = validateImage(request.image());
@@ -124,6 +133,23 @@ public class PostController {
                             review.review()));
         });
         return ApiResponse.of(201, "게시물 생성 성공", CreatePostResponse.of(postId, PostStatus.DONE));
+    }
+
+    /**
+     * 비동기 업로드. 포인트 적립이 이 요청에서 일어나지 않으므로 포인트 키로 감싸지 않는다.
+     * 더블탭으로 S3 업로드와 글 저장이 두 번 일어나지 않도록 작성자 키는 그대로 건다.
+     */
+    private ApiResponse<CreatePostResponse> createPending(UUID authorId, CreatePostRequest request) {
+        UUID postId = requestGuard.execute("post-create:" + authorId, "게시물을 등록하는 중이에요.", () -> {
+            MultipartFile image = validateImage(request.image());
+            byte[] imageBytes = readImageBytes(image);
+
+            // 미션 값은 쓰지 않고 접근 검증만 한다. 종료된 라운드나 다른 동네 게시판이면 S3 업로드 전에 404
+            getBoardUseCase.getMission(request.boardId(), authorId);
+            String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
+            return createPostUseCase.createPending(authorId, request.boardId(), request.content(), key);
+        });
+        return ApiResponse.of(201, "게시물 생성 성공", CreatePostResponse.of(postId, PostStatus.PENDING));
     }
 
     @PatchMapping("/patch/{postId}")

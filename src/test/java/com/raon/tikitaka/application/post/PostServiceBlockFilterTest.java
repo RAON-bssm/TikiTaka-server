@@ -57,7 +57,7 @@ class PostServiceBlockFilterTest {
     void setUp() {
         // 조회 경로는 점수 설정을 쓰지 않는다
         postService = new PostService(postRepositoryPort, postLikeRepositoryPort, rankingRepositoryPort, null,
-                blockRepositoryPort);
+                blockRepositoryPort, null);
     }
 
     // ===== 목록 =====

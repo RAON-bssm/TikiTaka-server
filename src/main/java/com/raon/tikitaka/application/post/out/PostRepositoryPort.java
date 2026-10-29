@@ -21,6 +21,12 @@ public interface PostRepositoryPort {
 
     Optional<Post> findActiveById(UUID postId);
 
+    /**
+     * 글 행을 잠그고 읽는다(트랜잭션 안에서만 의미가 있다). is_active와 작성자 탈퇴 여부를 거르지 않으므로
+     * 호출하는 쪽이 직접 확인한다. 심사 완료와 삭제처럼 점수를 바꾸는 경로가 같은 글에서 겹치지 않게 한다.
+     */
+    Optional<Post> findByIdForUpdate(UUID postId);
+
     Post save(Post post);
 
     Board getBoard(Long boardId);

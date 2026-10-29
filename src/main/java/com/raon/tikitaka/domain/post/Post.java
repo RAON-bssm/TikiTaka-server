@@ -92,7 +92,11 @@ public class Post {
     @Column(name = "review_next_at")
     private LocalDateTime reviewNextAt;
 
-    /** 워커가 선점한 시각. 서버가 심사 도중 죽어도 일정 시간이 지나면 다시 선점된다 */
+    /**
+     * 워커가 선점한 시각. 서버가 심사 도중 죽어도 일정 시간이 지나면 다시 선점된다.
+     * 심사 상태 컬럼들은 벌크 update로만 바꾼다. 엔티티로 바꾸면 @PreUpdate가 updated_at(게시물 수정 일시)을
+     * 갱신해 심사만 끝났는데 글이 수정된 것처럼 보이기 때문이다.
+     */
     @Column(name = "review_started_at")
     private LocalDateTime reviewStartedAt;
 
@@ -116,6 +120,17 @@ public class Post {
         post.status = PostStatus.DONE;
         post.createdAt = LocalDateTime.now();
         post.updatedAt = LocalDateTime.now();
+        return post;
+    }
+
+    /**
+     * 비동기 업로드용. 점수와 AI 리뷰 없이 PENDING으로 만들고, 심사는 워커가 한다.
+     * 작성 시점 스냅샷(teamLocation, locationScored)은 여기서 저장해 심사가 늦어져도 작성 당시 기준을 쓴다.
+     */
+    public static Post createPending(Users author, Board board, String content, String postImage, String location,
+                                     Location teamLocation, boolean locationScored) {
+        Post post = create(author, board, content, postImage, null, null, location, teamLocation, locationScored);
+        post.status = PostStatus.PENDING;
         return post;
     }
 

@@ -1,0 +1,301 @@
+package com.raon.tikitaka.adapter;
+
+import com.raon.tikitaka.adapter.block.out.BlockPersistenceAdapter;
+import com.raon.tikitaka.adapter.post.out.PostJpaRepository;
+import com.raon.tikitaka.adapter.post.out.PostLikePersistenceAdapter;
+import com.raon.tikitaka.adapter.post.out.PostPersistenceAdapter;
+import com.raon.tikitaka.adapter.post.out.PostReviewQueuePersistenceAdapter;
+import com.raon.tikitaka.adapter.ranking.out.RankingPersistenceAdapter;
+import com.raon.tikitaka.application.post.PostService;
+import com.raon.tikitaka.application.post.review.ClaimedReview;
+import com.raon.tikitaka.application.post.review.PostReviewQueueService;
+import com.raon.tikitaka.domain.board.Board;
+import com.raon.tikitaka.domain.enums.LoginProvider;
+import com.raon.tikitaka.domain.enums.MatchType;
+import com.raon.tikitaka.domain.location.Location;
+import com.raon.tikitaka.domain.match.Match;
+import com.raon.tikitaka.domain.match.Stage;
+import com.raon.tikitaka.domain.post.Post;
+import com.raon.tikitaka.domain.post.PostStatus;
+import com.raon.tikitaka.domain.user.Users;
+import com.raon.tikitaka.global.config.PostReviewProperties;
+import com.raon.tikitaka.global.config.RankingProperties;
+import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * 커밋되는 트랜잭션 여러 개가 같은 글 행을 두고 겹치는 상황을 실제 PostgreSQL에서 돌려 본다.
+ * 테스트마다 데이터를 커밋하므로 끝나면 테이블을 비운다. TEST_DATABASE_URL이 없으면 건너뛴다.
+ */
+@DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@EnabledIfEnvironmentVariable(named = "TEST_DATABASE_URL", matches = ".+")
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
+@Import({PostService.class, PostPersistenceAdapter.class, PostLikePersistenceAdapter.class,
+        RankingPersistenceAdapter.class, BlockPersistenceAdapter.class, PostReviewQueuePersistenceAdapter.class,
+        PostReviewQueueService.class})
+@EnableConfigurationProperties({RankingProperties.class, PostReviewProperties.class})
+class PostReviewConcurrencyTest {
+
+    @DynamicPropertySource
+    static void datasource(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", () -> System.getenv("TEST_DATABASE_URL"));
+        registry.add("spring.datasource.username", () -> System.getenv("TEST_DATABASE_USERNAME"));
+        registry.add("spring.datasource.password", () -> System.getenv("TEST_DATABASE_PASSWORD"));
+    }
+
+    @Autowired EntityManager em;
+    @Autowired PlatformTransactionManager transactionManager;
+    @Autowired PostService postService;
+    @Autowired PostReviewQueueService postReviewQueueService;
+    @Autowired PostJpaRepository postJpaRepository;
+
+    private TransactionTemplate tx;
+    private Long homeId;
+    private Long stageId;
+    private Long boardId;
+    private UUID authorId;
+
+    @BeforeEach
+    void setUp() {
+        tx = new TransactionTemplate(transactionManager);
+        tx.executeWithoutResult(status -> {
+            Location home = location("해운대구");
+            Location away = location("수영구");
+            Stage stage = Stage.create(1, 1, LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(6));
+            stage.assignAvgLocationMemberCount(5.0);
+            em.persist(stage);
+            Match match = Match.create(stage, home, away, MatchType.NORMAL, 5, 5, "미션");
+            em.persist(match);
+            Board board = Board.create(match);
+            em.persist(board);
+            Users author = Users.of("author", LoginProvider.KAKAO, "author-provider", home);
+            em.persist(author);
+            homeId = home.getLocationId();
+            stageId = stage.getStageId();
+            boardId = board.getBoardId();
+            authorId = author.getUserId();
+        });
+    }
+
+    @AfterEach
+    void tearDown() {
+        tx.executeWithoutResult(status -> em.createNativeQuery("""
+                truncate table post_like, report, user_block, user_ranking, location_ranking, post, board, match,
+                               stage, token, users, location restart identity cascade
+                """).executeUpdate());
+    }
+
+    // ===== 대기열 선점 =====
+
+    @Test
+    void 다른_트랜잭션이_잠근_글은_건너뛰고_다음_글을_선점한다() throws Exception {
+        UUID oldest = pendingPost(LocalDateTime.now().minusMinutes(3));
+        UUID next = pendingPost(LocalDateTime.now().minusMinutes(2));
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CompletableFuture<Void> holder = CompletableFuture.runAsync(() -> tx.executeWithoutResult(status -> {
+            postJpaRepository.findByIdForUpdate(oldest);
+            locked.countDown();
+            await(release);
+        }));
+        assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+
+        // 잠긴 글을 기다리지 않고 바로 다음 글을 가져간다
+        List<ClaimedReview> claimed = postReviewQueueService.claim(1);
+        release.countDown();
+        holder.get(5, TimeUnit.SECONDS);
+
+        assertThat(claimed).extracting(ClaimedReview::postId).containsExactly(next);
+    }
+
+    // ===== 탈퇴한 작성자 =====
+
+    @Test
+    void 탈퇴한_작성자의_PENDING_글도_DONE이_되고_점수_포인트_랭킹이_반영되며_조회에서는_계속_빠진다() {
+        UUID postId = pendingPost(LocalDateTime.now());
+        tx.executeWithoutResult(status -> em.find(Users.class, authorId).withdraw());
+
+        boolean applied = postService.completeReview(postId, 80, "좋아요");
+
+        assertThat(applied).isTrue();
+        assertThat(postStatus(postId)).isEqualTo(PostStatus.DONE);
+        assertThat(userScore()).isEqualTo(5421L);
+        assertThat(locationScore()).isEqualTo(5421L);
+        assertThat(point()).isEqualTo(271);
+        assertThat(inTx(() -> postJpaRepository.findAllActiveByBoardId(boardId))).isEmpty();
+        assertThat(inTx(() -> postJpaRepository.findActiveById(postId))).isEmpty();
+    }
+
+    // ===== 심사 완료와 삭제의 경합 =====
+
+    @Test
+    void 심사_완료가_먼저_잠그면_삭제는_기다렸다가_더해진_점수를_그대로_뺀다() throws Exception {
+        UUID postId = pendingPost(LocalDateTime.now());
+        CountDownLatch completed = new CountDownLatch(1);
+        CountDownLatch commit = new CountDownLatch(1);
+        CompletableFuture<Void> reviewing = CompletableFuture.runAsync(() -> tx.executeWithoutResult(status -> {
+            // 바깥 트랜잭션에 합류시켜 반영 후 커밋 전에 멈춰 둔다
+            assertThat(postService.completeReview(postId, 80, "좋아요")).isTrue();
+            completed.countDown();
+            await(commit);
+        }));
+        assertThat(completed.await(5, TimeUnit.SECONDS)).isTrue();
+
+        CompletableFuture<Void> deleting = CompletableFuture.runAsync(
+                () -> postService.deletePost(postId, authorId, false));
+        Thread.sleep(300);
+        assertThat(deleting).isNotDone();      // 같은 글 행 잠금을 기다린다
+
+        commit.countDown();
+        reviewing.get(5, TimeUnit.SECONDS);
+        deleting.get(5, TimeUnit.SECONDS);
+
+        assertThat(userScore()).isZero();
+        assertThat(locationScore()).isZero();
+        assertThat(isActive(postId)).isFalse();
+    }
+
+    @Test
+    void 삭제가_먼저_잠그면_심사_완료는_아무것도_반영하지_않는다() throws Exception {
+        UUID postId = pendingPost(LocalDateTime.now());
+        CountDownLatch deleted = new CountDownLatch(1);
+        CountDownLatch commit = new CountDownLatch(1);
+        CompletableFuture<Void> deleting = CompletableFuture.runAsync(() -> tx.executeWithoutResult(status -> {
+            postService.deletePost(postId, authorId, false);
+            deleted.countDown();
+            await(commit);
+        }));
+        assertThat(deleted.await(5, TimeUnit.SECONDS)).isTrue();
+
+        CompletableFuture<Boolean> reviewing = CompletableFuture.supplyAsync(
+                () -> postService.completeReview(postId, 80, "좋아요"));
+        Thread.sleep(300);
+        assertThat(reviewing).isNotDone();
+
+        commit.countDown();
+        deleting.get(5, TimeUnit.SECONDS);
+
+        assertThat(reviewing.get(5, TimeUnit.SECONDS)).isFalse();
+        assertThat(userScoreRows()).isZero();
+        assertThat(point()).isZero();
+        assertThat(postStatus(postId)).isEqualTo(PostStatus.PENDING);
+    }
+
+    @Test
+    void 같은_글에_심사_완료가_동시에_두_번_와도_한_번만_반영된다() throws Exception {
+        UUID postId = pendingPost(LocalDateTime.now());
+
+        CompletableFuture<Boolean> first = CompletableFuture.supplyAsync(
+                () -> postService.completeReview(postId, 80, "좋아요"));
+        CompletableFuture<Boolean> second = CompletableFuture.supplyAsync(
+                () -> postService.completeReview(postId, 80, "좋아요"));
+
+        assertThat(List.of(first.get(5, TimeUnit.SECONDS), second.get(5, TimeUnit.SECONDS)))
+                .containsExactlyInAnyOrder(true, false);
+        assertThat(userScore()).isEqualTo(5421L);
+        assertThat(point()).isEqualTo(271);
+    }
+
+    // ===== helpers =====
+
+    private UUID pendingPost(LocalDateTime createdAt) {
+        return inTx(() -> {
+            Users author = em.find(Users.class, authorId);
+            Location home = em.find(Location.class, homeId);
+            Post post = Post.createPending(author, em.find(Board.class, boardId), "내용", "photo.jpg",
+                    home.getLocationName(), home, true);
+            em.persist(post);
+            em.flush();
+            em.createNativeQuery("update post set created_at = :createdAt where post_id = :postId")
+                    .setParameter("createdAt", createdAt)
+                    .setParameter("postId", post.getPostId())
+                    .executeUpdate();
+            return post.getPostId();
+        });
+    }
+
+    private Location location(String name) {
+        em.createNativeQuery("insert into location (city_name, location_name) values ('부산광역시', :name)")
+                .setParameter("name", name)
+                .executeUpdate();
+        Long id = ((Number) em.createNativeQuery("select location_id from location where location_name = :name")
+                .setParameter("name", name)
+                .getSingleResult()).longValue();
+        return em.find(Location.class, id);
+    }
+
+    private <T> T inTx(Supplier<T> action) {
+        return tx.execute(status -> action.get());
+    }
+
+    private PostStatus postStatus(UUID postId) {
+        return inTx(() -> PostStatus.valueOf((String) em.createNativeQuery(
+                        "select status from post where post_id = :postId")
+                .setParameter("postId", postId)
+                .getSingleResult()));
+    }
+
+    private boolean isActive(UUID postId) {
+        return inTx(() -> (Boolean) em.createNativeQuery("select is_active from post where post_id = :postId")
+                .setParameter("postId", postId)
+                .getSingleResult());
+    }
+
+    private long userScore() {
+        return inTx(() -> ((Number) em.createNativeQuery(
+                        "select coalesce(sum(user_score), 0) from user_ranking where stage_id = :stageId")
+                .setParameter("stageId", stageId)
+                .getSingleResult()).longValue());
+    }
+
+    private long userScoreRows() {
+        return inTx(() -> ((Number) em.createNativeQuery("select count(*) from user_ranking")
+                .getSingleResult()).longValue());
+    }
+
+    private long locationScore() {
+        return inTx(() -> ((Number) em.createNativeQuery(
+                        "select coalesce(sum(location_score), 0) from location_ranking where stage_id = :stageId")
+                .setParameter("stageId", stageId)
+                .getSingleResult()).longValue());
+    }
+
+    private int point() {
+        return inTx(() -> ((Number) em.createNativeQuery("select point from users where user_id = :userId")
+                .setParameter("userId", authorId)
+                .getSingleResult()).intValue());
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            latch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+}
