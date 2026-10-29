@@ -91,6 +91,12 @@ post-review:
   initial-backoff: 1m         # 첫 실패 뒤 대기. 실패마다 두 배(1, 2, 4, 8분). Gemini가 대기 시간을 주면 그 값을 쓴다
   claim-timeout: 5m           # 선점 후 이 시간이 지나도 안 끝난 글은 다시 선점(서버 중단 복구)
 
+post-upload-limit:
+  enabled: ${POST_UPLOAD_LIMIT_ENABLED:false}   # 사용자별 업로드 한도. false면 검사도 쿼리도 하지 않는다
+  max-count: 2                # window 안에 올릴 수 있는 최대 글 수(PENDING, DONE, REJECTED, 삭제한 글을 센다)
+  window: 10m                 # 업로드 횟수를 세는 기간(슬라이딩 윈도우)
+  max-pending: 2              # 한 사용자의 심사 대기(삭제하지 않은 PENDING) 글 최대 수
+
 season:
   round-days: 7               # 라운드 1개 길이
   rounds-per-season: 4        # 시즌당 라운드 수 → 시즌 = 28일
