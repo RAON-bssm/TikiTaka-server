@@ -2,6 +2,10 @@ package com.raon.tikitaka.application.post.review;
 
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
+import com.raon.tikitaka.application.ranking.out.SeasonResultRepositoryPort;
+import com.raon.tikitaka.domain.board.Board;
+import com.raon.tikitaka.domain.match.Match;
+import com.raon.tikitaka.domain.match.Stage;
 import com.raon.tikitaka.domain.post.Post;
 import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.global.config.PostReviewProperties;
@@ -36,8 +40,11 @@ class PostReviewQueueServiceTest {
 
     private final PostRepositoryPort postRepositoryPort = mock(PostRepositoryPort.class);
     private final PostReviewQueuePort queuePort = mock(PostReviewQueuePort.class);
+    private final SeasonResultRepositoryPort seasonResultPort = mock(SeasonResultRepositoryPort.class);
     private final PostReviewQueueService service = new PostReviewQueueService(postRepositoryPort, queuePort,
-            new PostReviewProperties(true, 1, 4, 5, Duration.ofMinutes(1), Duration.ofMinutes(5)));
+            new PostReviewProperties(true, 1, 4, 5, Duration.ofMinutes(1), Duration.ofMinutes(5)), seasonResultPort);
+
+    private static final int SEASON = 3;
 
     private final UUID postId = UUID.randomUUID();
 
@@ -111,12 +118,26 @@ class PostReviewQueueServiceTest {
     // ===== 관리자 재심사 =====
 
     @Test
-    void FAILED_글은_재심사_대기열로_되돌린다() {
+    void 확정되지_않은_시즌의_FAILED_글은_재심사_대기열로_되돌린다() {
         lockedPost(PostStatus.FAILED, 5);
+        when(seasonResultPort.existsBySeason(SEASON)).thenReturn(false);
 
         service.retryReview(postId);
 
         verify(queuePort).reset(postId);
+    }
+
+    @Test
+    void 확정된_시즌의_FAILED_글은_409이고_상태를_바꾸지_않는다() {
+        lockedPost(PostStatus.FAILED, 5);
+        when(seasonResultPort.existsBySeason(SEASON)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.retryReview(postId))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                    assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(e.getReason()).isEqualTo("시즌이 이미 확정되어 다시 심사할 수 없습니다.");
+                });
+        verify(queuePort, never()).reset(any());
     }
 
     @ParameterizedTest
@@ -152,6 +173,13 @@ class PostReviewQueueServiceTest {
         when(post.getStatus()).thenReturn(status);
         when(post.isPending()).thenReturn(status == PostStatus.PENDING);
         when(post.getReviewAttempts()).thenReturn(attempts);
+        Stage stage = mock(Stage.class);
+        when(stage.getSeason()).thenReturn(SEASON);
+        Match match = mock(Match.class);
+        when(match.getStage()).thenReturn(stage);
+        Board board = mock(Board.class);
+        when(board.getMatch()).thenReturn(match);
+        when(post.getBoard()).thenReturn(board);
         when(postRepositoryPort.findByIdForUpdate(postId)).thenReturn(Optional.of(post));
     }
 }

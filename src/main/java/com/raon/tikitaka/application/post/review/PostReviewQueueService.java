@@ -3,6 +3,7 @@ package com.raon.tikitaka.application.post.review;
 import com.raon.tikitaka.application.post.in.RetryPostReviewUseCase;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
+import com.raon.tikitaka.application.ranking.out.SeasonResultRepositoryPort;
 import com.raon.tikitaka.domain.post.Post;
 import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.global.config.PostReviewProperties;
@@ -34,6 +35,7 @@ public class PostReviewQueueService implements RetryPostReviewUseCase {
     private final PostRepositoryPort postRepositoryPort;
     private final PostReviewQueuePort postReviewQueuePort;
     private final PostReviewProperties properties;
+    private final SeasonResultRepositoryPort seasonResultRepositoryPort;
 
     @Transactional(readOnly = true)
     public long countPending() {
@@ -110,6 +112,8 @@ public class PostReviewQueueService implements RetryPostReviewUseCase {
     /**
      * 관리자 재심사. FAILED만 받는다. REJECTED는 Gemini가 내용 때문에 거절한 글이라 다시 보내도 같고,
      * EXPIRED는 시즌이 확정돼 점수를 더할 수 없다. 탈퇴한 작성자의 글도 다른 글과 똑같이 다시 심사한다.
+     * FAILED여도 글이 속한 시즌이 이미 확정됐으면 409다. 되돌려도 워커가 AI를 부르지 않고 EXPIRED로 바꾸기 때문이다.
+     * 검사 순서는 없음·삭제(404), FAILED 아님(409), 시즌 확정(409)이다.
      */
     @Override
     public void retryReview(UUID postId) {
@@ -119,6 +123,11 @@ public class PostReviewQueueService implements RetryPostReviewUseCase {
         }
         if (locked.get().getStatus() != PostStatus.FAILED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "심사에 실패한 글만 다시 심사할 수 있습니다.");
+        }
+        // 워커가 확정 여부를 볼 때와 같은 경로(글의 게시판 -> 매치 -> 라운드)로 시즌을 읽는다
+        int season = locked.get().getBoard().getMatch().getStage().getSeason();
+        if (seasonResultRepositoryPort.existsBySeason(season)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "시즌이 이미 확정되어 다시 심사할 수 없습니다.");
         }
         postReviewQueuePort.reset(postId);
         log.info("게시물 재심사 요청: postId={}", postId);
