@@ -117,8 +117,17 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
 
     // ===== 심사 대기열 =====
 
-    @Query("select count(p) from Post p where p.status = com.raon.tikitaka.domain.post.PostStatus.PENDING and p.isActive = true")
-    long countActivePending();
+    /**
+     * 지금 선점할 수 있는 PENDING 글 수. lockClaimableIds와 같은 조건이라 백오프 중이거나 심사 중인 글은 세지 않는다.
+     */
+    @Query("""
+            select count(p) from Post p
+             where p.status = com.raon.tikitaka.domain.post.PostStatus.PENDING
+               and p.isActive = true
+               and (p.reviewNextAt is null or p.reviewNextAt <= :now)
+               and (p.reviewStartedAt is null or p.reviewStartedAt < :staleBefore)
+            """)
+    long countClaimable(@Param("now") LocalDateTime now, @Param("staleBefore") LocalDateTime staleBefore);
 
     /**
      * 심사할 PENDING 글을 오래된 순으로 limit개 잠근다. 다른 워커 트랜잭션이 잠근 행은 건너뛴다(SKIP LOCKED).

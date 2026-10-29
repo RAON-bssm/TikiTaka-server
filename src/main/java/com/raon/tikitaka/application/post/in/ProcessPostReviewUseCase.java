@@ -11,8 +11,8 @@ import java.util.List;
  */
 public interface ProcessPostReviewUseCase {
 
-    /** 심사를 기다리는 활성 PENDING 글 수. 백오프 중인 글도 센다 */
-    long countPending();
+    /** 지금 선점할 수 있는 활성 PENDING 글 수. 백오프 중이거나 다른 틱이 심사 중인 글은 세지 않는다 */
+    long countClaimable();
 
     /** 심사할 글을 최대 limit개 선점한다. 짧은 트랜잭션 하나로 끝나고 커밋 후 돌려준다 */
     List<ClaimedReview> claim(int limit);

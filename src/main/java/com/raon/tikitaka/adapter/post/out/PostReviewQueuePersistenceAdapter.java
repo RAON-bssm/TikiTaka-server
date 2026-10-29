@@ -17,8 +17,8 @@ public class PostReviewQueuePersistenceAdapter implements PostReviewQueuePort {
     private final PostJpaRepository postJpaRepository;
 
     @Override
-    public long countPending() {
-        return postJpaRepository.countActivePending();
+    public long countClaimable(LocalDateTime now, LocalDateTime staleBefore) {
+        return postJpaRepository.countClaimable(now, staleBefore);
     }
 
     /**

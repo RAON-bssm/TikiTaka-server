@@ -35,7 +35,7 @@ class PostReviewWorkerTest {
 
     @Test
     void 대기_글이_없으면_허가도_선점도_하지_않는다() {
-        when(useCase.countPending()).thenReturn(0L);
+        when(useCase.countClaimable()).thenReturn(0L);
 
         worker(1).tick();
 
@@ -45,7 +45,7 @@ class PostReviewWorkerTest {
 
     @Test
     void 빈_자리와_남은_허가_중_작은_수만큼만_선점한다() {
-        when(useCase.countPending()).thenReturn(10L);
+        when(useCase.countClaimable()).thenReturn(10L);
         when(useCase.claim(anyInt())).thenReturn(List.of());
 
         worker(8).tick();
@@ -56,7 +56,7 @@ class PostReviewWorkerTest {
 
     @Test
     void 허가가_없으면_글을_선점하지_않는다() {
-        when(useCase.countPending()).thenReturn(10L);
+        when(useCase.countClaimable()).thenReturn(10L);
         limiter.limiter().tryAcquire(4);
 
         worker(1).tick();
@@ -66,7 +66,7 @@ class PostReviewWorkerTest {
 
     @Test
     void 덜_선점했으면_남은_허가를_돌려준다() {
-        when(useCase.countPending()).thenReturn(3L);
+        when(useCase.countClaimable()).thenReturn(3L);
         when(useCase.claim(3)).thenReturn(List.of(claimed()));
         when(useCase.review(any())).thenReturn(new PostReviewResult(ReviewOutcome.DONE, true));
 
@@ -77,7 +77,7 @@ class PostReviewWorkerTest {
 
     @Test
     void AI를_부르지_않고_끝난_글은_허가를_돌려준다() {
-        when(useCase.countPending()).thenReturn(1L);
+        when(useCase.countClaimable()).thenReturn(1L);
         when(useCase.claim(1)).thenReturn(List.of(claimed()));
         when(useCase.review(any())).thenReturn(new PostReviewResult(ReviewOutcome.EXPIRED, false));
 
@@ -89,7 +89,7 @@ class PostReviewWorkerTest {
     @Test
     void 재시도도_같은_제한기를_거쳐_분당_한도를_넘지_않는다() {
         // 같은 글이 계속 일시 오류로 재시도되는 상황. 틱마다 다시 선점되지만 허가는 분당 4번뿐이다
-        when(useCase.countPending()).thenReturn(1L);
+        when(useCase.countClaimable()).thenReturn(1L);
         when(useCase.claim(1)).thenReturn(List.of(claimed()));
         when(useCase.review(any())).thenReturn(new PostReviewResult(ReviewOutcome.RETRY, true));
         PostReviewWorker worker = worker(1);
@@ -104,7 +104,7 @@ class PostReviewWorkerTest {
 
     @Test
     void 제한기에_막힌_동안에는_선점하지_않아_시도_횟수가_늘지_않는다() {
-        when(useCase.countPending()).thenReturn(1L);
+        when(useCase.countClaimable()).thenReturn(1L);
         when(useCase.claim(1)).thenReturn(List.of(claimed()));
         when(useCase.review(any())).thenReturn(new PostReviewResult(ReviewOutcome.RETRY, true));
         PostReviewWorker worker = worker(1);
@@ -127,7 +127,7 @@ class PostReviewWorkerTest {
     void 한_건의_예외가_다른_글_처리를_막지_않는다() {
         ClaimedReview first = claimed();
         ClaimedReview second = claimed();
-        when(useCase.countPending()).thenReturn(2L);
+        when(useCase.countClaimable()).thenReturn(2L);
         when(useCase.claim(2)).thenReturn(List.of(first, second));
         when(useCase.review(first)).thenThrow(new IllegalStateException("DB 오류"));
         when(useCase.review(second)).thenReturn(new PostReviewResult(ReviewOutcome.DONE, true));
@@ -139,7 +139,7 @@ class PostReviewWorkerTest {
 
     @Test
     void 선점이_실패하면_허가를_모두_돌려준다() {
-        when(useCase.countPending()).thenReturn(2L);
+        when(useCase.countClaimable()).thenReturn(2L);
         when(useCase.claim(2)).thenThrow(new IllegalStateException("DB 오류"));
 
         worker(2).tick();

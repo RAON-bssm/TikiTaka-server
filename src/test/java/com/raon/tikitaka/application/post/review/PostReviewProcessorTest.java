@@ -16,6 +16,7 @@ import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.global.guard.RequestGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -23,16 +24,17 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +57,11 @@ class PostReviewProcessorTest {
     private final LocalDateTime claimedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
     private final ClaimedReview claimed = new ClaimedReview(postId, authorId, 3L, "미션", 1, "내용", "photo.jpg", 0,
             claimedAt.minusSeconds(10), claimedAt);
+
+    private PostReviewProcessor processorWith(RequestGuard guard) {
+        return new PostReviewProcessor(queueService, completeUseCase, reviewUseCase, storagePort, seasonResultPort,
+                guard);
+    }
 
     @BeforeEach
     void setUp() {
@@ -183,31 +190,51 @@ class PostReviewProcessorTest {
     }
 
     @Test
-    void 포인트_키를_기다리다_409면_실패로_세지_않고_선점만_푼다() throws Exception {
+    void 포인트_키_409가_한_번_나도_같은_스레드에서_다시_반영해_AI를_다시_부르지_않는다() {
+        RequestGuard guard = mock(RequestGuard.class);
+        PostReviewProcessor processor = processorWith(guard);
         when(reviewUseCase.evaluate(any(), any(), any(), any())).thenReturn(new AiReviewResult(77, "좋아요"));
-        when(queueService.release(postId, claimedAt)).thenReturn(true);
-        CountDownLatch holding = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
-        // 상점 구매가 포인트 키를 5초 넘게 잡고 있는 상황
-        CompletableFuture<Void> purchase = CompletableFuture.runAsync(() ->
-                requestGuard.executeWaiting(RequestGuard.pointsKey(authorId), "busy", () -> {
-                    holding.countDown();
-                    try {
-                        release.await(10, TimeUnit.SECONDS);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                }));
-        assertThat(holding.await(5, TimeUnit.SECONDS)).isTrue();
+        when(guard.executeWaiting(eq(RequestGuard.pointsKey(authorId)), anyString(), ArgumentMatchers.<Supplier<Boolean>>any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "busy"))
+                .thenReturn(true);
 
         PostReviewResult result = processor.review(claimed);
-        release.countDown();
-        purchase.get(5, TimeUnit.SECONDS);
+
+        assertThat(result).isEqualTo(new PostReviewResult(ReviewOutcome.DONE, true));
+        verify(reviewUseCase, times(1)).evaluate(any(), any(), any(), any());
+        verify(guard, times(2)).executeWaiting(anyString(), anyString(), ArgumentMatchers.<Supplier<Boolean>>any());
+        verify(queueService, never()).release(any(), any());
+        verify(queueService, never()).recordFailure(any(), any(), any());
+    }
+
+    @Test
+    void 포인트_키_409가_반영_시도_한도까지_이어지면_실패로_세지_않고_선점만_푼다() {
+        RequestGuard guard = mock(RequestGuard.class);
+        PostReviewProcessor processor = processorWith(guard);
+        when(reviewUseCase.evaluate(any(), any(), any(), any())).thenReturn(new AiReviewResult(77, "좋아요"));
+        when(guard.executeWaiting(anyString(), anyString(), ArgumentMatchers.<Supplier<Boolean>>any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "busy"));
+        when(queueService.release(postId, claimedAt)).thenReturn(true);
+
+        PostReviewResult result = processor.review(claimed);
 
         assertThat(result).isEqualTo(new PostReviewResult(ReviewOutcome.DEFERRED, true));
+        verify(guard, times(3)).executeWaiting(anyString(), anyString(), ArgumentMatchers.<Supplier<Boolean>>any());
         verify(queueService).release(postId, claimedAt);
         verify(queueService, never()).recordFailure(any(), any(), any());
-        verify(completeUseCase, never()).completeReview(any(), anyInt(), any());
+    }
+
+    @Test
+    void 포인트_키_409가_아닌_반영_오류는_다시_시도하지_않고_실패로_센다() {
+        RequestGuard guard = mock(RequestGuard.class);
+        PostReviewProcessor processor = processorWith(guard);
+        when(reviewUseCase.evaluate(any(), any(), any(), any())).thenReturn(new AiReviewResult(77, "좋아요"));
+        when(guard.executeWaiting(anyString(), anyString(), ArgumentMatchers.<Supplier<Boolean>>any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "boom"));
+        when(queueService.recordFailure(postId, claimedAt, null)).thenReturn(PostStatus.PENDING);
+
+        assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.RETRY);
+        verify(guard, times(1)).executeWaiting(anyString(), anyString(), ArgumentMatchers.<Supplier<Boolean>>any());
     }
 
     @Test

@@ -14,7 +14,10 @@ import java.util.UUID;
  */
 public interface PostReviewQueuePort {
 
-    long countPending();
+    /**
+     * 지금 선점할 수 있는 글 수. claim과 같은 조건이라 백오프 중이거나 선점돼 심사 중인 글은 세지 않는다.
+     */
+    long countClaimable(LocalDateTime now, LocalDateTime staleBefore);
 
     /**
      * 심사할 글을 오래된 순으로 limit개 선점한다. 선점 시각만 기록하고 시도 횟수는 올리지 않는다.

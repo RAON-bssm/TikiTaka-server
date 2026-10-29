@@ -146,6 +146,8 @@ class PostReviewQueryTest {
 
         // 오래된 순. 서버가 처리 도중 죽어 6분째 멈춘 글도 다시 가져간다
         assertThat(ids).containsExactly(fresh.getPostId(), stale.getPostId());
+        // 워커가 선점 전에 세는 수도 같은 조건이라 백오프 중이거나 심사 중인 글은 세지 않는다
+        assertThat(postJpaRepository.countClaimable(now, now.minusMinutes(5))).isEqualTo(ids.size());
     }
 
     @Test

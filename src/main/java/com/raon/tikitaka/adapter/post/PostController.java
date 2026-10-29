@@ -15,7 +15,9 @@ import com.raon.tikitaka.application.post.in.UnlikePostUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
 import com.raon.tikitaka.application.board.in.GetBoardUseCase;
 import com.raon.tikitaka.application.review.AiReviewInvalidResponseException;
+import com.raon.tikitaka.application.review.AiReviewRejectedException;
 import com.raon.tikitaka.application.review.AiReviewResult;
+import com.raon.tikitaka.application.review.AiReviewRetryableException;
 import com.raon.tikitaka.application.review.in.ReviewUseCase;
 import com.raon.tikitaka.application.storage.in.StorageUseCase;
 import com.raon.tikitaka.domain.post.PostStatus;
@@ -206,8 +208,9 @@ public class PostController {
     }
 
     /**
-     * 동기 업로드 경로의 AI 심사. 점수 누락·범위 검증은 ReviewService로 옮겼고, 응답 형식 오류면
-     * 예전처럼 게시물을 만들지 않고 502로 끊는다. 그 밖의 Gemini 실패는 예전처럼 그대로 올려 보낸다.
+     * 동기 업로드 경로의 AI 심사. 점수 누락·범위 검증은 ReviewService로 옮겼고, 어떤 실패든 게시물을 만들지 않고 끊는다.
+     * 응답 형식 오류는 502, 429·5xx·타임아웃·네트워크 오류 같은 일시 오류는 503, Gemini가 거절한 요청은 502다.
+     * 형식 오류가 일시 오류의 하위 타입이라 먼저 잡는다.
      */
     private AiReviewResult evaluate(String mission, String content, byte[] imageBytes, String contentType) {
         try {
@@ -215,6 +218,12 @@ public class PostController {
         } catch (AiReviewInvalidResponseException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "AI 심사 점수가 올바르지 않습니다. 잠시 후 다시 시도해주세요.");
+        } catch (AiReviewRetryableException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "AI 심사가 지연되고 있어요. 잠시 후 다시 시도해주세요.");
+        } catch (AiReviewRejectedException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "AI가 심사할 수 없는 게시물이에요. 이미지와 내용을 확인해주세요.");
         }
     }
 

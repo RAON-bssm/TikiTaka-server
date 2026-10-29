@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -69,41 +70,45 @@ public class PostReviewWorker {
     @Scheduled(fixedDelay = 2000)
     public void tick() {
         try {
-            long pending = processPostReviewUseCase.countPending();
-            if (pending == 0) {
+            // 백오프 중이거나 심사 중인 글은 세지 않는다. 선점할 글이 없는 틱은 조회 한 번으로 조용히 끝난다
+            long claimable = processPostReviewUseCase.countClaimable();
+            if (claimable == 0) {
                 return;
             }
-            log.info("게시물 심사 대기: pending={}, inFlight={}", pending, concurrency - slots.availablePermits());
 
             int free = slots.availablePermits();
             if (free == 0) {
                 return;
             }
-            int permits = rateLimiter.tryAcquire((int) Math.min(free, pending));
-            if (permits == 0) {
+            AiCallRateLimiter.Permits permits = rateLimiter.acquire((int) Math.min(free, claimable));
+            if (permits.count() == 0) {
                 return;     // 최근 60초 호출 한도를 다 썼다. 선점하지 않으므로 시도 횟수도 늘지 않는다
             }
 
             List<ClaimedReview> claimed;
             try {
-                claimed = processPostReviewUseCase.claim(permits);
+                claimed = processPostReviewUseCase.claim(permits.count());
             } catch (RuntimeException e) {
-                rateLimiter.release(permits);
+                rateLimiter.release(permits.grantedAt(), permits.count());
                 throw e;
             }
-            if (claimed.size() < permits) {
-                // 백오프 중이거나 다른 틱이 잡고 있는 글이라 덜 가져왔다
-                rateLimiter.release(permits - claimed.size());
+            if (claimed.size() < permits.count()) {
+                // 다른 틱이 먼저 잡았거나 그 사이 상태가 바뀌어 덜 가져왔다
+                rateLimiter.release(permits.grantedAt(), permits.count() - claimed.size());
+            }
+            if (!claimed.isEmpty()) {
+                log.info("게시물 심사 선점: claimed={}, claimable={}, inFlight={}",
+                        claimed.size(), claimable, concurrency - slots.availablePermits());
             }
             for (ClaimedReview review : claimed) {
-                submit(review);
+                submit(review, permits.grantedAt());
             }
         } catch (Exception e) {
             log.error("게시물 심사 워커 틱 실패", e);
         }
     }
 
-    private void submit(ClaimedReview review) {
+    private void submit(ClaimedReview review, Instant grantedAt) {
         // 빈 자리만큼만 선점했으므로 바로 잡힌다
         slots.acquireUninterruptibly();
         try {
@@ -111,7 +116,7 @@ public class PostReviewWorker {
                 try {
                     PostReviewResult result = processPostReviewUseCase.review(review);
                     if (!result.aiCalled()) {
-                        rateLimiter.release(1);
+                        rateLimiter.release(grantedAt, 1);
                     }
                 } catch (Exception e) {
                     // 한 건의 실패가 워커를 멈추지 않게 한다. 상태는 PENDING으로 남고 선점 만료 뒤 다시 처리된다
@@ -122,7 +127,7 @@ public class PostReviewWorker {
             });
         } catch (RuntimeException e) {
             slots.release();
-            rateLimiter.release(1);
+            rateLimiter.release(grantedAt, 1);
             log.error("게시물 심사 작업 제출 실패: postId={}", review.postId(), e);
         }
     }

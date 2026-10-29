@@ -41,8 +41,9 @@ public class PostReviewQueueService implements RetryPostReviewUseCase {
     private final SeasonResultRepositoryPort seasonResultRepositoryPort;
 
     @Transactional(readOnly = true)
-    public long countPending() {
-        return postReviewQueuePort.countPending();
+    public long countClaimable() {
+        LocalDateTime now = LocalDateTime.now();
+        return postReviewQueuePort.countClaimable(now, now.minus(properties.claimTimeout()));
     }
 
     public List<ClaimedReview> claim(int limit) {

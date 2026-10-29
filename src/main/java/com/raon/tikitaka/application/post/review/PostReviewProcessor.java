@@ -39,6 +39,9 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
     /** 저장소가 content-type을 주지 않고 파일 이름으로도 알 수 없을 때 쓰는 값 */
     private static final String DEFAULT_IMAGE_TYPE = "image/jpeg";
 
+    /** 포인트 키를 기다리다 409가 나도 AI 결과를 반영하려고 시도하는 총 횟수 */
+    private static final int COMPLETE_MAX_ATTEMPTS = 3;
+
     private final PostReviewQueueService postReviewQueueService;
     private final CompletePostReviewUseCase completePostReviewUseCase;
     private final ReviewUseCase reviewUseCase;
@@ -47,8 +50,8 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
     private final RequestGuard requestGuard;
 
     @Override
-    public long countPending() {
-        return postReviewQueueService.countPending();
+    public long countClaimable() {
+        return postReviewQueueService.countClaimable();
     }
 
     @Override
@@ -97,19 +100,14 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
         long reviewMs = System.currentTimeMillis() - startedAt;
 
         try {
-            // 포인트를 바꾸므로 상점 구매·가샤폰과 같은 포인트 키로 감싼다. 키는 트랜잭션 밖에서 잡아야 한다.
-            // 심사 완료는 선점 주인을 보지 않는다. 선점이 만료돼 두 작업이 같은 글을 끝내도, 먼저 DONE으로 바꾼 쪽만
-            // 반영되고 나중 작업은 PENDING이 아니라 false를 받으므로 점수는 한 번만 들어간다
-            boolean applied = requestGuard.executeWaiting(RequestGuard.pointsKey(claimed.authorId()),
-                    RequestGuard.POINTS_BUSY_MESSAGE,
-                    () -> completePostReviewUseCase.completeReview(claimed.postId(), review.score(), review.review()));
+            boolean applied = completeWithRetry(claimed, review);
             return logged(claimed, applied ? ReviewOutcome.DONE : ReviewOutcome.SKIPPED, true, reviewMs);
         } catch (ResponseStatusException e) {
             if (e.getStatusCode() != HttpStatus.CONFLICT) {
                 log.error("게시물 심사 결과 반영 실패: postId={}", claimed.postId(), e);
                 return logged(claimed, failure(claimed, null), true, reviewMs);
             }
-            // 5초 안에 포인트 키 순서가 오지 않았다. 실패가 아니므로 시도 횟수를 올리지 않고 선점만 푼다.
+            // 반영을 여러 번 기다려도 포인트 키 순서가 오지 않았다. 실패가 아니므로 시도 횟수를 올리지 않고 선점만 푼다.
             // 다음 틱에 다시 선점되면 AI를 한 번 더 부른다
             boolean released = postReviewQueueService.release(claimed.postId(), claimed.claimedAt());
             return logged(claimed, released ? ReviewOutcome.DEFERRED : ReviewOutcome.SKIPPED, true, reviewMs);
@@ -118,6 +116,30 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
             // 시도 횟수로 세지 않으면 선점 만료 때마다 AI를 다시 부르며 끝없이 돈다
             log.error("게시물 심사 결과 반영 실패: postId={}", claimed.postId(), e);
             return logged(claimed, failure(claimed, null), true, reviewMs);
+        }
+    }
+
+    /**
+     * 심사 결과를 반영한다. 포인트를 바꾸므로 상점 구매·가샤폰과 같은 포인트 키로 감싸고, 키는 트랜잭션 밖에서 잡아야 한다.
+     * 키 순서를 기다리다 409가 나면 AI 결과를 버리지 않고 같은 스레드에서 다시 시도한다. 여기서 포기하면 다음 틱에
+     * Gemini를 다시 불러 분당 호출 한도를 한 번 더 쓰기 때문이다. 시도마다 최대 5초 기다리므로 최대 COMPLETE_MAX_ATTEMPTS * 5초다.
+     * 심사 완료는 선점 주인을 보지 않는다. 선점이 만료돼 두 작업이 같은 글을 끝내도, 먼저 DONE으로 바꾼 쪽만
+     * 반영되고 나중 작업은 PENDING이 아니라 false를 받으므로 점수는 한 번만 들어간다.
+     * 마지막 시도까지 409면 그 예외를 그대로 던진다.
+     */
+    private boolean completeWithRetry(ClaimedReview claimed, AiReviewResult review) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return requestGuard.executeWaiting(RequestGuard.pointsKey(claimed.authorId()),
+                        RequestGuard.POINTS_BUSY_MESSAGE,
+                        () -> completePostReviewUseCase.completeReview(claimed.postId(), review.score(),
+                                review.review()));
+            } catch (ResponseStatusException e) {
+                if (e.getStatusCode() != HttpStatus.CONFLICT || attempt >= COMPLETE_MAX_ATTEMPTS) {
+                    throw e;
+                }
+                log.warn("게시물 심사 결과 반영 대기 초과, 다시 시도: postId={}, attempt={}", claimed.postId(), attempt);
+            }
         }
     }
 
