@@ -64,6 +64,11 @@ public class PostPersistenceAdapter implements PostRepositoryPort {
     }
 
     @Override
+    public long countActivePending() {
+        return postJpaRepository.countActivePending();
+    }
+
+    @Override
     public Post save(Post post) {
         return postJpaRepository.save(post);
     }

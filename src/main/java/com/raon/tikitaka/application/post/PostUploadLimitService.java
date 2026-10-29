@@ -61,6 +61,17 @@ public class PostUploadLimitService implements CheckPostUploadLimitUseCase {
         }
     }
 
+    @Override
+    public void checkQueueCapacity() {
+        if (properties.maxQueueSize() <= 0) {
+            return;
+        }
+        if (postRepositoryPort.countActivePending() >= properties.maxQueueSize()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "지금 심사 대기 중인 게시물이 많아요. 잠시 후 다시 올려주세요.");
+        }
+    }
+
     /** 남은 시간을 분 단위로 올림한다. 0분이나 음수로 안내하지 않도록 최소 1분이다 */
     static long minutesUntil(LocalDateTime now, LocalDateTime retryAt) {
         long millis = Duration.between(now, retryAt).toMillis();

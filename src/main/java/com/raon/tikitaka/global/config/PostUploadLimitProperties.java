@@ -13,12 +13,14 @@ import java.time.Duration;
  * @param maxCount   window 안에 올릴 수 있는 최대 글 수. PENDING, DONE, REJECTED 글과 삭제한 글을 센다
  * @param window     업로드 횟수를 세는 기간. 지금부터 거슬러 올라가는 슬라이딩 윈도우다
  * @param maxPending 한 사용자의 심사 대기(삭제하지 않은 PENDING) 글 최대 수
+ * @param maxQueueSize 전체 심사 대기열(삭제하지 않은 PENDING)의 최대 글 수. enabled와 상관없이 비동기 업로드에 적용되고, 0이면 제한하지 않는다
  */
 @ConfigurationProperties(prefix = "post-upload-limit")
 public record PostUploadLimitProperties(
         @DefaultValue("false") boolean enabled,
         @DefaultValue("2") int maxCount,
         @DefaultValue("10m") Duration window,
-        @DefaultValue("2") int maxPending
+        @DefaultValue("2") int maxPending,
+        @DefaultValue("50") int maxQueueSize
 ) {
 }

@@ -38,7 +38,7 @@ class PostUploadLimitServiceTest {
 
     private PostUploadLimitService service(boolean enabled) {
         return new PostUploadLimitService(postRepositoryPort,
-                new PostUploadLimitProperties(enabled, 2, Duration.ofMinutes(10), 2));
+                new PostUploadLimitProperties(enabled, 2, Duration.ofMinutes(10), 2, 50));
     }
 
     @Test
@@ -124,9 +124,35 @@ class PostUploadLimitServiceTest {
     }
 
     @Test
+    void 대기열이_가득_차면_503이다() {
+        when(postRepositoryPort.countActivePending()).thenReturn(50L);
+
+        assertThatThrownBy(() -> service(false).checkQueueCapacity())
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+    }
+
+    @Test
+    void 대기열에_자리가_있으면_통과한다() {
+        when(postRepositoryPort.countActivePending()).thenReturn(49L);
+
+        assertThatCode(() -> service(false).checkQueueCapacity()).doesNotThrowAnyException();
+    }
+
+    @Test
+    void 대기열_한도가_0이면_세지_않는다() {
+        PostUploadLimitService unlimited = new PostUploadLimitService(postRepositoryPort,
+                new PostUploadLimitProperties(true, 2, Duration.ofMinutes(10), 2, 0));
+
+        unlimited.checkQueueCapacity();
+
+        verifyNoInteractions(postRepositoryPort);
+    }
+
+    @Test
     void 메시지의_숫자는_설정값을_따른다() {
         PostUploadLimitService custom = new PostUploadLimitService(postRepositoryPort,
-                new PostUploadLimitProperties(true, 3, Duration.ofMinutes(30), 5));
+                new PostUploadLimitProperties(true, 3, Duration.ofMinutes(30), 5, 50));
         LocalDateTime now = LocalDateTime.now();
         when(postRepositoryPort.findRecentUploadTimes(eq(userId), any(), any(), anyInt()))
                 .thenReturn(List.of(now.minusMinutes(1), now.minusMinutes(2), now.minusMinutes(5)));

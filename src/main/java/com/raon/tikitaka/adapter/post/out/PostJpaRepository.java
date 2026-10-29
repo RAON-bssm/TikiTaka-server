@@ -105,6 +105,13 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
             """)
     long countActivePendingByUserId(@Param("userId") UUID userId);
 
+    @Query("""
+            select count(p) from Post p
+             where p.status = com.raon.tikitaka.domain.post.PostStatus.PENDING
+               and p.isActive = true
+            """)
+    long countActivePending();
+
     /**
      * id로 글 행을 잠그고 읽는다. 심사 완료·삭제·대기열 상태 변경이 같은 글에서 겹치지 않게 한다.
      * findActiveById와 달리 is_active와 작성자 탈퇴 여부를 거르지 않는다. 탈퇴한 작성자의 글도 심사는 끝내야 하고

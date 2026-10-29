@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -42,12 +43,13 @@ class PostControllerAsyncTest {
     private final StorageUseCase storageUseCase = mock(StorageUseCase.class);
     private final ReviewUseCase reviewUseCase = mock(ReviewUseCase.class);
     private final GetBoardUseCase getBoardUseCase = mock(GetBoardUseCase.class);
+    private final CheckPostUploadLimitUseCase uploadLimit = mock(CheckPostUploadLimitUseCase.class);
     private final PostController controller = new PostController(mock(GetPostListUseCase.class),
             mock(GetPostDetailUseCase.class), createPostUseCase, mock(UpdatePostUseCase.class),
             mock(DeletePostUseCase.class), mock(LikePostUseCase.class), mock(UnlikePostUseCase.class),
             storageUseCase, reviewUseCase, getBoardUseCase, new RequestGuard(),
             new PostReviewProperties(true, 1, 4, 5, Duration.ofMinutes(1), Duration.ofMinutes(5)),
-            mock(CheckPostUploadLimitUseCase.class));
+            uploadLimit);
 
     private final UUID authorId = UUID.randomUUID();
     private final UUID postId = UUID.randomUUID();
@@ -66,6 +68,18 @@ class PostControllerAsyncTest {
         verify(getBoardUseCase).getMission(3L, authorId);
         verify(reviewUseCase, never()).evaluate(any(), any(), any(), any());
         verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), anyInt(), any());
+    }
+
+    @Test
+    void 대기열이_가득_차면_S3에_올리지_않는다() {
+        doThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "가득 참"))
+                .when(uploadLimit).checkQueueCapacity();
+
+        assertThatThrownBy(() -> controller.createPost(authorId, new CreatePostRequest(3L, "내용", image)))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+        verify(storageUseCase, never()).uploadImage(any(), any(), any());
+        verify(createPostUseCase, never()).createPending(any(), any(), any(), any());
     }
 
     @Test

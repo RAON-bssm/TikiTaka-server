@@ -40,6 +40,9 @@ public interface PostRepositoryPort {
     /** 사용자의 삭제하지 않은 PENDING 글 수. 심사 대기 한도에 쓴다 */
     long countActivePendingByUserId(UUID userId);
 
+    /** 전체 사용자의 삭제하지 않은 PENDING 글 수. 심사 대기열 크기 한도에 쓴다 */
+    long countActivePending();
+
     Post save(Post post);
 
     Board getBoard(Long boardId);

@@ -154,6 +154,8 @@ public class PostController {
             // 미션 값은 쓰지 않고 접근 검증만 한다. 종료된 라운드나 다른 동네 게시판이면 S3 업로드 전에 404
             getBoardUseCase.getMission(request.boardId(), authorId);
             checkPostUploadLimitUseCase.checkUploadLimit(authorId);
+            // 대기열이 가득 차면 업로드 전에 거절한다. 심사가 밀린 채로 계속 쌓이지 않게 한다
+            checkPostUploadLimitUseCase.checkQueueCapacity();
             String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
             return createPostUseCase.createPending(authorId, request.boardId(), request.content(), key);
         });

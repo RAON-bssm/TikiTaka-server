@@ -96,6 +96,7 @@ post-upload-limit:
   max-count: 2                # window 안에 올릴 수 있는 최대 글 수(PENDING, DONE, REJECTED, 삭제한 글을 센다)
   window: 10m                 # 업로드 횟수를 세는 기간(슬라이딩 윈도우)
   max-pending: 2              # 한 사용자의 심사 대기(삭제하지 않은 PENDING) 글 최대 수
+  max-queue-size: 50          # 전체 심사 대기열 최대 글 수. enabled와 상관없이 비동기 업로드에 적용, 0이면 제한 없음
 
 season:
   round-days: 7               # 라운드 1개 길이
