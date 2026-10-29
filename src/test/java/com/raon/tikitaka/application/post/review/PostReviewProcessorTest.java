@@ -1,12 +1,15 @@
 package com.raon.tikitaka.application.post.review;
 
+import com.raon.tikitaka.adapter.review.out.GeminiAdapterTestAccess;
 import com.raon.tikitaka.application.post.in.CompletePostReviewUseCase;
 import com.raon.tikitaka.application.ranking.out.SeasonResultRepositoryPort;
 import com.raon.tikitaka.application.review.AiReviewInvalidResponseException;
 import com.raon.tikitaka.application.review.AiReviewRejectedException;
 import com.raon.tikitaka.application.review.AiReviewResult;
 import com.raon.tikitaka.application.review.AiReviewRetryableException;
+import com.raon.tikitaka.application.review.ReviewService;
 import com.raon.tikitaka.application.review.in.ReviewUseCase;
+import com.raon.tikitaka.application.review.out.AiReviewPort;
 import com.raon.tikitaka.application.storage.StoredImage;
 import com.raon.tikitaka.application.storage.out.StoragePort;
 import com.raon.tikitaka.domain.post.PostStatus;
@@ -20,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -186,5 +190,27 @@ class PostReviewProcessorTest {
         processor.review(claimed);
 
         verify(reviewUseCase).evaluate("미션", "내용", new byte[]{1}, "image/jpeg");
+    }
+
+    @Test
+    void 안전_필터에_막힌_응답은_Gemini를_한_번만_부르고_재시도_없이_REJECTED() {
+        // 실제 Gemini 어댑터의 응답 해석을 그대로 거친다. 응답만 안전 필터 차단 모양으로 고정한다
+        String blocked = "{\"promptFeedback\": {\"blockReason\": \"SAFETY\"}}";
+        AtomicInteger calls = new AtomicInteger();
+        AiReviewPort port = (mission, content, image, contentType) -> {
+            calls.incrementAndGet();
+            return GeminiAdapterTestAccess.parse(blocked);
+        };
+        PostReviewProcessor realReview = new PostReviewProcessor(queueService, completeUseCase,
+                new ReviewService(port), storagePort, seasonResultPort, requestGuard);
+        when(queueService.finish(postId, PostStatus.REJECTED)).thenReturn(true);
+
+        PostReviewResult result = realReview.review(claimed);
+
+        assertThat(result).isEqualTo(new PostReviewResult(ReviewOutcome.REJECTED, true));
+        assertThat(calls).hasValue(1);
+        // 재시도 예약(review_next_at)은 recordFailure로만 생긴다
+        verify(queueService, never()).recordFailure(any(), any());
+        verify(completeUseCase, never()).completeReview(any(), anyInt(), any());
     }
 }

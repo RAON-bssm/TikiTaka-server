@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -187,21 +188,38 @@ public class GeminiAdapter implements AiReviewPort {
 
     /**
      * 응답 구조가 기대와 다르거나 JSON이 아니면 응답 형식 오류(재시도 대상)로 던진다.
-     * 안전 필터로 막히면 candidates 없이 promptFeedback만 오는데, 이것도 여기서 형식 오류가 된다.
+     * 안전 필터에 막힌 응답은 200으로 오지만 다시 보내도 같으므로 거절 대상으로 던진다. 판정 조건은
+     * promptFeedback.blockReason이 안전 사유이거나, 후보에 쓸 텍스트가 없고 finishReason이 안전 사유인 경우다.
+     * 둘 다 아닌 빈 응답(후보 없음, MAX_TOKENS 등)은 일시적일 수 있어 지금처럼 형식 오류로 둔다.
      */
     AiReviewResult parse(String responseBody) {
-        String text;
+        JsonNode root;
         try {
-            JsonNode part = objectMapper.readTree(responseBody).path("candidates").path(0)
-                    .path("content").path("parts").path(0);
-            if (!part.hasNonNull("text")) {
-                log.error("Gemini 응답에 심사 텍스트가 없습니다. 원문: {}", responseBody);
-                throw new AiReviewInvalidResponseException("Gemini 응답에 심사 텍스트가 없습니다");
-            }
-            text = part.path("text").asString();
+            root = objectMapper.readTree(responseBody);
         } catch (JacksonException e) {
             log.error("Gemini 응답 본문을 읽을 수 없습니다. 원문: {}", responseBody);
             throw new AiReviewInvalidResponseException("Gemini 응답 본문을 읽을 수 없습니다", e);
+        }
+
+        JsonNode promptFeedback = root.path("promptFeedback");
+        JsonNode candidate = root.path("candidates").path(0);
+        String blockReason = textOrNull(promptFeedback.path("blockReason"));
+        String finishReason = textOrNull(candidate.path("finishReason"));
+        String text = textOrNull(candidate.path("content").path("parts").path(0).path("text"));
+
+        boolean blockedPrompt = blockReason != null && GeminiSafetyBlock.BLOCK_REASONS.contains(blockReason);
+        boolean blockedCandidate = text == null && finishReason != null
+                && GeminiSafetyBlock.FINISH_REASONS.contains(finishReason);
+        if (blockedPrompt || blockedCandidate) {
+            // 이미지·게시물 내용·응답 원문은 남기지 않고 차단 사유만 남긴다
+            log.warn("Gemini 안전 필터 차단: model={}, blockReason={}, finishReason={}, categories={}",
+                    model, blockReason, finishReason, flaggedCategories(promptFeedback, candidate));
+            throw new AiReviewRejectedException("Gemini 안전 필터 차단 blockReason=" + blockReason
+                    + ", finishReason=" + finishReason, 200, null);
+        }
+        if (text == null) {
+            log.error("Gemini 응답에 심사 텍스트가 없습니다. 원문: {}", responseBody);
+            throw new AiReviewInvalidResponseException("Gemini 응답에 심사 텍스트가 없습니다");
         }
 
         JsonNode result;
@@ -219,5 +237,33 @@ public class GeminiAdapter implements AiReviewPort {
             score = result.path("score").asInt();
         }
         return new AiReviewResult(score, result.path("review").asString());
+    }
+
+    /** 값이 없거나 비어 있으면 null */
+    private static String textOrNull(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        String value = node.asString("");
+        return value.isBlank() ? null : value;
+    }
+
+    /**
+     * 차단에 걸린 안전 등급의 카테고리. blocked=true이거나 확률이 MEDIUM, HIGH인 등급만 모은다.
+     */
+    private static List<String> flaggedCategories(JsonNode promptFeedback, JsonNode candidate) {
+        List<String> categories = new ArrayList<>();
+        for (JsonNode ratings : List.of(promptFeedback.path("safetyRatings"), candidate.path("safetyRatings"))) {
+            for (JsonNode rating : ratings) {
+                String probability = rating.path("probability").asString("");
+                boolean flagged = rating.path("blocked").asBoolean(false)
+                        || "MEDIUM".equals(probability) || "HIGH".equals(probability);
+                String category = textOrNull(rating.path("category"));
+                if (flagged && category != null && !categories.contains(category)) {
+                    categories.add(category);
+                }
+            }
+        }
+        return categories;
     }
 }

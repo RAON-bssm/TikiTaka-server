@@ -1,7 +1,8 @@
 package com.raon.tikitaka.application.review;
 
 /**
- * 다시 보내도 결과가 같은 AI 심사 실패. Gemini가 429를 뺀 4xx로 응답한 경우다(콘텐츠 정책 차단 등).
+ * 다시 보내도 결과가 같은 AI 심사 실패. Gemini가 429를 뺀 4xx로 응답했거나,
+ * 200으로 응답했지만 안전 필터에 막힌 경우다(이때 status는 200).
  * 워커는 이 예외를 받으면 재시도하지 않고 글을 REJECTED로 바꾼다.
  */
 public class AiReviewRejectedException extends RuntimeException {

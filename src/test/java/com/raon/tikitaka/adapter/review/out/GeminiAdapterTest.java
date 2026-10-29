@@ -103,11 +103,64 @@ class GeminiAdapterTest {
                 .isInstanceOf(AiReviewInvalidResponseException.class);
     }
 
+    // ===== 안전 필터 =====
+
     @Test
-    void 후보가_없는_응답은_형식_오류() {
-        // 안전 필터로 막히면 candidates 없이 promptFeedback만 온다
-        assertThatThrownBy(() -> adapter.parse("{\"promptFeedback\": {\"blockReason\": \"SAFETY\"}}"))
+    void 프롬프트가_안전_필터에_막혀_후보가_없으면_거절() {
+        String body = """
+                {"promptFeedback": {"blockReason": "SAFETY", "safetyRatings": [
+                  {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "probability": "HIGH", "blocked": true},
+                  {"category": "HARM_CATEGORY_HARASSMENT", "probability": "NEGLIGIBLE"}
+                ]}}
+                """;
+
+        assertThatThrownBy(() -> adapter.parse(body))
+                .isInstanceOf(AiReviewRejectedException.class)
+                .isNotInstanceOf(AiReviewRetryableException.class);
+    }
+
+    @Test
+    void 후보가_안전_사유로_멈추고_텍스트가_없으면_거절() {
+        String body = """
+                {"candidates": [{"finishReason": "PROHIBITED_CONTENT",
+                  "safetyRatings": [{"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "probability": "MEDIUM"}]}]}
+                """;
+
+        assertThatThrownBy(() -> adapter.parse(body)).isInstanceOf(AiReviewRejectedException.class);
+    }
+
+    @Test
+    void 안전_사유가_아닌_blockReason은_재시도_대상() {
+        // OTHER는 "알 수 없는 이유"라 안전 필터로 보지 않는다
+        assertThatThrownBy(() -> adapter.parse("{\"promptFeedback\": {\"blockReason\": \"OTHER\"}}"))
                 .isInstanceOf(AiReviewInvalidResponseException.class);
+    }
+
+    @Test
+    void 후보도_blockReason도_없는_응답은_재시도_대상() {
+        assertThatThrownBy(() -> adapter.parse("{\"candidates\": []}"))
+                .isInstanceOf(AiReviewInvalidResponseException.class);
+        assertThatThrownBy(() -> adapter.parse("{}"))
+                .isInstanceOf(AiReviewInvalidResponseException.class);
+    }
+
+    @Test
+    void 안전과_무관한_finishReason으로_텍스트가_없으면_재시도_대상() {
+        for (String reason : new String[]{"MAX_TOKENS", "RECITATION", "OTHER"}) {
+            String body = "{\"candidates\": [{\"finishReason\": \"" + reason + "\", \"content\": {\"parts\": []}}]}";
+            assertThatThrownBy(() -> adapter.parse(body))
+                    .as(reason)
+                    .isInstanceOf(AiReviewInvalidResponseException.class);
+        }
+    }
+
+    @Test
+    void 텍스트가_있으면_finishReason이_안전_사유여도_그대로_읽는다() {
+        String body = JsonMapper.builder().build().writeValueAsString(Map.of("candidates", List.of(Map.of(
+                "finishReason", "SAFETY",
+                "content", Map.of("parts", List.of(Map.of("text", "{\"score\": 60, \"review\": \"보통\"}")))))));
+
+        assertThat(adapter.parse(body).score()).isEqualTo(60);
     }
 
     @Test

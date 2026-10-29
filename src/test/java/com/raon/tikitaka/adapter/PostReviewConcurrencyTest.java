@@ -9,11 +9,18 @@ import com.raon.tikitaka.adapter.post.out.PostPersistenceAdapter;
 import com.raon.tikitaka.adapter.post.out.PostReviewQueuePersistenceAdapter;
 import com.raon.tikitaka.adapter.ranking.out.RankingPersistenceAdapter;
 import com.raon.tikitaka.adapter.ranking.out.SeasonResultPersistenceAdapter;
+import com.raon.tikitaka.adapter.review.out.GeminiAdapterTestAccess;
 import com.raon.tikitaka.application.post.PostService;
 import com.raon.tikitaka.application.post.review.ClaimedReview;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
+import com.raon.tikitaka.application.post.review.PostReviewProcessor;
 import com.raon.tikitaka.application.post.review.PostReviewQueueService;
 import com.raon.tikitaka.application.ranking.RankingService;
+import com.raon.tikitaka.application.ranking.out.SeasonResultRepositoryPort;
+import com.raon.tikitaka.application.review.ReviewService;
+import com.raon.tikitaka.application.review.out.AiReviewPort;
+import com.raon.tikitaka.application.storage.StoredImage;
+import com.raon.tikitaka.application.storage.out.StoragePort;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.domain.enums.MatchType;
@@ -26,6 +33,7 @@ import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.PostReviewProperties;
 import com.raon.tikitaka.global.config.RankingProperties;
 import com.raon.tikitaka.global.config.SeasonProperties;
+import com.raon.tikitaka.global.guard.RequestGuard;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,9 +57,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * 커밋되는 트랜잭션 여러 개가 같은 글 행을 두고 겹치는 상황을 실제 PostgreSQL에서 돌려 본다.
@@ -82,6 +93,7 @@ class PostReviewConcurrencyTest {
     @Autowired PostJpaRepository postJpaRepository;
     @Autowired PostReviewQueuePort postReviewQueuePort;
     @Autowired RankingService rankingService;
+    @Autowired SeasonResultRepositoryPort seasonResultRepositoryPort;
 
     private TransactionTemplate tx;
     private Long homeId;
@@ -228,6 +240,38 @@ class PostReviewConcurrencyTest {
                 .containsExactlyInAnyOrder(true, false);
         assertThat(userScore()).isEqualTo(5421L);
         assertThat(point()).isEqualTo(271);
+    }
+
+    // ===== 안전 필터 차단 =====
+
+    @Test
+    void 안전_필터에_막힌_글은_한_번만_심사하고_재시도_예약_없이_REJECTED가_된다() {
+        UUID postId = pendingPost(LocalDateTime.now());
+        AtomicInteger calls = new AtomicInteger();
+        AiReviewPort blockedGemini = (mission, content, image, contentType) -> {
+            calls.incrementAndGet();
+            return GeminiAdapterTestAccess.parse("{\"promptFeedback\": {\"blockReason\": \"PROHIBITED_CONTENT\"}}");
+        };
+        StoragePort storage = mock(StoragePort.class);
+        when(storage.download("photo.jpg")).thenReturn(new StoredImage(new byte[]{1}, "image/jpeg"));
+        PostReviewProcessor processor = new PostReviewProcessor(postReviewQueueService, postService,
+                new ReviewService(blockedGemini), storage, seasonResultRepositoryPort, new RequestGuard());
+
+        List<ClaimedReview> claimed = postReviewQueueService.claim(1);
+        processor.review(claimed.get(0));
+
+        assertThat(calls).hasValue(1);
+        assertThat(postStatus(postId)).isEqualTo(PostStatus.REJECTED);
+        Object[] review = inTx(() -> (Object[]) em.createNativeQuery(
+                        "select review_attempts, review_next_at, review_started_at from post where post_id = :postId")
+                .setParameter("postId", postId)
+                .getSingleResult());
+        assertThat(((Number) review[0]).intValue()).isZero();
+        assertThat(review[1]).isNull();
+        assertThat(review[2]).isNull();
+        // 다시 선점되지 않는다
+        assertThat(postReviewQueueService.claim(1)).isEmpty();
+        assertThat(userScoreRows()).isZero();
     }
 
     // ===== 시즌 확정 =====
