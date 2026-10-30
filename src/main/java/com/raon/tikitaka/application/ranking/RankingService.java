@@ -2,6 +2,7 @@ package com.raon.tikitaka.application.ranking;
 
 import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
 import com.raon.tikitaka.application.match.out.StageRepositoryPort;
+import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
 import com.raon.tikitaka.application.ranking.in.FinalizeSeasonUseCase;
 import com.raon.tikitaka.application.ranking.in.GetLocationRankingUseCase;
 import com.raon.tikitaka.application.ranking.in.GetUserRankingUseCase;
@@ -43,6 +44,7 @@ public class RankingService implements FinalizeSeasonUseCase, GetLocationRanking
     private final SeasonResultRepositoryPort seasonResultRepositoryPort;
     private final LocationRepositoryPort locationRepositoryPort;
     private final SeasonProperties seasonProperties;
+    private final PostReviewQueuePort postReviewQueuePort;
 
     /**
      * 라운드가 roundsPerSeason 개수만큼 존재하고 마지막 라운드까지 전부 종료됐으며
@@ -90,8 +92,20 @@ public class RankingService implements FinalizeSeasonUseCase, GetLocationRanking
      * 시즌 하나를 확정한다. 합산과 0점 채우기, 등수 계산은 전부 DB가 하고
      * 여기서는 결과를 받아 저장만 한다.
      * 쿼리 상세는 LocationRankingJpaRepository.calculateSeasonRanking 참고.
+     *
+     * 계산하기 전에 같은 트랜잭션에서 이 시즌의 PENDING 글을 EXPIRED로 바꾼다. 확정은 미루지 않는다.
+     * 심사 완료 처리 중이던 글은 행 잠금 때문에 이 update가 기다리므로, 그 글의 점수는 계산에 들어가고
+     * 확정 뒤에 점수가 새로 들어오는 일은 없다(심사 완료는 PENDING인 글에만 반영한다).
+     * 새 PENDING 글은 시즌 잠금으로 막는다. 확정이 끝날 때까지 글 작성이 기다리므로 만료 처리를 빠져나가는 글이 없다.
      */
     private void finalizeSeason(int season) {
+        // 글 작성(createPending)과 같은 시즌 잠금. 트랜잭션이 끝날 때까지 쥐고 있어서
+        // 만료·계산·저장 사이에 새 PENDING 글이 끼어들지 못한다
+        postReviewQueuePort.lockSeasonExclusive(season);
+
+        int expired = postReviewQueuePort.expirePendingBySeason(season);
+        log.info("시즌 {} 확정 전 심사 대기 글 {}건 EXPIRED 처리", season, expired);
+
         List<SeasonRankRow> rows = rankingRepositoryPort.calculateSeasonRanking(season);
 
         // 저장할 때 Location 엔티티가 필요하므로 ID로 찾을 수 있게 맵을 만들어둔다

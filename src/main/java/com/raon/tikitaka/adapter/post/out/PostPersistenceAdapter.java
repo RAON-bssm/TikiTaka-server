@@ -5,12 +5,16 @@ import com.raon.tikitaka.adapter.user.out.UserJpaRepository;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.post.Post;
+import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.domain.user.Users;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,8 +43,29 @@ public class PostPersistenceAdapter implements PostRepositoryPort {
     }
 
     @Override
+    public Optional<Post> findByIdForUpdate(UUID postId) {
+        return postJpaRepository.findByIdForUpdate(postId);
+    }
+
+    @Override
     public List<Post> findAllActiveByUserId(UUID userId) {
         return postJpaRepository.findAllActiveByUserId(userId);
+    }
+
+    @Override
+    public List<LocalDateTime> findRecentUploadTimes(UUID userId, LocalDateTime since,
+                                                     Collection<PostStatus> statuses, int limit) {
+        return postJpaRepository.findRecentUploadTimes(userId, since, statuses, Limit.of(limit));
+    }
+
+    @Override
+    public long countActivePendingByUserId(UUID userId) {
+        return postJpaRepository.countActivePendingByUserId(userId);
+    }
+
+    @Override
+    public long countActivePending() {
+        return postJpaRepository.countActivePending();
     }
 
     @Override

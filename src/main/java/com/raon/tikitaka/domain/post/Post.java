@@ -13,7 +13,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "post")
+@Table(name = "post",
+        indexes = {
+                @Index(name = "idx_post_status_review_next_at", columnList = "status, review_next_at"),
+                // 사용자별 업로드 한도가 user_id로 거르고 created_at 최근 순으로 읽는다
+                @Index(name = "idx_post_user_created_at", columnList = "user_id, created_at")
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Post {
@@ -73,6 +78,32 @@ public class Post {
     @ColumnDefault("true")
     private boolean isActive;
 
+    /**
+     * 심사 상태. 기존 글은 마이그레이션에서 DONE으로 채운다.
+     * 동기 방식으로 쓴 글은 바로 DONE, 비동기 방식으로 쓴 글은 PENDING으로 시작한다.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    @ColumnDefault("'DONE'")
+    private PostStatus status;
+
+    /** 실제 AI 호출이 실패한 횟수. 대기열 대기나 속도 제한 대기로는 늘지 않는다 */
+    @Column(name = "review_attempts", nullable = false)
+    @ColumnDefault("0")
+    private int reviewAttempts;
+
+    /** 재시도 백오프. 이 시각 전에는 다시 선점하지 않는다. null이면 바로 선점 가능 */
+    @Column(name = "review_next_at")
+    private LocalDateTime reviewNextAt;
+
+    /**
+     * 워커가 선점한 시각. 서버가 심사 도중 죽어도 일정 시간이 지나면 다시 선점된다.
+     * 심사 상태 컬럼들은 벌크 update로만 바꾼다. 엔티티로 바꾸면 @PreUpdate가 updated_at(게시물 수정 일시)을
+     * 갱신해 심사만 끝났는데 글이 수정된 것처럼 보이기 때문이다.
+     */
+    @Column(name = "review_started_at")
+    private LocalDateTime reviewStartedAt;
+
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
@@ -90,8 +121,20 @@ public class Post {
         post.teamLocation = teamLocation;
         post.locationScored = locationScored;
         post.isActive = true;
+        post.status = PostStatus.DONE;
         post.createdAt = LocalDateTime.now();
         post.updatedAt = LocalDateTime.now();
+        return post;
+    }
+
+    /**
+     * 비동기 업로드용. 점수와 AI 리뷰 없이 PENDING으로 만들고, 심사는 워커가 한다.
+     * 작성 시점 스냅샷(teamLocation, locationScored)은 여기서 저장해 심사가 늦어져도 작성 당시 기준을 쓴다.
+     */
+    public static Post createPending(Users author, Board board, String content, String postImage, String location,
+                                     Location teamLocation, boolean locationScored) {
+        Post post = create(author, board, content, postImage, null, null, location, teamLocation, locationScored);
+        post.status = PostStatus.PENDING;
         return post;
     }
 
@@ -101,5 +144,13 @@ public class Post {
 
     public void deactivate() {
         this.isActive = false;
+    }
+
+    public boolean isDone() {
+        return status == PostStatus.DONE;
+    }
+
+    public boolean isPending() {
+        return status == PostStatus.PENDING;
     }
 }

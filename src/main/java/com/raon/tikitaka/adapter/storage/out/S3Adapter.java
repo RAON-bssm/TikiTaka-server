@@ -1,9 +1,11 @@
 package com.raon.tikitaka.adapter.storage.out;
 
+import com.raon.tikitaka.application.storage.StoredImage;
 import com.raon.tikitaka.application.storage.out.StoragePort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -24,8 +26,20 @@ public class S3Adapter implements StoragePort {
 
     private static final Duration SERVER_UPLOAD_SIGNATURE_DURATION = Duration.ofSeconds(30);
 
+    /** 서버가 직접 내려받을 때 쓰는 presigned GET 서명 유효 시간 */
+    private static final Duration SERVER_DOWNLOAD_SIGNATURE_DURATION = Duration.ofSeconds(30);
+
+    private static final Duration DOWNLOAD_TIMEOUT = Duration.ofSeconds(30);
+
+    /**
+     * WebClient 기본 버퍼(256KB)로는 사진을 받지 못한다. 업로드 요청 상한(스프링 기본 10MB)에 맞춘다
+     */
+    private static final int DOWNLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
     private final S3Presigner s3Presigner;
-    private final WebClient webClient = WebClient.builder().build();
+    private final WebClient webClient = WebClient.builder()
+            .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(DOWNLOAD_MAX_BYTES))
+            .build();
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
@@ -74,5 +88,23 @@ public class S3Adapter implements StoragePort {
                 .retrieve()
                 .toBodilessEntity()
                 .block();
+    }
+
+    @Override
+    public StoredImage download(String key) {
+        URL presignedUrl = issueViewUrl(key, SERVER_DOWNLOAD_SIGNATURE_DURATION);
+        ResponseEntity<byte[]> response = webClient.get()
+                .uri(URI.create(presignedUrl.toString()))
+                .retrieve()
+                .toEntity(byte[].class)
+                .block(DOWNLOAD_TIMEOUT);
+        // retrieve()는 4xx/5xx만 예외로 바꾸고 3xx(리전이 다를 때의 PermanentRedirect 등)는 그대로 넘긴다.
+        // 그 본문은 이미지가 아니라 S3 오류 XML이므로 2xx가 아니면 실패로 본다
+        if (response == null || !response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            throw new IllegalStateException("S3 이미지를 읽지 못했습니다. key=" + key
+                    + ", status=" + (response == null ? null : response.getStatusCode()));
+        }
+        MediaType contentType = response.getHeaders().getContentType();
+        return new StoredImage(response.getBody(), contentType != null ? contentType.toString() : null);
     }
 }

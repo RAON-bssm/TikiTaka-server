@@ -1,6 +1,7 @@
 package com.raon.tikitaka.application.post;
 
 import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
+import com.raon.tikitaka.application.post.in.CompletePostReviewUseCase;
 import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
@@ -11,8 +12,10 @@ import com.raon.tikitaka.application.post.in.UnlikePostUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
 import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
+import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
 import com.raon.tikitaka.domain.board.Board;
+import com.raon.tikitaka.domain.enums.UserStatus;
 import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.match.Match;
 import com.raon.tikitaka.domain.match.Stage;
@@ -39,7 +42,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 
-public class PostService implements GetPostListUseCase, GetPostDetailUseCase, CreatePostUseCase, UpdatePostUseCase, DeletePostUseCase, LikePostUseCase, UnlikePostUseCase, GetMyPostsUseCase {
+public class PostService implements GetPostListUseCase, GetPostDetailUseCase, CreatePostUseCase, UpdatePostUseCase, DeletePostUseCase, LikePostUseCase, UnlikePostUseCase, GetMyPostsUseCase,
+        CompletePostReviewUseCase {
 
 
     private final PostRepositoryPort postRepositoryPort;
@@ -47,6 +51,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private final RankingRepositoryPort rankingRepositoryPort;
     private final RankingProperties rankingProperties;
     private final BlockRepositoryPort blockRepositoryPort;
+    private final PostReviewQueuePort postReviewQueuePort;
 
     /**
      * 로그인 상태면 내가 차단한 유저의 글을 뺀다. 조회할 때마다 DB 조건으로 거르므로 차단 직후 다음 조회부터 반영된다.
@@ -71,10 +76,15 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
     /**
      * 내가 차단한 유저의 글은 삭제된 글과 똑같이 404로 응답한다. 링크나 알림으로 직접 들어와도 보이지 않게 하기 위해서다.
+     * 심사가 끝나지 않았거나(PENDING) 통과하지 못한 글도 작성자 본인과 관리자 외에는 같은 404다.
      */
     @Override
-    public PostDetail getPost(UUID postId, UUID userId) {
+    public PostDetail getPost(UUID postId, UUID userId, boolean isAdmin) {
         Post post = getActivePost(postId);
+        boolean isAuthor = userId != null && post.getUserId().getUserId().equals(userId);
+        if (!post.isDone() && !isAuthor && !isAdmin) {
+            throw notFound();
+        }
         if (userId != null && blockRepositoryPort.existsByBlockerAndBlocked(userId, post.getUserId().getUserId())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
         }
@@ -87,7 +97,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     @Override
     @Transactional
     public void like(UUID postId, UUID userId) {
-        Post post = getActivePost(postId);
+        Post post = getDonePost(postId);
         Users user = postRepositoryPort.getUser(userId);
 
         // 이미 눌렀으면 아무것도 하지 않는다. uk_post_like_post_user는 동시성 상황의
@@ -102,7 +112,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
     @Transactional
     public void unlike(UUID postId, UUID userId) {
-        Post post = getActivePost(postId);
+        Post post = getDonePost(postId);
         Users user = postRepositoryPort.getUser(userId);
 
         // 누른 적이 없어도 delete는 0건 삭제로 끝나므로 그 자체로 idempotent하다
@@ -112,9 +122,36 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private Post getActivePost(UUID postId) {
         Optional<Post> post = postRepositoryPort.findActiveById(postId);
         if (post.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
+            throw notFound();
         }
         return post.get();
+    }
+
+    /**
+     * 행을 잠그고 읽되 노출 기준은 findActiveById와 같게 맞춘다(삭제된 글, 탈퇴한 작성자의 글은 404).
+     */
+    private Post getActivePostForUpdate(UUID postId) {
+        Optional<Post> post = postRepositoryPort.findByIdForUpdate(postId);
+        if (post.isEmpty() || !post.get().isActive()
+                || post.get().getUserId().getStatus() == UserStatus.WITHDRAWN) {
+            throw notFound();
+        }
+        return post.get();
+    }
+
+    /**
+     * 좋아요·취소는 피드에 보이는 글(DONE)에만 허용한다. 심사 중인 글은 없는 글과 같은 404다.
+     */
+    private Post getDonePost(UUID postId) {
+        Post post = getActivePost(postId);
+        if (!post.isDone()) {
+            throw notFound();
+        }
+        return post;
+    }
+
+    private static ResponseStatusException notFound() {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, "게시물을 찾을 수 없습니다.");
     }
 
     @Override
@@ -185,6 +222,62 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     }
 
     /**
+     * 비동기 업로드. 저장과 활동 갱신만 하고 포인트·점수는 completeReview로 미룬다.
+     * 글을 쓰는 팀과 지역 점수 여부는 지금(작성 시점) 기준으로 정해 저장한다.
+     */
+    @Override
+    @Transactional
+    public UUID createPending(UUID authorId, Long boardId, String content, String postImage) {
+        Users author = postRepositoryPort.getUser(authorId);
+        Board board = postRepositoryPort.getBoard(boardId);
+
+        // 시즌 확정과 직렬화한다. 확정이 진행 중이면 끝날 때까지 기다리고, 내가 먼저면 확정이 이 글까지 EXPIRED로 처리한다
+        postReviewQueuePort.lockSeasonShared(board.getMatch().getStage().getSeason());
+        Location teamLocation = resolveTeamLocation(author, board);
+        boolean locationScored = author.isAtHome();
+
+        Post saved = postRepositoryPort.save(Post.createPending(author, board, content, postImage,
+                teamLocation.getLocationName(), teamLocation, locationScored));
+
+        // 게시물 작성도 활동이므로 lastActiveAt을 갱신하고 휴면이었다면 ACTIVE로 복귀한다
+        author.touch();
+        return saved.getPostId();
+    }
+
+    /**
+     * 글 행을 잠그고 다시 읽어 PENDING인 활성 글일 때만 반영한다. 삭제(deletePost)와 시즌 확정의 EXPIRED 처리도
+     * 같은 행을 잠그므로 어느 쪽이 먼저든 점수가 두 번 더해지거나, 삭제된 글·무효 글에 들어가지 않는다.
+     * 작성자 탈퇴 여부는 보지 않는다. 탈퇴해도 점수는 유지하는 방침이라 탈퇴한 작성자의 글도 똑같이 반영되고,
+     * 조회에서만 빠진다.
+     */
+    @Override
+    @Transactional
+    public boolean completeReview(UUID postId, int score, String aiReview) {
+        Optional<Post> locked = postRepositoryPort.findByIdForUpdate(postId);
+        if (locked.isEmpty() || !locked.get().isActive() || !locked.get().isPending()) {
+            return false;
+        }
+        Post post = locked.get();
+        UUID authorId = post.getUserId().getUserId();
+        Long boardId = post.getBoard().getBoardId();
+        Location teamLocation = post.getTeamLocation();
+        boolean locationScored = post.isLocationScored();
+
+        // 벌크 update라 updated_at(게시물 수정 일시)이 바뀌지 않는다. 실행 후 영속성 컨텍스트가 비워지므로
+        // 작성자와 게시판은 그 뒤에 다시 읽는다
+        postReviewQueuePort.complete(postId, score, aiReview);
+
+        // 포인트 적립을 점수 가산보다 먼저 한다. accrueScores의 upsert가 flush 후 영속성 컨텍스트를 clear하므로
+        // 그 뒤에 적립하면 변경 감지로 반영되지 않는다
+        Users author = postRepositoryPort.getUser(authorId);
+        author.earnPoint(calculatePostPoint(score));
+
+        Board board = postRepositoryPort.getBoard(boardId);
+        accrueScores(board, teamLocation, author, score, locationScored, 1);
+        return true;
+    }
+
+    /**
      * 게시물 작성 포인트. round(AI점수 * K / pointDivisor)
      */
     private int calculatePostPoint(int score) {
@@ -213,19 +306,25 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     public void updatePost(UUID postId, UUID requesterId, boolean isAdmin, String content) {
         Post post = getActivePost(postId);
         validateOwner(post, requesterId, isAdmin);
+        // AI가 이미지와 내용을 함께 심사하므로 심사 중에 내용이 바뀌면 점수가 다른 글 기준이 된다
+        if (post.isPending()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "심사 중에는 수정할 수 없어요");
+        }
         post.updateContent(content);
     }
 
     @Override
     @Transactional
     public void deletePost(UUID postId, UUID requesterId, boolean isAdmin) {
-        Post post = getActivePost(postId);
+        // 심사 완료(completeReview)와 같은 글 행 잠금을 쓴다. 겹쳐도 한쪽이 끝난 뒤 다른 쪽이 실행되므로
+        // 심사가 먼저 끝났으면 더해진 점수를 그대로 빼고, 삭제가 먼저면 심사 완료가 아무것도 하지 않는다
+        Post post = getActivePostForUpdate(postId);
         validateOwner(post, requesterId, isAdmin);
         post.deactivate();
 
         // 삭제 시 이 게시물이 올렸던 점수를 그대로 뺀다.
         // 작성 시점 스냅샷으로 재계산하므로 인원이 바뀌어도 더했던 값과 같은 값을 뺀다.
-        // findActiveById가 is_active인 게시물만 돌려주므로 두 번 차감될 일은 없다.
+        // 잠근 행을 is_active로 다시 확인하므로 두 번 차감될 일은 없다. PENDING 등 심사 전 글은 score가 null이라 건너뛴다.
         if (post.getScore() != null && post.getTeamLocation() != null) {
             // 지역 점수 차감 여부는 작성 시점 스냅샷을 따른다. 그 사이 작성자가 이사를 갔어도
             // 올렸던 것과 같은 항목만 되돌린다
