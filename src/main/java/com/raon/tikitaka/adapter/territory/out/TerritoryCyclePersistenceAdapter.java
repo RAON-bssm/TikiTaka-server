@@ -5,6 +5,8 @@ import com.raon.tikitaka.domain.territory.TerritoryCycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -21,6 +23,11 @@ public class TerritoryCyclePersistenceAdapter implements TerritoryCycleRepositor
     @Override
     public boolean existsByPointStageId(Long pointStageId) {
         return territoryCycleJpaRepository.existsByPointStage_StageId(pointStageId);
+    }
+
+    @Override
+    public List<TerritoryCycle> findAllAwaitingSelection(LocalDateTime now) {
+        return territoryCycleJpaRepository.findAllAwaitingSelection(now);
     }
 
     @Override

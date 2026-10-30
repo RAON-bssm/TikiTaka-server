@@ -61,6 +61,10 @@ public class TerritoryCycle {
         return cycle;
     }
 
+    public void markRepresentativesSelected() {
+        this.representativesSelected = true;
+    }
+
     /** stageId가 이 사이클에서 어떤 라운드인지. LAZY 프록시도 id 조회는 초기화 없이 된다 */
     public RoundType roundTypeOf(Long stageId) {
         if (Objects.equals(pointStage.getStageId(), stageId)) {

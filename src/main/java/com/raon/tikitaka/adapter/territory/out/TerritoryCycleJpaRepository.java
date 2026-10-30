@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface TerritoryCycleJpaRepository extends JpaRepository<TerritoryCycle, Long> {
@@ -13,4 +15,8 @@ public interface TerritoryCycleJpaRepository extends JpaRepository<TerritoryCycl
     Optional<TerritoryCycle> findByStageId(@Param("stageId") Long stageId);
 
     boolean existsByPointStage_StageId(Long pointStageId);
+
+    @Query("select c from TerritoryCycle c join fetch c.pointStage join fetch c.battleStage " +
+            "where c.representativesSelected = false and c.rankingFreezeAt <= :now and c.battleStage.endedAt > :now")
+    List<TerritoryCycle> findAllAwaitingSelection(@Param("now") LocalDateTime now);
 }

@@ -2,6 +2,8 @@ package com.raon.tikitaka.application.territory.out;
 
 import com.raon.tikitaka.domain.territory.TerritoryCycle;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface TerritoryCycleRepositoryPort {
@@ -12,4 +14,7 @@ public interface TerritoryCycleRepositoryPort {
     boolean existsByPointStageId(Long pointStageId);
 
     TerritoryCycle save(TerritoryCycle cycle);
+
+    /** 랭킹이 동결됐고 아직 대표를 뽑지 않았으며 땅따먹기 라운드가 끝나지 않은 사이클 */
+    List<TerritoryCycle> findAllAwaitingSelection(LocalDateTime now);
 }
