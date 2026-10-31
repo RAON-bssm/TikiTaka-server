@@ -36,6 +36,11 @@ public class TerritoryCyclePersistenceAdapter implements TerritoryCycleRepositor
     }
 
     @Override
+    public Optional<TerritoryCycle> findById(Long cycleId) {
+        return territoryCycleJpaRepository.findById(cycleId);
+    }
+
+    @Override
     public TerritoryCycle save(TerritoryCycle cycle) {
         return territoryCycleJpaRepository.save(cycle);
     }

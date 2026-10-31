@@ -2,6 +2,7 @@ package com.raon.tikitaka.adapter.territory;
 
 import com.raon.tikitaka.application.territory.in.QueryTerritoryUseCase;
 import com.raon.tikitaka.application.territory.view.CurrentCycleView;
+import com.raon.tikitaka.application.territory.view.RepresentativesView;
 import com.raon.tikitaka.application.territory.view.TerritoryDongsView;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -31,5 +32,17 @@ public class TerritoryController {
     public ApiResponse<TerritoryDongsView> getDongs(@AuthenticationPrincipal UUID userId,
                                                     @RequestParam(required = false) Long locationId) {
         return ApiResponse.of(200, "동 정보 조회 성공", queryTerritoryUseCase.getDongs(userId, locationId));
+    }
+
+    /**
+     * 대표 선발 결과. 임시 API, 프론트 확정 후 변경될 수 있음.
+     * cycleId가 없으면 현재 사이클, locationId가 없으면 보드 전체. 선발 전이면 빈 목록이다
+     */
+    @GetMapping("/representatives")
+    public ApiResponse<RepresentativesView> getRepresentatives(@AuthenticationPrincipal UUID userId,
+                                                               @RequestParam(required = false) Long cycleId,
+                                                               @RequestParam(required = false) Long locationId) {
+        return ApiResponse.of(200, "대표 선발 결과 조회 성공",
+                queryTerritoryUseCase.getRepresentatives(userId, cycleId, locationId));
     }
 }

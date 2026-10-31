@@ -15,6 +15,8 @@ public interface TerritoryCycleRepositoryPort {
 
     TerritoryCycle save(TerritoryCycle cycle);
 
+    Optional<TerritoryCycle> findById(Long cycleId);
+
     /** 지금 진행 중인 사이클(포인트 라운드 시작 ~ 땅따먹기 라운드 종료). 라운드 두 개를 함께 조회한다 */
     Optional<TerritoryCycle> findCurrent(LocalDateTime now);
 
