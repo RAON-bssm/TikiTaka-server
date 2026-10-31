@@ -5,6 +5,7 @@ import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
+import com.raon.tikitaka.application.territory.in.CheckRankingFrozenUseCase;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.enums.UserStatus;
 import com.raon.tikitaka.domain.location.Location;
@@ -57,7 +58,7 @@ class PostServiceReviewTest {
     @BeforeEach
     void setUp() {
         postService = new PostService(postRepositoryPort, mock(PostLikeRepositoryPort.class), rankingRepositoryPort,
-                rankingProperties, mock(BlockRepositoryPort.class), queuePort);
+                rankingProperties, mock(BlockRepositoryPort.class), queuePort, mock(CheckRankingFrozenUseCase.class));
 
         home = mock(Location.class);
         lenient().when(home.getLocationId()).thenReturn(HOME_ID);

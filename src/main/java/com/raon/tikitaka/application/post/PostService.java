@@ -14,6 +14,7 @@ import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
+import com.raon.tikitaka.application.territory.in.CheckRankingFrozenUseCase;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.enums.UserStatus;
 import com.raon.tikitaka.domain.location.Location;
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -52,6 +54,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private final RankingProperties rankingProperties;
     private final BlockRepositoryPort blockRepositoryPort;
     private final PostReviewQueuePort postReviewQueuePort;
+    private final CheckRankingFrozenUseCase checkRankingFrozenUseCase;
 
     /**
      * 로그인 상태면 내가 차단한 유저의 글을 뺀다. 조회할 때마다 DB 조건으로 거르므로 차단 직후 다음 조회부터 반영된다.
@@ -215,7 +218,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         author.earnPoint(calculatePostPoint(score));
 
         // 점수 실시간 가산
-        accrueScores(board, teamLocation, author, score, locationScored, 1);
+        accrueScores(board, teamLocation, author, score, locationScored, 1, saved.getCreatedAt());
 
         // 생성된 id를 돌려준다. 클라이언트가 업로드 직후 상세로 바로 이동할 수 있어야 한다.
         return saved.getPostId();
@@ -262,6 +265,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         Long boardId = post.getBoard().getBoardId();
         Location teamLocation = post.getTeamLocation();
         boolean locationScored = post.isLocationScored();
+        LocalDateTime writtenAt = post.getCreatedAt();
 
         // 벌크 update라 updated_at(게시물 수정 일시)이 바뀌지 않는다. 실행 후 영속성 컨텍스트가 비워지므로
         // 작성자와 게시판은 그 뒤에 다시 읽는다
@@ -273,7 +277,8 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         author.earnPoint(calculatePostPoint(score));
 
         Board board = postRepositoryPort.getBoard(boardId);
-        accrueScores(board, teamLocation, author, score, locationScored, 1);
+        // 랭킹 동결은 글 작성 시각으로 판단한다. 동결 직전에 올린 글은 심사가 동결 뒤에 끝나도 반영된다
+        accrueScores(board, teamLocation, author, score, locationScored, 1, writtenAt);
         return true;
     }
 
@@ -328,8 +333,9 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         if (post.getScore() != null && post.getTeamLocation() != null) {
             // 지역 점수 차감 여부는 작성 시점 스냅샷을 따른다. 그 사이 작성자가 이사를 갔어도
             // 올렸던 것과 같은 항목만 되돌린다
+            // 랭킹 동결 이후의 삭제는 차감하지 않는다(동결된 랭킹은 바뀌지 않는다)
             accrueScores(post.getBoard(), post.getTeamLocation(), post.getUserId(), post.getScore(),
-                    post.isLocationScored(), -1);
+                    post.isLocationScored(), -1, LocalDateTime.now());
         }
     }
 
@@ -338,11 +344,17 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
      * 지역 점수는 round(AI점수 * K * C / max(n, minTeamSize))로 팀 규모를 보정하고
      * 개인 점수는 round(AI점수 * K)로 보정 없이 계산한다.
      * locationScored가 false면 개인 점수만 건드린다. 원정 중에 쓴 글이라는 뜻이다.
+     * 그 라운드의 랭킹이 frozenCheckAt 시각에 동결돼 있으면(땅따먹기 선발전 마감 이후) 개인·지역 점수를 모두 건너뛴다.
+     * 포인트 적립은 호출하는 쪽이 따로 하므로 동결과 무관하게 쌓인다.
      */
     private void accrueScores(Board board, Location teamLocation, Users author, int score,
-                              boolean locationScored, int direction) {
+                              boolean locationScored, int direction, LocalDateTime frozenCheckAt) {
         Match match = board.getMatch();
         Stage stage = match.getStage();
+
+        if (checkRankingFrozenUseCase.isRankingFrozen(stage.getStageId(), frozenCheckAt)) {
+            return;
+        }
 
         // stage.getAvgLocationMemberCount()는 지역 점수 계산에만 쓰이지만, 아래 개인 점수
         // upsert(addUserScore)가 clearAutomatically라 실행 직후 영속성 컨텍스트를 비운다.

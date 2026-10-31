@@ -10,6 +10,7 @@ import com.raon.tikitaka.adapter.post.out.PostReviewQueuePersistenceAdapter;
 import com.raon.tikitaka.adapter.ranking.out.RankingPersistenceAdapter;
 import com.raon.tikitaka.adapter.ranking.out.SeasonResultPersistenceAdapter;
 import com.raon.tikitaka.adapter.review.out.GeminiAdapterTestAccess;
+import com.raon.tikitaka.adapter.territory.out.TerritoryCyclePersistenceAdapter;
 import com.raon.tikitaka.application.post.PostService;
 import com.raon.tikitaka.application.post.review.ClaimedReview;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
@@ -21,6 +22,7 @@ import com.raon.tikitaka.application.review.ReviewService;
 import com.raon.tikitaka.application.review.out.AiReviewPort;
 import com.raon.tikitaka.application.storage.StoredImage;
 import com.raon.tikitaka.application.storage.out.StoragePort;
+import com.raon.tikitaka.application.territory.TerritoryCycleService;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.enums.LoginProvider;
 import com.raon.tikitaka.domain.enums.MatchType;
@@ -33,6 +35,7 @@ import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.PostReviewProperties;
 import com.raon.tikitaka.global.config.RankingProperties;
 import com.raon.tikitaka.global.config.SeasonProperties;
+import com.raon.tikitaka.global.config.TerritoryProperties;
 import com.raon.tikitaka.global.guard.RequestGuard;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
@@ -75,8 +78,10 @@ import static org.mockito.Mockito.when;
 @Import({PostService.class, PostPersistenceAdapter.class, PostLikePersistenceAdapter.class,
         RankingPersistenceAdapter.class, BlockPersistenceAdapter.class, PostReviewQueuePersistenceAdapter.class,
         PostReviewQueueService.class, RankingService.class, StagePersistenceAdapter.class,
-        SeasonResultPersistenceAdapter.class, LocationPersistenceAdapter.class})
-@EnableConfigurationProperties({RankingProperties.class, PostReviewProperties.class, SeasonProperties.class})
+        SeasonResultPersistenceAdapter.class, LocationPersistenceAdapter.class,
+        TerritoryCycleService.class, TerritoryCyclePersistenceAdapter.class})
+@EnableConfigurationProperties({RankingProperties.class, PostReviewProperties.class, SeasonProperties.class,
+        TerritoryProperties.class})
 class PostReviewConcurrencyTest {
 
     @DynamicPropertySource
