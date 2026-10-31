@@ -116,6 +116,26 @@ class PostReviewProcessorTest {
     }
 
     @Test
+    void 응답_404는_재시도하지_않고_바로_FAILED() {
+        // 모델 이름 오류는 재시도해도 같다. 시도 한도를 기다리지 않고 바로 FAILED로 끝내 관리자 재심사로 되살린다
+        when(reviewUseCase.evaluate(any(), any(), any(), any())).thenThrow(GeminiAdapterTestAccess.classify(404));
+        when(queueService.failNow(postId, claimedAt)).thenReturn(true);
+
+        assertThat(processor.review(claimed)).isEqualTo(new PostReviewResult(ReviewOutcome.FAILED, true));
+        verify(queueService).failNow(postId, claimedAt);
+        verify(queueService, never()).recordFailure(any(), any(), any());
+        verify(queueService, never()).finish(any(), any(), any());
+    }
+
+    @Test
+    void 응답_404여도_다른_작업이_가져간_글이면_SKIPPED() {
+        when(reviewUseCase.evaluate(any(), any(), any(), any())).thenThrow(GeminiAdapterTestAccess.classify(404));
+        when(queueService.failNow(postId, claimedAt)).thenReturn(false);
+
+        assertThat(processor.review(claimed).outcome()).isEqualTo(ReviewOutcome.SKIPPED);
+    }
+
+    @Test
     void 선점이_만료돼_다른_작업이_가져간_글은_실패를_기록하지_못하고_SKIPPED() {
         when(reviewUseCase.evaluate(any(), any(), any(), any()))
                 .thenThrow(new AiReviewRetryableException("503", null, null));

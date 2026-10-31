@@ -67,7 +67,9 @@ public class PostUploadLimitService implements CheckPostUploadLimitUseCase {
             return;
         }
         if (postRepositoryPort.countActivePending() >= properties.maxQueueSize()) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+            // 503은 ALB가 서버 장애 때 HTML 본문으로 주는 코드와 겹쳐 앱이 구분하기 어렵다.
+            // 사용자별 한도와 같은 429로 줘서 앱이 429 하나로 안내 문구를 보여주게 한다
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                     "지금 심사 대기 중인 게시물이 많아요. 잠시 후 다시 올려주세요.");
         }
     }

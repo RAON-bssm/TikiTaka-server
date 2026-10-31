@@ -1,5 +1,6 @@
 package com.raon.tikitaka.adapter.review.out;
 
+import com.raon.tikitaka.application.review.AiReviewConfigException;
 import com.raon.tikitaka.application.review.AiReviewInvalidResponseException;
 import com.raon.tikitaka.application.review.AiReviewRejectedException;
 import com.raon.tikitaka.application.review.AiReviewResult;
@@ -79,11 +80,20 @@ class GeminiAdapterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {401, 403, 404, 408, 429, 500, 503})
+    @ValueSource(ints = {401, 403, 408, 429, 500, 503})
     void 키_설정_오류와_요청_시간_초과도_재시도_대상(int status) {
-        // 401, 403(키 만료, 권한 설정), 404(모델 설정)와 408은 글 내용 탓이 아니라 거절로 저장하지 않는다
+        // 401, 403(키 만료, 권한 설정)과 408은 글 내용 탓이 아니라 거절로 저장하지 않는다
         assertThat(adapter.classify(error(status, new HttpHeaders(), "")))
                 .isInstanceOf(AiReviewRetryableException.class)
+                .isNotInstanceOf(AiReviewRejectedException.class);
+    }
+
+    @Test
+    void 응답_404는_재시도하지_않는_설정_오류() {
+        // 모델 이름 오류는 고치기 전까지 계속 실패한다. 재시도도 거절도 아닌 설정 오류로 던져 바로 FAILED로 끝낸다
+        assertThat(adapter.classify(error(404, new HttpHeaders(), "")))
+                .isInstanceOfSatisfying(AiReviewConfigException.class, c -> assertThat(c.getStatus()).isEqualTo(404))
+                .isNotInstanceOf(AiReviewRetryableException.class)
                 .isNotInstanceOf(AiReviewRejectedException.class);
     }
 

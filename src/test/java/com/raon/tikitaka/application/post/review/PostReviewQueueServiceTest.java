@@ -133,6 +133,23 @@ class PostReviewQueueServiceTest {
     }
 
     @Test
+    void 설정_오류는_시도_한도와_상관없이_바로_FAILED이고_시도_횟수를_올린다() {
+        lockedPost(PostStatus.PENDING, 1);
+
+        assertThat(service.failNow(postId, CLAIMED_AT)).isTrue();
+        verify(queuePort).finish(postId, PostStatus.FAILED, 2);
+        verify(queuePort, never()).scheduleRetry(any(), anyInt(), any());
+    }
+
+    @Test
+    void 설정_오류도_다른_작업이_다시_선점한_글은_바꾸지_않는다() {
+        lockedPost(PostStatus.PENDING, 1);
+
+        assertThat(service.failNow(postId, CLAIMED_AT.minusMinutes(6))).isFalse();
+        verify(queuePort, never()).finish(any(), any(), anyInt());
+    }
+
+    @Test
     void 종료_상태로_바꾸기는_PENDING일_때만() {
         lockedPost(PostStatus.DONE, 0);
         assertThat(service.finish(postId, CLAIMED_AT, PostStatus.REJECTED)).isFalse();

@@ -10,6 +10,7 @@ import com.raon.tikitaka.application.post.in.GetPostListUseCase;
 import com.raon.tikitaka.application.post.in.LikePostUseCase;
 import com.raon.tikitaka.application.post.in.UnlikePostUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
+import com.raon.tikitaka.application.review.AiReviewConfigException;
 import com.raon.tikitaka.application.review.AiReviewInvalidResponseException;
 import com.raon.tikitaka.application.review.AiReviewRejectedException;
 import com.raon.tikitaka.application.review.AiReviewRetryableException;
@@ -66,6 +67,15 @@ class PostControllerSyncReviewErrorTest {
                 .thenThrow(new AiReviewRetryableException("Gemini 호출 대기 시간 초과", null, new IllegalStateException()));
 
         assertThat(statusOf()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @Test
+    void 모델_설정_오류도_503으로_끊고_게시물을_만들지_않는다() {
+        when(reviewUseCase.evaluate(any(), any(), any(), any()))
+                .thenThrow(new AiReviewConfigException("Gemini 설정 오류 status=404", 404, null));
+
+        assertThat(statusOf()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), anyInt(), any());
     }
 
     @Test

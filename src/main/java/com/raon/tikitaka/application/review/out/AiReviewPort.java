@@ -5,9 +5,11 @@ import com.raon.tikitaka.application.review.AiReviewResult;
 public interface AiReviewPort {
 
     /**
-     * 실패는 성격에 따라 두 예외로 나눠 던진다.
+     * 실패는 성격에 따라 세 예외로 나눠 던진다.
      * - {@link com.raon.tikitaka.application.review.AiReviewRetryableException}: 429, 5xx, 401, 403, 408, 타임아웃,
      *   네트워크 오류, 응답 형식 오류. 다시 시도하면 성공할 수 있다
+     * - {@link com.raon.tikitaka.application.review.AiReviewConfigException}: 404(모델 설정 오류).
+     *   설정을 고치기 전까지 다시 보내도 같지만 글 탓은 아니다
      * - {@link com.raon.tikitaka.application.review.AiReviewRejectedException}: 그 밖의 4xx, 안전 필터 차단.
      *   다시 보내도 같다
      * 응답은 받았지만 점수가 비어 있으면 score를 null로 돌려주고, 범위 검증은 ReviewService가 한다.
