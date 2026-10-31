@@ -1,0 +1,19 @@
+package com.raon.tikitaka.adapter.territory.out;
+
+import com.raon.tikitaka.domain.territory.Territory;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+public interface TerritoryJpaRepository extends JpaRepository<Territory, Long> {
+
+    String FETCH = "select t from Territory t join fetch t.dong d left join fetch t.owner left join fetch t.ownerLocation ";
+
+    @Query(FETCH + "where t.cycle.cycleId = :cycleId order by d.dongCode")
+    List<Territory> findAllByCycleId(@Param("cycleId") Long cycleId);
+
+    @Query(FETCH + "where t.cycle.cycleId = :cycleId and d.location.locationId = :locationId order by d.dongCode")
+    List<Territory> findAllByCycleIdAndLocationId(@Param("cycleId") Long cycleId, @Param("locationId") Long locationId);
+}
