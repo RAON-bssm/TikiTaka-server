@@ -23,4 +23,13 @@ public interface TerritoryCycleRepositoryPort {
 
     /** 땅따먹기 라운드가 시작됐고 아직 기본 미션 처리를 안 한 사이클 */
     List<TerritoryCycle> findAllAwaitingDefaults(LocalDateTime now);
+
+    /** 땅따먹기 라운드가 끝났고 아직 랭킹을 확정하지 않은 사이클 */
+    List<TerritoryCycle> findAllAwaitingFinalize(LocalDateTime now);
+
+    /** 라운드 두 개를 함께 조회 */
+    Optional<TerritoryCycle> findById(Long cycleId);
+
+    /** 가장 최근에 랭킹이 확정된 사이클 */
+    Optional<TerritoryCycle> findLatestFinalized();
 }

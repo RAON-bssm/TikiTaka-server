@@ -28,4 +28,15 @@ public interface TerritoryCycleJpaRepository extends JpaRepository<TerritoryCycl
             "where c.representativesSelected = true and c.defaultsApplied = false " +
             "and c.battleStage.startedAt <= :now and c.battleStage.endedAt > :now")
     List<TerritoryCycle> findAllAwaitingDefaults(@Param("now") LocalDateTime now);
+
+    @Query("select c from TerritoryCycle c join fetch c.pointStage join fetch c.battleStage " +
+            "where c.representativesSelected = true and c.resultFinalized = false and c.battleStage.endedAt <= :now")
+    List<TerritoryCycle> findAllAwaitingFinalize(@Param("now") LocalDateTime now);
+
+    @Query("select c from TerritoryCycle c join fetch c.pointStage join fetch c.battleStage where c.cycleId = :id")
+    Optional<TerritoryCycle> findWithStagesById(@Param("id") Long cycleId);
+
+    @Query("select c from TerritoryCycle c join fetch c.pointStage join fetch c.battleStage b " +
+            "where c.resultFinalized = true order by b.endedAt desc limit 1")
+    Optional<TerritoryCycle> findLatestFinalized();
 }

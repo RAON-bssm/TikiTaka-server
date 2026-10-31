@@ -4,8 +4,10 @@ import com.raon.tikitaka.adapter.territory.dto.SetupTerritoryRequest;
 import com.raon.tikitaka.application.territory.in.DevelopLandUseCase;
 import com.raon.tikitaka.application.territory.in.QueryTerritoryUseCase;
 import com.raon.tikitaka.application.territory.in.SetupTerritoryUseCase;
+import com.raon.tikitaka.application.territory.in.TeamRankingUseCase;
 import com.raon.tikitaka.application.territory.view.DevelopResultView;
 import com.raon.tikitaka.application.territory.view.SetupResultView;
+import com.raon.tikitaka.application.territory.view.TeamRankingView;
 import com.raon.tikitaka.application.territory.view.CurrentCycleView;
 import com.raon.tikitaka.application.territory.view.TerritoryDetailView;
 import com.raon.tikitaka.application.territory.view.TerritoryDongsView;
@@ -30,6 +32,7 @@ public class TerritoryController {
     private final QueryTerritoryUseCase queryTerritoryUseCase;
     private final SetupTerritoryUseCase setupTerritoryUseCase;
     private final DevelopLandUseCase developLandUseCase;
+    private final TeamRankingUseCase teamRankingUseCase;
     private final RequestGuard requestGuard;
 
     @GetMapping("/cycle/current")
@@ -64,6 +67,13 @@ public class TerritoryController {
                         request.adjective(), request.noun(), request.scoringCriteria(),
                         readBytes(image), image.getOriginalFilename(), image.getContentType())));
         return ApiResponse.of(200, "땅 세팅 성공", result);
+    }
+
+    /** 땅따먹기 랭킹. 진행 중이면 실시간, 끝난 사이클이면 확정값 */
+    @GetMapping("/ranking/team")
+    public ApiResponse<TeamRankingView> getTeamRanking(@AuthenticationPrincipal UUID userId,
+                                                       @RequestParam(required = false) Long cycleId) {
+        return ApiResponse.of(200, "땅따먹기 랭킹 조회 성공", teamRankingUseCase.getRanking(userId, cycleId));
     }
 
     /** 땅 개발 1회. 더블탭은 바로 거절하고, 포인트를 바꾸는 다른 요청(상점·도전)과는 포인트 키로 줄을 세운다 */

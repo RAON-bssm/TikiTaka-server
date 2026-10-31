@@ -3,6 +3,7 @@ package com.raon.tikitaka.adapter.territory;
 import com.raon.tikitaka.application.territory.in.EnsureTerritoryCyclesUseCase;
 import com.raon.tikitaka.application.territory.in.RunBattleBatchUseCase;
 import com.raon.tikitaka.application.territory.in.SelectRepresentativesUseCase;
+import com.raon.tikitaka.application.territory.in.TeamRankingUseCase;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +19,7 @@ public class TerritoryAdminController {
     private final EnsureTerritoryCyclesUseCase ensureTerritoryCyclesUseCase;
     private final SelectRepresentativesUseCase selectRepresentativesUseCase;
     private final RunBattleBatchUseCase runBattleBatchUseCase;
+    private final TeamRankingUseCase teamRankingUseCase;
 
     @PostMapping("/ensure-cycles")
     public ApiResponse<Void> ensureCycles() {
@@ -48,5 +50,12 @@ public class TerritoryAdminController {
     public ApiResponse<Void> decayDefense() {
         runBattleBatchUseCase.decayDefense();
         return ApiResponse.of(200, "방어 점수 감쇠 실행 완료", null);
+    }
+
+    /** 땅따먹기 라운드가 끝났고 아직 확정하지 않은 사이클만 처리한다 */
+    @PostMapping("/finalize")
+    public ApiResponse<Void> finalizeCycles() {
+        teamRankingUseCase.finalizeEndedCycles();
+        return ApiResponse.of(200, "땅따먹기 랭킹 확정 실행 완료", null);
     }
 }

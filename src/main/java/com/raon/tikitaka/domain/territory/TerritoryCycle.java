@@ -66,6 +66,10 @@ public class TerritoryCycle {
         return cycle;
     }
 
+    public void markResultFinalized() {
+        this.resultFinalized = true;
+    }
+
     public void markDefaultsApplied() {
         this.defaultsApplied = true;
     }
