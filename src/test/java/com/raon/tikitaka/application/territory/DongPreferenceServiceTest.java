@@ -39,9 +39,9 @@ class DongPreferenceServiceTest {
         when(dongPort.findAllByLocationId(10L)).thenReturn(homeDongs);
     }
 
-    private static Dong dong(long id) {
+    private static Dong dong(long code) {
         Dong d = mock(Dong.class);
-        when(d.getDongId()).thenReturn(id);
+        when(d.getDongCode()).thenReturn(code);
         return d;
     }
 
@@ -50,7 +50,7 @@ class DongPreferenceServiceTest {
         List<DongPreference> saved = service.replacePreferences(userId, List.of(3L, 1L));
 
         assertThat(saved).extracting(DongPreference::getPriority).containsExactly(1, 2);
-        assertThat(saved).extracting(p -> p.getDong().getDongId()).containsExactly(3L, 1L);
+        assertThat(saved).extracting(p -> p.getDong().getDongCode()).containsExactly(3L, 1L);
         var order = inOrder(preferencePort);
         order.verify(preferencePort).deleteAllByUserIds(List.of(userId));
         order.verify(preferencePort).saveAll(saved);

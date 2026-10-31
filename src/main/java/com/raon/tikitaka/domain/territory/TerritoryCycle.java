@@ -65,6 +65,14 @@ public class TerritoryCycle {
         this.representativesSelected = true;
     }
 
+    /** 시각 기준 라운드 종류. 포인트 라운드 시작 전이나 땅따먹기 라운드 종료 후면 NONE */
+    public RoundType roundTypeAt(LocalDateTime at) {
+        if (at.isBefore(pointStage.getStartedAt()) || !at.isBefore(battleStage.getEndedAt())) {
+            return RoundType.NONE;
+        }
+        return at.isBefore(pointStage.getEndedAt()) ? RoundType.POINT : RoundType.BATTLE;
+    }
+
     /** stageId가 이 사이클에서 어떤 라운드인지. LAZY 프록시도 id 조회는 초기화 없이 된다 */
     public RoundType roundTypeOf(Long stageId) {
         if (Objects.equals(pointStage.getStageId(), stageId)) {

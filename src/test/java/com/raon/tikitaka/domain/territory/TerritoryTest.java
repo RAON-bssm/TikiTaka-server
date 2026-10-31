@@ -74,5 +74,13 @@ class TerritoryTest {
     void 주인_없는_땅은_어느_팀도_아니다() {
         assertThat(territory.isOwned()).isFalse();
         assertThat(territory.isTeam(1L)).isFalse();
+        assertThat(territory.isChallengeableBy(UUID.randomUUID(), 1L)).isTrue();
+    }
+
+    @Test
+    void 우리_팀_땅은_도전할_수_없다() {
+        territory.assign(user(), location(1), now);
+        assertThat(territory.isChallengeableBy(UUID.randomUUID(), 1L)).isFalse();
+        assertThat(territory.isChallengeableBy(UUID.randomUUID(), 2L)).isTrue();
     }
 }

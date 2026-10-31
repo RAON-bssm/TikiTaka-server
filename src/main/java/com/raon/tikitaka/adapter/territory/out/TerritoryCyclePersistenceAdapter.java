@@ -31,6 +31,11 @@ public class TerritoryCyclePersistenceAdapter implements TerritoryCycleRepositor
     }
 
     @Override
+    public Optional<TerritoryCycle> findCurrent(LocalDateTime now) {
+        return territoryCycleJpaRepository.findCurrent(now);
+    }
+
+    @Override
     public TerritoryCycle save(TerritoryCycle cycle) {
         return territoryCycleJpaRepository.save(cycle);
     }

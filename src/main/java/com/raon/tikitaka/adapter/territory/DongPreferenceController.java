@@ -27,6 +27,6 @@ public class DongPreferenceController {
     public ApiResponse<DongPreferenceResponse> replacePreferences(@AuthenticationPrincipal UUID userId,
                                                                   @RequestBody DongPreferenceRequest request) {
         return ApiResponse.of(200, "희망 동 등록 성공",
-                DongPreferenceResponse.from(manageDongPreferenceUseCase.replacePreferences(userId, request.dongIdsOrEmpty())));
+                DongPreferenceResponse.from(manageDongPreferenceUseCase.replacePreferences(userId, request.dongCodesOrEmpty())));
     }
 }

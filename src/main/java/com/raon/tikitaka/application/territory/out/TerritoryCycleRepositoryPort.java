@@ -15,6 +15,9 @@ public interface TerritoryCycleRepositoryPort {
 
     TerritoryCycle save(TerritoryCycle cycle);
 
+    /** 지금 진행 중인 사이클(포인트 라운드 시작 ~ 땅따먹기 라운드 종료). 라운드 두 개를 함께 조회한다 */
+    Optional<TerritoryCycle> findCurrent(LocalDateTime now);
+
     /** 랭킹이 동결됐고 아직 대표를 뽑지 않았으며 땅따먹기 라운드가 끝나지 않은 사이클 */
     List<TerritoryCycle> findAllAwaitingSelection(LocalDateTime now);
 }

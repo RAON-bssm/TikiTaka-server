@@ -41,6 +41,14 @@ class TerritoryCycleTest {
     }
 
     @Test
+    void 시각으로_라운드_종류를_판정한다() {
+        assertThat(cycle.roundTypeAt(START.minusSeconds(1))).isEqualTo(RoundType.NONE);
+        assertThat(cycle.roundTypeAt(START)).isEqualTo(RoundType.POINT);
+        assertThat(cycle.roundTypeAt(START.plusDays(7))).isEqualTo(RoundType.BATTLE);
+        assertThat(cycle.roundTypeAt(START.plusDays(14))).isEqualTo(RoundType.NONE);
+    }
+
+    @Test
     void 이어지지_않는_라운드는_사이클로_묶을_수_없다() {
         Stage gap = stage(3L, 2, START.plusDays(8));
         assertThatThrownBy(() -> TerritoryCycle.create(point, gap, 4))

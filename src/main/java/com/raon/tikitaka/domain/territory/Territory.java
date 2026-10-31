@@ -114,6 +114,11 @@ public class Territory {
         return ownerLocation != null && Objects.equals(ownerLocation.getLocationId(), locationId);
     }
 
+    /** 도전 대상인지(기간 제외): 내 땅도, 우리 팀 땅도 아니어야 한다. 주인 없는 땅은 누구나 도전할 수 있다 */
+    public boolean isChallengeableBy(UUID userId, Long userLocationId) {
+        return !isOwnedBy(userId) && !isTeam(userLocationId);
+    }
+
     // ---------- 땅 세팅 / 방어 ----------
 
     /** 5~7일차 땅 세팅: 미션 + 대표 사진. 사진 점수가 첫 방어 점수가 된다 */
