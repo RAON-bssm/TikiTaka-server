@@ -72,12 +72,12 @@ class PostControllerAsyncTest {
 
     @Test
     void 대기열이_가득_차면_S3에_올리지_않는다() {
-        doThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "가득 참"))
+        doThrow(new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "가득 참"))
                 .when(uploadLimit).checkQueueCapacity();
 
         assertThatThrownBy(() -> controller.createPost(authorId, new CreatePostRequest(3L, "내용", image)))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
-                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
         verify(storageUseCase, never()).uploadImage(any(), any(), any());
         verify(createPostUseCase, never()).createPending(any(), any(), any(), any());
     }

@@ -3,6 +3,7 @@ package com.raon.tikitaka.application.post.review;
 import com.raon.tikitaka.application.post.in.CompletePostReviewUseCase;
 import com.raon.tikitaka.application.post.in.ProcessPostReviewUseCase;
 import com.raon.tikitaka.application.ranking.out.SeasonResultRepositoryPort;
+import com.raon.tikitaka.application.review.AiReviewConfigException;
 import com.raon.tikitaka.application.review.AiReviewRejectedException;
 import com.raon.tikitaka.application.review.AiReviewResult;
 import com.raon.tikitaka.application.review.AiReviewRetryableException;
@@ -28,7 +29,8 @@ import java.util.List;
  * | 결과 | 처리 |
  * | 점수 0~100 | completeReview -> DONE |
  * | 429, 5xx, 401, 403, 408, 타임아웃, 네트워크, 응답 형식 오류 | 시도 횟수 +1, 백오프 후 재시도, 한도에 닿으면 FAILED |
- * | 그 밖의 4xx(400, 404 등), 안전 필터 차단 | REJECTED, 재시도하지 않음 |
+ * | 404(모델 설정 오류) | 재시도하지 않고 바로 FAILED. 설정을 고친 뒤 관리자 재심사로 되살린다 |
+ * | 그 밖의 4xx(400 등), 안전 필터 차단 | REJECTED, 재시도하지 않음 |
  * | 시즌이 이미 확정됨 | AI를 부르지 않고 EXPIRED |
  */
 @Slf4j
@@ -88,6 +90,11 @@ public class PostReviewProcessor implements ProcessPostReviewUseCase {
             boolean rejected = postReviewQueueService.finish(claimed.postId(), claimed.claimedAt(),
                     PostStatus.REJECTED);
             return logged(claimed, rejected ? ReviewOutcome.REJECTED : ReviewOutcome.SKIPPED, true,
+                    System.currentTimeMillis() - startedAt);
+        } catch (AiReviewConfigException e) {
+            log.error("게시물 심사 설정 오류, 재시도 없이 FAILED: postId={}, cause={}", claimed.postId(), e.getMessage());
+            boolean failed = postReviewQueueService.failNow(claimed.postId(), claimed.claimedAt());
+            return logged(claimed, failed ? ReviewOutcome.FAILED : ReviewOutcome.SKIPPED, true,
                     System.currentTimeMillis() - startedAt);
         } catch (AiReviewRetryableException e) {
             log.warn("게시물 심사 일시 오류: postId={}, cause={}", claimed.postId(), e.getMessage());

@@ -124,12 +124,12 @@ class PostUploadLimitServiceTest {
     }
 
     @Test
-    void 대기열이_가득_차면_503이다() {
+    void 대기열이_가득_차면_429다() {
         when(postRepositoryPort.countActivePending()).thenReturn(50L);
 
         assertThatThrownBy(() -> service(false).checkQueueCapacity())
                 .isInstanceOfSatisfying(ResponseStatusException.class,
-                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.raon.tikitaka.adapter.review.out;
 
+import com.raon.tikitaka.application.review.AiReviewConfigException;
 import com.raon.tikitaka.application.review.AiReviewInvalidResponseException;
 import com.raon.tikitaka.application.review.AiReviewRejectedException;
 import com.raon.tikitaka.application.review.AiReviewResult;
@@ -43,8 +44,11 @@ public class GeminiAdapter implements AiReviewPort {
      */
     static final Duration MAX_RETRY_AFTER = Duration.ofHours(1);
 
-    /** 요청 자체는 정상일 수 있는 4xx. 키 만료·권한 설정(401, 403), 모델 설정 오류(404), 요청 시간 초과(408)는 글 내용 탓이 아니다 */
-    private static final Set<Integer> RETRYABLE_CLIENT_ERRORS = Set.of(401, 403, 404, 408);
+    /** 요청 자체는 정상일 수 있는 4xx. 키 만료·권한 설정(401, 403)과 요청 시간 초과(408)는 글 내용 탓이 아니다 */
+    private static final Set<Integer> RETRYABLE_CLIENT_ERRORS = Set.of(401, 403, 408);
+
+    /** 모델 이름 오류 같은 설정 문제. 고치기 전까지 다시 보내도 같아서 재시도하지 않고 바로 FAILED로 끝낸다 */
+    private static final int MODEL_NOT_FOUND = 404;
 
     /** block()의 상한. 응답 타임아웃이 먼저 걸리도록 연결·전송 시간만큼 여유를 둔다 */
     private static final Duration BLOCK_TIMEOUT = RESPONSE_TIMEOUT.plusSeconds(5);
@@ -124,8 +128,9 @@ public class GeminiAdapter implements AiReviewPort {
     }
 
     /**
-     * 429, 5xx와 401, 403, 404, 408은 다시 시도한다. 401, 403, 404는 키·모델 설정 문제라 고치기 전까지 계속 실패하지만,
+     * 429, 5xx와 401, 403, 408은 다시 시도한다. 401, 403은 키 설정 문제라 고치기 전까지 계속 실패하지만,
      * 거절(REJECTED)로 저장하면 관리자 재심사(FAILED만 받음)로 되살릴 수 없어 시도 한도까지 가서 FAILED로 끝나게 둔다.
+     * 404(모델 설정 오류)는 시도 한도까지 기다려도 호출 한도만 쓰므로 재시도하지 않고 설정 오류로 던져 바로 FAILED로 끝낸다.
      * 그 밖의 4xx(400 등)는 다시 보내도 같으므로 거절한다. 상태 코드는 호출부의 오류 로그에 남는다.
      * 다시 시도할 시점은 Retry-After 헤더를 먼저 보고, 없으면 Gemini 오류 본문의 RetryInfo.retryDelay를 본다.
      */
@@ -133,6 +138,9 @@ public class GeminiAdapter implements AiReviewPort {
         int status = e.getStatusCode().value();
         if (status == 429 || e.getStatusCode().is5xxServerError() || RETRYABLE_CLIENT_ERRORS.contains(status)) {
             return new AiReviewRetryableException("Gemini 일시 오류 status=" + status, retryAfter(e), e);
+        }
+        if (status == MODEL_NOT_FOUND) {
+            return new AiReviewConfigException("Gemini 설정 오류 status=" + status + ", model=" + model, status, e);
         }
         return new AiReviewRejectedException("Gemini 요청 거절 status=" + status, status, e);
     }

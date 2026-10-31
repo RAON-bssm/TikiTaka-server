@@ -110,6 +110,19 @@ public class PostReviewQueueService implements RetryPostReviewUseCase {
         return true;
     }
 
+    /**
+     * 재시도해도 소용없는 실패(설정 오류). 시도 횟수를 하나 올리고 시도 한도와 상관없이 바로 FAILED로 바꾼다.
+     * claimedAt으로 선점한 PENDING 글만 바꾸고, 바꿨으면 true다.
+     */
+    public boolean failNow(UUID postId, LocalDateTime claimedAt) {
+        Optional<Post> locked = postRepositoryPort.findByIdForUpdate(postId);
+        if (locked.isEmpty() || !isClaimedBy(locked.get(), claimedAt)) {
+            return false;
+        }
+        postReviewQueuePort.finish(postId, PostStatus.FAILED, locked.get().getReviewAttempts() + 1);
+        return true;
+    }
+
     /** 실패로 세지 않고 선점만 푼다. 다음 틱에 다시 선점된다. claimedAt으로 선점한 작업이 아니면 false다 */
     public boolean release(UUID postId, LocalDateTime claimedAt) {
         Optional<Post> locked = postRepositoryPort.findByIdForUpdate(postId);
