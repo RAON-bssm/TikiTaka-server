@@ -30,6 +30,16 @@ public class TerritoryQueryPersistenceAdapter implements TerritoryQueryPort {
     }
 
     @Override
+    public Optional<Territory> findByIdForUpdate(Long territoryId) {
+        return territoryJpaRepository.findByIdForUpdate(territoryId);
+    }
+
+    @Override
+    public long countOwnedBy(Long cycleId, java.util.UUID userId) {
+        return territoryJpaRepository.countOwnedBy(cycleId, userId);
+    }
+
+    @Override
     public Optional<Territory> findById(Long territoryId) {
         return territoryJpaRepository.findWithDetailsById(territoryId);
     }
