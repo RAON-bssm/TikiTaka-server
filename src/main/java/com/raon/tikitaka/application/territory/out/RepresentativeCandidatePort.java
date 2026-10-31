@@ -1,5 +1,6 @@
 package com.raon.tikitaka.application.territory.out;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,4 +15,7 @@ public interface RepresentativeCandidatePort {
      * 점수 내림차순, 같으면 그 점수에 먼저 도달한(마지막 갱신이 이른) 사람이 앞선다.
      */
     List<CandidateRow> findTopCandidates(Long stageId, Long locationId, int limit);
+
+    /** 그 라운드에서 writtenBefore 전에 올라왔는데 아직 AI 심사가 끝나지 않은(PENDING) 활성 글 수 */
+    long countPendingReviews(Long stageId, LocalDateTime writtenBefore);
 }

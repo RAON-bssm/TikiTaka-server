@@ -9,6 +9,7 @@ import com.raon.tikitaka.domain.user.Users;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -22,12 +23,18 @@ public class TerritorySetupPersistenceAdapter implements TerritorySetupPort, Rep
     private final RepresentativeJpaRepository representativeJpaRepository;
     private final TerritoryHistoryJpaRepository historyJpaRepository;
     private final RepresentativeCandidateJpaRepository candidateJpaRepository;
+    private final TerritoryPostJpaRepository postJpaRepository;
 
     @Override
     public List<CandidateRow> findTopCandidates(Long stageId, Long locationId, int limit) {
         return candidateJpaRepository.findTop(stageId, locationId, limit).stream()
                 .map(r -> new CandidateRow(r.getUserId(), r.getScore()))
                 .toList();
+    }
+
+    @Override
+    public long countPendingReviews(Long stageId, LocalDateTime writtenBefore) {
+        return postJpaRepository.countPendingReviews(stageId, writtenBefore);
     }
 
     @Override
