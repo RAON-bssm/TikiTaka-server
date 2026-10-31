@@ -25,6 +25,9 @@ public interface TerritoryJpaRepository extends JpaRepository<Territory, Long> {
             "where c.cycleId = :cycleId and d.dongCode = :dongCode")
     Optional<Territory> findWithDetailsByCycleIdAndDongCode(@Param("cycleId") Long cycleId, @Param("dongCode") Long dongCode);
 
+    @Query("select t.territoryId from Territory t where t.cycle.cycleId = :cycleId and t.dong.dongCode = :dongCode")
+    Optional<Long> findIdByCycleIdAndDongCode(@Param("cycleId") Long cycleId, @Param("dongCode") Long dongCode);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from Territory t join fetch t.dong join fetch t.cycle c join fetch c.pointStage join fetch c.battleStage " +
             "where t.territoryId = :id")

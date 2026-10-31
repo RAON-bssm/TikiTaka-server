@@ -36,6 +36,11 @@ public class TerritoryCyclePersistenceAdapter implements TerritoryCycleRepositor
     }
 
     @Override
+    public List<TerritoryCycle> findAllAwaitingDefaults(LocalDateTime now) {
+        return territoryCycleJpaRepository.findAllAwaitingDefaults(now);
+    }
+
+    @Override
     public TerritoryCycle save(TerritoryCycle cycle) {
         return territoryCycleJpaRepository.save(cycle);
     }

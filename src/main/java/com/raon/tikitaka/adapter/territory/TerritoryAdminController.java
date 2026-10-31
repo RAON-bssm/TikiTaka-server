@@ -1,6 +1,7 @@
 package com.raon.tikitaka.adapter.territory;
 
 import com.raon.tikitaka.application.territory.in.EnsureTerritoryCyclesUseCase;
+import com.raon.tikitaka.application.territory.in.RunBattleBatchUseCase;
 import com.raon.tikitaka.application.territory.in.SelectRepresentativesUseCase;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ public class TerritoryAdminController {
 
     private final EnsureTerritoryCyclesUseCase ensureTerritoryCyclesUseCase;
     private final SelectRepresentativesUseCase selectRepresentativesUseCase;
+    private final RunBattleBatchUseCase runBattleBatchUseCase;
 
     @PostMapping("/ensure-cycles")
     public ApiResponse<Void> ensureCycles() {
@@ -28,5 +30,23 @@ public class TerritoryAdminController {
     public ApiResponse<Void> selectRepresentatives() {
         selectRepresentativesUseCase.execute();
         return ApiResponse.of(200, "대표 선발 실행 완료", null);
+    }
+
+    @PostMapping("/apply-default-missions")
+    public ApiResponse<Void> applyDefaultMissions() {
+        runBattleBatchUseCase.applyDefaultMissions();
+        return ApiResponse.of(200, "기본 미션 적용 실행 완료", null);
+    }
+
+    @PostMapping("/recalculate-land-prices")
+    public ApiResponse<Void> recalculateLandPrices() {
+        runBattleBatchUseCase.recalculateLandPrices();
+        return ApiResponse.of(200, "땅값 재계산 실행 완료", null);
+    }
+
+    @PostMapping("/decay-defense")
+    public ApiResponse<Void> decayDefense() {
+        runBattleBatchUseCase.decayDefense();
+        return ApiResponse.of(200, "방어 점수 감쇠 실행 완료", null);
     }
 }

@@ -23,4 +23,9 @@ public interface TerritoryCycleJpaRepository extends JpaRepository<TerritoryCycl
     @Query("select c from TerritoryCycle c join fetch c.pointStage join fetch c.battleStage " +
             "where c.representativesSelected = false and c.rankingFreezeAt <= :now and c.battleStage.endedAt > :now")
     List<TerritoryCycle> findAllAwaitingSelection(@Param("now") LocalDateTime now);
+
+    @Query("select c from TerritoryCycle c join fetch c.pointStage join fetch c.battleStage " +
+            "where c.representativesSelected = true and c.defaultsApplied = false " +
+            "and c.battleStage.startedAt <= :now and c.battleStage.endedAt > :now")
+    List<TerritoryCycle> findAllAwaitingDefaults(@Param("now") LocalDateTime now);
 }

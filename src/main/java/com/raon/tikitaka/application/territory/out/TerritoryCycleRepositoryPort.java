@@ -20,4 +20,7 @@ public interface TerritoryCycleRepositoryPort {
 
     /** 랭킹이 동결됐고 아직 대표를 뽑지 않았으며 땅따먹기 라운드가 끝나지 않은 사이클 */
     List<TerritoryCycle> findAllAwaitingSelection(LocalDateTime now);
+
+    /** 땅따먹기 라운드가 시작됐고 아직 기본 미션 처리를 안 한 사이클 */
+    List<TerritoryCycle> findAllAwaitingDefaults(LocalDateTime now);
 }

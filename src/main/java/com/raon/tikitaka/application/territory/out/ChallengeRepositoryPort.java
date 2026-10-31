@@ -14,4 +14,7 @@ public interface ChallengeRepositoryPort {
 
     /** 땅·동을 함께 조회 */
     Optional<Challenge> findById(UUID challengeId);
+
+    /** 사이클의 땅별 공격 수 = since 이후 (공격자, 날짜) 쌍의 수. 공격이 없는 땅은 결과에 없다 */
+    java.util.Map<Long, Long> countAttacksByTerritory(Long cycleId, java.time.LocalDate since);
 }

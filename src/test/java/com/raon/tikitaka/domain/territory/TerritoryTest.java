@@ -83,4 +83,25 @@ class TerritoryTest {
         assertThat(territory.isChallengeableBy(UUID.randomUUID(), 1L)).isFalse();
         assertThat(territory.isChallengeableBy(UUID.randomUUID(), 2L)).isTrue();
     }
+
+    @Test
+    void 감쇠는_땅따먹기_시작_후_비활동일_때_하루_한_번만_된다() {
+        LocalDateTime battleStart = now.minusDays(2);
+        territory.assign(user(), location(1), now.minusDays(5));        // 세팅은 땅따먹기 전
+        territory.setup("파란", "하늘", null, "p1", 80, now.minusDays(5));
+
+        assertThat(territory.decayIfIdle(battleStart.plusHours(1), battleStart, 1, 1, 60)).isFalse(); // 시작 직후는 아직
+        assertThat(territory.decayIfIdle(now, battleStart, 1, 1, 60)).isTrue();
+        assertThat(territory.decayIfIdle(now.plusHours(1), battleStart, 1, 1, 60)).isFalse();         // 같은 날 두 번째
+        assertThat(territory.getDefenseScore()).isEqualTo(79);
+    }
+
+    @Test
+    void 개발은_우리_팀_땅만_되고_대표_본인은_못_한다() {
+        Users owner = user();
+        territory.assign(owner, location(1), now);
+        assertThat(territory.isDevelopableBy(UUID.randomUUID(), 1L)).isTrue();
+        assertThat(territory.isDevelopableBy(owner.getUserId(), 1L)).isFalse();
+        assertThat(territory.isDevelopableBy(UUID.randomUUID(), 2L)).isFalse();
+    }
 }

@@ -88,6 +88,10 @@ public class Territory {
     @Column(name = "owner_last_active_at")
     private LocalDateTime ownerLastActiveAt;
 
+    /** 마지막으로 감쇠한 날. 배치가 같은 날 두 번 돌아도 한 번만 깎는다 */
+    @Column(name = "last_decayed_on")
+    private java.time.LocalDate lastDecayedOn;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -183,9 +187,27 @@ public class Territory {
         this.defenseScore = Math.max(floor, defenseScore - amount);
     }
 
-    public boolean isIdle(LocalDateTime now, int idleDays) {
-        return owner != null && ownerLastActiveAt != null
-                && !ownerLastActiveAt.plusDays(idleDays).isAfter(now);
+    /**
+     * 하루 한 번만 감쇠한다. 비활동 기준 시각은 마지막 활동과 땅따먹기 시작 중 늦은 쪽이다
+     * (5~7일차에 세팅한 대표가 8일차 첫 배치에서 바로 깎이지 않게). 깎았으면 true
+     */
+    public boolean decayIfIdle(LocalDateTime now, LocalDateTime battleStartedAt, int idleDays, int amount, int floor) {
+        if (owner == null || now.toLocalDate().equals(lastDecayedOn)) {
+            return false;
+        }
+        LocalDateTime base = ownerLastActiveAt == null || ownerLastActiveAt.isBefore(battleStartedAt)
+                ? battleStartedAt : ownerLastActiveAt;
+        if (base.plusDays(idleDays).isAfter(now)) {
+            return false;
+        }
+        decay(amount, floor);
+        this.lastDecayedOn = now.toLocalDate();
+        return true;
+    }
+
+    /** 개발 가능 여부: 우리 팀 땅이면서 내 땅은 아니어야 한다(대표 본인 개발 금지, 결정 #9) */
+    public boolean isDevelopableBy(UUID userId, Long userLocationId) {
+        return isTeam(userLocationId) && !isOwnedBy(userId);
     }
 
     // ---------- 도전 ----------

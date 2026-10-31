@@ -42,6 +42,11 @@ public class TerritoryCycle {
     @ColumnDefault("false")
     private boolean representativesSelected;
 
+    /** 땅따먹기 주간 시작 처리(미션 없는 땅에 기본 미션) 완료 여부 */
+    @Column(name = "defaults_applied", nullable = false)
+    @ColumnDefault("false")
+    private boolean defaultsApplied;
+
     @Column(name = "result_finalized", nullable = false)
     @ColumnDefault("false")
     private boolean resultFinalized;
@@ -59,6 +64,10 @@ public class TerritoryCycle {
         cycle.battleStage = battleStage;
         cycle.rankingFreezeAt = freezeAt;
         return cycle;
+    }
+
+    public void markDefaultsApplied() {
+        this.defaultsApplied = true;
     }
 
     public void markRepresentativesSelected() {

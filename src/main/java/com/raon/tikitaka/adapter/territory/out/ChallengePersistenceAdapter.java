@@ -27,6 +27,13 @@ public class ChallengePersistenceAdapter implements ChallengeRepositoryPort {
     }
 
     @Override
+    public java.util.Map<Long, Long> countAttacksByTerritory(Long cycleId, java.time.LocalDate since) {
+        return challengeJpaRepository.countAttacks(cycleId, since).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        ChallengeJpaRepository.AttackCount::getTerritoryId, ChallengeJpaRepository.AttackCount::getAttacks));
+    }
+
+    @Override
     public Optional<Challenge> findById(UUID challengeId) {
         return challengeJpaRepository.findWithTerritoryById(challengeId);
     }

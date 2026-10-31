@@ -16,6 +16,9 @@ public interface TerritoryQueryPort {
 
     Optional<Territory> findByCycleIdAndDongCode(Long cycleId, Long dongCode);
 
+    /** 엔티티를 올리지 않고 id만. 같은 트랜잭션에서 곧바로 FOR UPDATE로 다시 읽을 때 쓴다(먼저 올린 엔티티는 잠금 후에도 갱신되지 않아서) */
+    Optional<Long> findIdByCycleIdAndDongCode(Long cycleId, Long dongCode);
+
     /** 도전 판정용. 같은 땅의 동시 도전을 한 줄로 세운다(SELECT ... FOR UPDATE) */
     Optional<Territory> findByIdForUpdate(Long territoryId);
 
