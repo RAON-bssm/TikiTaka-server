@@ -73,6 +73,11 @@ public class TerritoryCycle {
         return at.isBefore(pointStage.getEndedAt()) ? RoundType.POINT : RoundType.BATTLE;
     }
 
+    /** 땅 세팅 기간(5~7일차): 대표 선발이 끝났고, 랭킹 동결 이후, 땅따먹기 라운드 시작 전 */
+    public boolean isSetupPeriod(LocalDateTime at) {
+        return representativesSelected && !at.isBefore(rankingFreezeAt) && at.isBefore(battleStage.getStartedAt());
+    }
+
     /** stageId가 이 사이클에서 어떤 라운드인지. LAZY 프록시도 id 조회는 초기화 없이 된다 */
     public RoundType roundTypeOf(Long stageId) {
         if (Objects.equals(pointStage.getStageId(), stageId)) {

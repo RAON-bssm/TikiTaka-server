@@ -31,8 +31,8 @@ class TerritoryTest {
     @Test
     void 같은_점수면_도전자가_이기고_점령해도_미션은_유지된다() {
         territory.assign(user(), location(1), now);
-        territory.setup("하늘", "파란색", "p1", 78, now);
-        territory.requestMissionChange("고양이", null);
+        territory.setup("파란", "하늘", "파란색이 많을수록", "p1", 78, now);
+        territory.requestMissionChange("귀여운", "고양이", null);
 
         assertThat(territory.isBeatenBy(78)).isTrue();
         assertThat(territory.isBeatenBy(77)).isFalse();
@@ -42,26 +42,26 @@ class TerritoryTest {
 
         assertThat(territory.isOwnedBy(challenger.getUserId())).isTrue();
         assertThat(territory.isTeam(2L)).isTrue();
-        assertThat(territory.getMission()).isEqualTo("하늘");
-        assertThat(territory.getPendingMission()).isNull();   // 이전 대표의 변경 요청은 버린다
+        assertThat(territory.getMission()).isEqualTo("파란 하늘");
+        assertThat(territory.hasPendingMission()).isFalse();   // 이전 대표의 변경 요청은 버린다
         assertThat(territory.getDefenseScore()).isEqualTo(82);
     }
 
     @Test
     void 미션_변경은_재촬영해야_적용되고_마지막_점수로_교체된다() {
         territory.assign(user(), location(1), now);
-        territory.setup("하늘", null, "p1", 90, now);
-        territory.requestMissionChange("고양이", null);
-        assertThat(territory.getMission()).isEqualTo("하늘");
+        territory.setup("파란", "하늘", null, "p1", 90, now);
+        territory.requestMissionChange("귀여운", "고양이", null);
+        assertThat(territory.getMission()).isEqualTo("파란 하늘");
 
         territory.retake("p2", 70, now);
-        assertThat(territory.getMission()).isEqualTo("고양이");
+        assertThat(territory.getMission()).isEqualTo("귀여운 고양이");
         assertThat(territory.getDefenseScore()).isEqualTo(70);
     }
 
     @Test
     void 감쇠는_하한_아래로_내려가지_않고_개발하면_땅값이_오른다() {
-        territory.setup("하늘", null, "p1", 61, now);
+        territory.setup("파란", "하늘", null, "p1", 61, now);
         territory.decay(1, 60);
         territory.decay(1, 60);
         assertThat(territory.getDefenseScore()).isEqualTo(60);

@@ -45,17 +45,25 @@ public class Territory {
     @JoinColumn(name = "owner_location_id")
     private Location ownerLocation;
 
-    @Column(name = "mission")
-    private String mission;
+    /** 미션 = 형용사 + 명사 키워드(각 1~10자, 한글만). 예: 파란 + 하늘 */
+    @Column(name = "mission_adjective", length = 10)
+    private String missionAdjective;
 
-    @Column(name = "scoring_criteria")
+    @Column(name = "mission_noun", length = 10)
+    private String missionNoun;
+
+    /** 대표가 정한 채점 기준(자유 입력, 최대 50자). 채점 프롬프트에 데이터로만 들어간다 */
+    @Column(name = "scoring_criteria", length = 50)
     private String scoringCriteria;
 
     /** 미션 변경 요청. 대표가 새 미션으로 다시 찍어야 적용된다 */
-    @Column(name = "pending_mission")
-    private String pendingMission;
+    @Column(name = "pending_adjective", length = 10)
+    private String pendingAdjective;
 
-    @Column(name = "pending_criteria")
+    @Column(name = "pending_noun", length = 10)
+    private String pendingNoun;
+
+    @Column(name = "pending_criteria", length = 50)
     private String pendingCriteria;
 
     @Column(name = "defense_photo")
@@ -121,27 +129,38 @@ public class Territory {
 
     // ---------- 땅 세팅 / 방어 ----------
 
-    /** 5~7일차 땅 세팅: 미션 + 대표 사진. 사진 점수가 첫 방어 점수가 된다 */
-    public void setup(String mission, String criteria, String photoKey, int score, LocalDateTime now) {
-        this.mission = mission;
+    /** 화면 표시용 미션 문장. 예: "파란 하늘" */
+    public String getMission() {
+        return missionAdjective == null ? null : missionAdjective + " " + missionNoun;
+    }
+
+    public boolean hasPendingMission() {
+        return pendingAdjective != null;
+    }
+
+    /** 5~7일차 땅 세팅: 미션 + 대표 사진. 사진 점수가 첫 방어 점수가 된다. 기간 안에 다시 하면 덮어쓴다 */
+    public void setup(String adjective, String noun, String criteria, String photoKey, int score, LocalDateTime now) {
+        this.missionAdjective = adjective;
+        this.missionNoun = noun;
         this.scoringCriteria = criteria;
-        this.pendingMission = null;
-        this.pendingCriteria = null;
+        clearPending();
         updateDefense(photoKey, score, now);
     }
 
     /** 8일차: 세팅하지 않은 땅은 기본 미션 + 기준 점수로 시작한다. 대표 자리는 유지한다 */
-    public void applyDefaultIfNotSetUp(String defaultMission, String defaultCriteria, int unownedMinScore) {
-        if (mission != null) {
+    public void applyDefaultIfNotSetUp(String adjective, String noun, String criteria, int unownedMinScore) {
+        if (missionAdjective != null) {
             return;
         }
-        this.mission = defaultMission;
-        this.scoringCriteria = defaultCriteria;
+        this.missionAdjective = adjective;
+        this.missionNoun = noun;
+        this.scoringCriteria = criteria;
         this.defenseScore = unownedMinScore;
     }
 
-    public void requestMissionChange(String mission, String criteria) {
-        this.pendingMission = mission;
+    public void requestMissionChange(String adjective, String noun, String criteria) {
+        this.pendingAdjective = adjective;
+        this.pendingNoun = noun;
         this.pendingCriteria = criteria;
     }
 
@@ -150,11 +169,11 @@ public class Territory {
      * 점수는 마지막 촬영 점수로 교체한다(결정 #17 제안안: 최고점만 골라 가지는 것을 막는다).
      */
     public void retake(String photoKey, int score, LocalDateTime now) {
-        if (pendingMission != null) {
-            this.mission = pendingMission;
+        if (hasPendingMission()) {
+            this.missionAdjective = pendingAdjective;
+            this.missionNoun = pendingNoun;
             this.scoringCriteria = pendingCriteria;
-            this.pendingMission = null;
-            this.pendingCriteria = null;
+            clearPending();
         }
         updateDefense(photoKey, score, now);
     }
@@ -182,8 +201,7 @@ public class Territory {
      */
     public void capture(Users challenger, Location team, String photoKey, int score, LocalDateTime now) {
         changeOwner(challenger, team, now);
-        this.pendingMission = null;
-        this.pendingCriteria = null;
+        clearPending();
         updateDefense(photoKey, score, now);
     }
 
@@ -201,6 +219,12 @@ public class Territory {
     /** 개발 성공. 항상 같은 폭만큼 오른다 */
     public void develop(int gain) {
         this.developmentValue += gain;
+    }
+
+    private void clearPending() {
+        this.pendingAdjective = null;
+        this.pendingNoun = null;
+        this.pendingCriteria = null;
     }
 
     private void changeOwner(Users user, Location team, LocalDateTime now) {

@@ -85,7 +85,9 @@ public class TerritoryQueryService implements QueryTerritoryUseCase {
                 t.isOwned() ? t.getOwner().getUserId() : null,
                 t.isOwned() ? t.getOwner().getUserName() : null,
                 t.isOwned() ? t.getOwnerLocation().getLocationId() : null,
-                t.getMission(), t.getScoringCriteria(), mine ? t.getPendingMission() : null,
+                t.getMission(), t.getMissionAdjective(), t.getMissionNoun(), t.getScoringCriteria(),
+                mine ? t.getPendingAdjective() : null, mine ? t.getPendingNoun() : null,
+                mine ? t.getPendingCriteria() : null,
                 t.getDefensePhoto(), t.getDefenseScore(), landPrice, tollPolicy.toll(landPrice),
                 developmentPolicy.cost(landPrice), developmentPolicy.probability(),
                 mine, challengeable(t, round, userId, myLocationId(userId)));
