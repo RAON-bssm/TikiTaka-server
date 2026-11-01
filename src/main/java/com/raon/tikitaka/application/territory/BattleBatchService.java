@@ -4,7 +4,6 @@ import com.raon.tikitaka.application.territory.in.RunBattleBatchUseCase;
 import com.raon.tikitaka.application.territory.out.*;
 import com.raon.tikitaka.application.territory.policy.LandPricePolicy;
 import com.raon.tikitaka.domain.enums.RoundType;
-import com.raon.tikitaka.domain.territory.DefaultMission;
 import com.raon.tikitaka.domain.territory.Territory;
 import com.raon.tikitaka.domain.territory.TerritoryCycle;
 import com.raon.tikitaka.global.config.TerritoryProperties;
@@ -27,31 +26,34 @@ public class BattleBatchService implements RunBattleBatchUseCase {
     private final TerritoryCycleRepositoryPort cycleRepositoryPort;
     private final TerritoryQueryPort territoryQueryPort;
     private final ChallengeRepositoryPort challengeRepositoryPort;
-    private final DefaultMissionPort defaultMissionPort;
+    private final MissionKeywordPort missionKeywordPort;
     private final RandomPort randomPort;
     private final LandPricePolicy landPricePolicy;
     private final TerritoryProperties properties;
 
     /**
-     * 주인 없는 땅과 대표가 세팅하지 않은 땅에 기본 미션을 랜덤으로 넣는다. 방어 점수는 기준 점수(60), 대표 자리는 유지.
+     * 주인 없는 땅과 대표가 세팅하지 않은 땅에 기본 미션을 넣는다. 방어 점수는 기준 점수(60), 대표 자리는 유지.
+     * 미션은 keyword 테이블의 형용사·명사를 땅마다 랜덤으로 조합하고 채점 기준은 비워 둔다.
      * 사이클마다 defaults_applied로 한 번만 처리한다.
      */
     @Override
     public void applyDefaultMissions() {
         LocalDateTime now = LocalDateTime.now();
         for (TerritoryCycle cycle : cycleRepositoryPort.findAllAwaitingDefaults(now)) {
-            List<DefaultMission> missions = defaultMissionPort.findAll();
-            if (missions.isEmpty()) {
+            List<String> adjectives = missionKeywordPort.findAdjectives();
+            List<String> nouns = missionKeywordPort.findNouns();
+            if (adjectives.isEmpty() || nouns.isEmpty()) {
                 // 미션 없이 시작하면 채점이 깨지므로 처리하지 않고 다음 실행에서 다시 시도한다
-                log.error("기본 미션이 없습니다. seed/territory_default_mission.sql을 적용하세요. cycleId={}", cycle.getCycleId());
+                log.error("keyword 테이블에 형용사/명사가 없습니다. 형용사 {}개, 명사 {}개. cycleId={}",
+                        adjectives.size(), nouns.size(), cycle.getCycleId());
                 return;
             }
             int applied = 0;
             for (Territory t : territoryQueryPort.findAllByCycleId(cycle.getCycleId())) {
                 if (t.getMissionAdjective() == null) {
-                    DefaultMission m = missions.get((int) (randomPort.nextDouble() * missions.size()));
-                    t.applyDefaultIfNotSetUp(m.getAdjective(), m.getNoun(), m.getScoringCriteria(),
-                            properties.defense().unownedMinScore());
+                    String adjective = adjectives.get((int) (randomPort.nextDouble() * adjectives.size()));
+                    String noun = nouns.get((int) (randomPort.nextDouble() * nouns.size()));
+                    t.applyDefaultIfNotSetUp(adjective, noun, null, properties.defense().unownedMinScore());
                     applied++;
                 }
             }
