@@ -4,6 +4,7 @@ import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
+import com.raon.tikitaka.application.territory.in.CheckRankingFrozenUseCase;
 import com.raon.tikitaka.domain.post.Post;
 import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.domain.user.Users;
@@ -59,7 +60,7 @@ class PostServiceStatusRuleTest {
     void setUp() {
         // 조회·수정·삭제 경로는 점수 설정을 쓰지 않는다(삭제는 점수가 없는 글만 다룬다)
         postService = new PostService(postRepositoryPort, postLikeRepositoryPort, rankingRepositoryPort, null,
-                blockRepositoryPort, null);
+                blockRepositoryPort, null, mock(CheckRankingFrozenUseCase.class));
     }
 
     // ===== 상세 =====

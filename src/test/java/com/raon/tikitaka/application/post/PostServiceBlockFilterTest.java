@@ -4,6 +4,7 @@ import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
+import com.raon.tikitaka.application.territory.in.CheckRankingFrozenUseCase;
 import com.raon.tikitaka.domain.post.Post;
 import com.raon.tikitaka.domain.user.Users;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,7 +58,7 @@ class PostServiceBlockFilterTest {
     void setUp() {
         // 조회 경로는 점수 설정을 쓰지 않는다
         postService = new PostService(postRepositoryPort, postLikeRepositoryPort, rankingRepositoryPort, null,
-                blockRepositoryPort, null);
+                blockRepositoryPort, null, mock(CheckRankingFrozenUseCase.class));
     }
 
     // ===== 목록 =====
