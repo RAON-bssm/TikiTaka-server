@@ -33,6 +33,9 @@ public interface TerritoryJpaRepository extends JpaRepository<Territory, Long> {
             "where t.territoryId = :id")
     Optional<Territory> findByIdForUpdate(@Param("id") Long territoryId);
 
+    @Query(FETCH + "join fetch d.location where t.cycle.cycleId = :cycleId and t.owner.userId = :userId order by d.dongCode")
+    List<Territory> findAllOwnedBy(@Param("cycleId") Long cycleId, @Param("userId") UUID userId);
+
     @Query("select count(t) from Territory t where t.cycle.cycleId = :cycleId and t.owner.userId = :userId")
     long countOwnedBy(@Param("cycleId") Long cycleId, @Param("userId") UUID userId);
 
