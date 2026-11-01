@@ -13,6 +13,11 @@ public class SecureRandomAdapter implements RandomPort {
     private final SecureRandom random = new SecureRandom();
 
     @Override
+    public double nextDouble() {
+        return random.nextDouble();
+    }
+
+    @Override
     public <T> void shuffle(List<T> list) {
         Collections.shuffle(list, random);
     }

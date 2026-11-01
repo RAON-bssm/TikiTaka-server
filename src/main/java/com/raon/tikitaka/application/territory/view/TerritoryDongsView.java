@@ -10,6 +10,6 @@ public record TerritoryDongsView(Long cycleId, RoundType roundType, List<Item> t
 
     public record Item(Long territoryId, Long dongId, Long dongCode, String dongName, Long locationId,
                        UUID ownerId, String ownerName, Long ownerLocationId,
-                       int defenseScore, int landPrice, boolean mine) {
+                       int defenseScore, int landPrice, boolean mine, boolean challengeable) {
     }
 }

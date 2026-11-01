@@ -15,6 +15,7 @@ class AssignmentPolicyTest {
 
     /** 섞지 않고 순서 그대로 두는 난수 */
     static final RandomPort FIXED = new RandomPort() {
+        public double nextDouble() { return 0; }
         public <T> void shuffle(List<T> list) { }
     };
 

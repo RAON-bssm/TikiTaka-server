@@ -8,4 +8,6 @@ import java.util.List;
 public interface DongJpaRepository extends JpaRepository<Dong, Long> {
 
     List<Dong> findAllByLocation_LocationIdOrderByDongCode(Long locationId);
+
+    long countByLocation_LocationId(Long locationId);
 }

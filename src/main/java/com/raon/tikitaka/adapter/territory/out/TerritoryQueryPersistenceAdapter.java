@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -27,6 +28,29 @@ public class TerritoryQueryPersistenceAdapter implements TerritoryQueryPort {
     }
 
     @Override
+    public Optional<Territory> findByCycleIdAndDongCode(Long cycleId, Long dongCode) {
+        return territoryJpaRepository.findWithDetailsByCycleIdAndDongCode(cycleId, dongCode);
+    }
+
+    @Override
+    public Optional<Long> findIdByCycleIdAndDongCode(Long cycleId, Long dongCode) {
+        return territoryJpaRepository.findIdByCycleIdAndDongCode(cycleId, dongCode);
+    }
+
+    @Override
+    public Optional<Territory> findByIdForUpdate(Long territoryId) {
+        return territoryJpaRepository.findByIdForUpdate(territoryId);
+    }
+
+    @Override
+    public long countOwnedBy(Long cycleId, java.util.UUID userId) {
+        return territoryJpaRepository.countOwnedBy(cycleId, userId);
+    }
+
+    @Override
+    public Optional<Territory> findById(Long territoryId) {
+        return territoryJpaRepository.findWithDetailsById(territoryId);
+    }
     public List<Representative> findRepresentatives(Long cycleId, Long locationId, UUID viewerId) {
         return representativeJpaRepository.findVisibleByCycle(cycleId, locationId, viewerId);
     }

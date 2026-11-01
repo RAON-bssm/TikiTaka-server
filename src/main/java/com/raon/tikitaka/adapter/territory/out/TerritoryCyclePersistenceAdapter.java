@@ -36,8 +36,23 @@ public class TerritoryCyclePersistenceAdapter implements TerritoryCycleRepositor
     }
 
     @Override
+    public List<TerritoryCycle> findAllAwaitingDefaults(LocalDateTime now) {
+        return territoryCycleJpaRepository.findAllAwaitingDefaults(now);
+    }
+
+    @Override
+    public List<TerritoryCycle> findAllAwaitingFinalize(LocalDateTime now) {
+        return territoryCycleJpaRepository.findAllAwaitingFinalize(now);
+    }
+
+    @Override
     public Optional<TerritoryCycle> findById(Long cycleId) {
-        return territoryCycleJpaRepository.findById(cycleId);
+        return territoryCycleJpaRepository.findWithStagesById(cycleId);
+    }
+
+    @Override
+    public Optional<TerritoryCycle> findLatestFinalized() {
+        return territoryCycleJpaRepository.findLatestFinalized();
     }
 
     @Override

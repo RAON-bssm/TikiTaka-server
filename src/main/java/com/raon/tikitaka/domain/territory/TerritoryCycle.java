@@ -42,6 +42,15 @@ public class TerritoryCycle {
     @ColumnDefault("false")
     private boolean representativesSelected;
 
+    /** 땅따먹기 주간 시작 처리(미션 없는 땅에 기본 미션) 완료 여부 */
+    @Column(name = "defaults_applied", nullable = false)
+    @ColumnDefault("false")
+    private boolean defaultsApplied;
+
+    @Column(name = "result_finalized", nullable = false)
+    @ColumnDefault("false")
+    private boolean resultFinalized;
+
     /**
      * 포인트 라운드와 바로 이어지는 땅따먹기 라운드를 묶고, 랭킹 동결 시각을 포인트 라운드 시작 + rankingDays로 정한다.
      * 두 라운드가 이어지지 않거나 동결 시각이 포인트 라운드 종료를 넘으면 IllegalArgumentException이다.
@@ -61,6 +70,14 @@ public class TerritoryCycle {
         return cycle;
     }
 
+    public void markResultFinalized() {
+        this.resultFinalized = true;
+    }
+
+    public void markDefaultsApplied() {
+        this.defaultsApplied = true;
+    }
+
     public void markRepresentativesSelected() {
         this.representativesSelected = true;
     }
@@ -71,6 +88,11 @@ public class TerritoryCycle {
             return RoundType.NONE;
         }
         return at.isBefore(pointStage.getEndedAt()) ? RoundType.POINT : RoundType.BATTLE;
+    }
+
+    /** 땅 세팅 기간(5~7일차): 대표 선발이 끝났고, 랭킹 동결 이후, 땅따먹기 라운드 시작 전 */
+    public boolean isSetupPeriod(LocalDateTime at) {
+        return representativesSelected && !at.isBefore(rankingFreezeAt) && at.isBefore(battleStage.getStartedAt());
     }
 
     /** stageId가 이 사이클에서 어떤 라운드인지. LAZY 프록시도 id 조회는 초기화 없이 된다 */
