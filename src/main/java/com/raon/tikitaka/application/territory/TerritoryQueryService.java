@@ -1,6 +1,7 @@
 package com.raon.tikitaka.application.territory;
 
 import com.raon.tikitaka.application.territory.in.QueryTerritoryUseCase;
+import com.raon.tikitaka.application.territory.out.BlockedUserPort;
 import com.raon.tikitaka.application.territory.out.TerritoryCycleRepositoryPort;
 import com.raon.tikitaka.application.territory.out.TerritoryQueryPort;
 import com.raon.tikitaka.application.territory.policy.DevelopmentPolicy;
@@ -21,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -33,6 +35,7 @@ public class TerritoryQueryService implements QueryTerritoryUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final TollPolicy tollPolicy;
     private final DevelopmentPolicy developmentPolicy;
+    private final BlockedUserPort blockedUserPort;
 
     @Override
     public CurrentCycleView getCurrentCycle(UUID userId) {
@@ -56,18 +59,22 @@ public class TerritoryQueryService implements QueryTerritoryUseCase {
         }
         RoundType round = cycle.roundTypeAt(now);
         Long myLocationId = myLocationId(userId);
+        Set<UUID> blockedIds = blockedUserPort.findBlockedUserIds(userId);
         List<Territory> territories = locationId == null
                 ? territoryQueryPort.findAllByCycleId(cycle.getCycleId())
                 : territoryQueryPort.findAllByCycleIdAndLocationId(cycle.getCycleId(), locationId);
 
-        List<TerritoryDongsView.Item> items = territories.stream().map(t -> new TerritoryDongsView.Item(
-                t.getTerritoryId(), t.getDong().getDongId(), t.getDong().getDongCode(), t.getDong().getDongName(),
-                t.getDong().getLocation().getLocationId(),
-                t.isOwned() ? t.getOwner().getUserId() : null,
-                t.isOwned() ? t.getOwner().getUserName() : null,
-                t.isOwned() ? t.getOwnerLocation().getLocationId() : null,
-                t.getDefenseScore(), t.landPrice(), t.isOwnedBy(userId),
-                challengeable(t, round, userId, myLocationId))).toList();
+        List<TerritoryDongsView.Item> items = territories.stream().map(t -> {
+            boolean blocked = isBlocked(t, blockedIds);
+            return new TerritoryDongsView.Item(
+                    t.getTerritoryId(), t.getDong().getDongId(), t.getDong().getDongCode(), t.getDong().getDongName(),
+                    t.getDong().getLocation().getLocationId(),
+                    t.isOwned() ? t.getOwner().getUserId() : null,
+                    t.isOwned() && !blocked ? t.getOwner().getUserName() : null,
+                    t.isOwned() ? t.getOwnerLocation().getLocationId() : null,
+                    t.getDefenseScore(), t.landPrice(), t.isOwnedBy(userId),
+                    challengeable(t, round, userId, myLocationId), blocked);
+        }).toList();
         return new TerritoryDongsView(cycle.getCycleId(), round, items);
     }
 
@@ -80,18 +87,24 @@ public class TerritoryQueryService implements QueryTerritoryUseCase {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "이 동의 땅이 아직 없습니다."));
         RoundType round = t.getCycle().roundTypeAt(LocalDateTime.now());
         boolean mine = t.isOwnedBy(userId);
+        boolean blocked = isBlocked(t, blockedUserPort.findBlockedUserIds(userId));
         int landPrice = t.landPrice();
         return new TerritoryDetailView(t.getTerritoryId(), t.getDong().getDongCode(), t.getDong().getDongName(),
                 t.getDong().getLocation().getLocationId(),
                 t.isOwned() ? t.getOwner().getUserId() : null,
-                t.isOwned() ? t.getOwner().getUserName() : null,
+                t.isOwned() && !blocked ? t.getOwner().getUserName() : null,
                 t.isOwned() ? t.getOwnerLocation().getLocationId() : null,
                 t.getMission(), t.getMissionAdjective(), t.getMissionNoun(), t.getScoringCriteria(),
                 mine ? t.getPendingAdjective() : null, mine ? t.getPendingNoun() : null,
                 mine ? t.getPendingCriteria() : null,
-                t.getDefensePhoto(), t.getDefenseScore(), landPrice, tollPolicy.toll(landPrice),
+                blocked ? null : t.getDefensePhoto(), t.getDefenseScore(), landPrice, tollPolicy.toll(landPrice),
                 developmentPolicy.cost(landPrice), developmentPolicy.probability(),
-                mine, challengeable(t, round, userId, myLocationId(userId)));
+                mine, challengeable(t, round, userId, myLocationId(userId)), blocked);
+    }
+
+    /** 내가 차단한 유저의 땅인지. 차단해도 도전·통행료 같은 게임 규칙은 그대로고 화면 표시만 가린다 */
+    private boolean isBlocked(Territory t, Set<UUID> blockedIds) {
+        return t.isOwned() && blockedIds.contains(t.getOwner().getUserId());
     }
 
     /** 땅따먹기 라운드이고, 내 땅도 우리 팀 땅도 아니면 도전할 수 있다 */

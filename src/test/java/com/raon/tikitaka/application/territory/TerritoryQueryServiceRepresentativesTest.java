@@ -2,6 +2,7 @@ package com.raon.tikitaka.application.territory;
 
 import com.raon.tikitaka.application.territory.policy.DevelopmentPolicy;
 import com.raon.tikitaka.application.territory.policy.TollPolicy;
+import com.raon.tikitaka.application.territory.out.BlockedUserPort;
 import com.raon.tikitaka.application.territory.out.TerritoryCycleRepositoryPort;
 import com.raon.tikitaka.application.territory.out.TerritoryQueryPort;
 import com.raon.tikitaka.application.territory.view.RepresentativesView;
@@ -45,7 +46,7 @@ class TerritoryQueryServiceRepresentativesTest {
     private final TerritoryQueryPort queryPort = mock(TerritoryQueryPort.class);
     private final TerritoryQueryService service =
             new TerritoryQueryService(cyclePort, queryPort, mock(UserRepositoryPort.class),
-                    mock(TollPolicy.class), mock(DevelopmentPolicy.class));
+                    mock(TollPolicy.class), mock(DevelopmentPolicy.class), mock(BlockedUserPort.class));
 
     private final UUID me = UUID.randomUUID();
     private TerritoryCycle cycle;
