@@ -57,7 +57,9 @@ class RepresentativeServiceTest {
 
     private static final long POINT_STAGE_ID = 1L;
     private static final TerritoryProperties PROPS = new TerritoryProperties(4, 5,
-            new TerritoryProperties.LandPrice(2500), new TerritoryProperties.Defense(60));
+            new TerritoryProperties.Toll(0.15, 0.90),
+            new TerritoryProperties.LandPrice(2500, 0.5, 3.0, 7), new TerritoryProperties.Defense(60, 1, 1, 60),
+            new TerritoryProperties.Development(1.8, 0.49, 250, 3, 5));
 
     private final TerritoryCycleRepositoryPort cyclePort = mock(TerritoryCycleRepositoryPort.class);
     private final LocationRepositoryPort locationPort = mock(LocationRepositoryPort.class);
@@ -68,6 +70,10 @@ class RepresentativeServiceTest {
     /** 남은 동을 뒤집어서 섞는다. 랜덤 배정이 실제로 섞인 목록을 쓰는지 드러난다 */
     private final List<List<?>> shuffled = new ArrayList<>();
     private final RandomPort reverse = new RandomPort() {
+        public double nextDouble() {
+            return 0;
+        }
+
         public <T> void shuffle(List<T> list) {
             shuffled.add(List.copyOf(list));
             Collections.reverse(list);

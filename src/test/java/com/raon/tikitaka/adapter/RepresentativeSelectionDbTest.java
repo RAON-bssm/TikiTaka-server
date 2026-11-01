@@ -76,6 +76,11 @@ class RepresentativeSelectionDbTest {
         volatile int failFromCall;
 
         @Override
+        public double nextDouble() {
+            return 0;
+        }
+
+        @Override
         public <T> void shuffle(List<T> list) {
             if (failFromCall > 0 && calls.incrementAndGet() >= failFromCall) {
                 throw new IllegalStateException("테스트용 실패");
@@ -88,8 +93,9 @@ class RepresentativeSelectionDbTest {
     static class Config {
         @Bean
         TerritoryProperties territoryProperties() {
-            return new TerritoryProperties(4, 5, new TerritoryProperties.LandPrice(2500),
-                    new TerritoryProperties.Defense(60));
+            return new TerritoryProperties(4, 5, new TerritoryProperties.Toll(0.15, 0.90),
+                    new TerritoryProperties.LandPrice(2500, 0.5, 3.0, 7), new TerritoryProperties.Defense(60, 1, 1, 60),
+                    new TerritoryProperties.Development(1.8, 0.49, 250, 3, 5));
         }
 
         @Bean

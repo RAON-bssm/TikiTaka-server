@@ -44,7 +44,9 @@ class PostServiceRankingFreezeTest {
     private static final long POINT_STAGE_ID = 7L;
     private static final long HOME_ID = 1L;
     private static final TerritoryProperties TERRITORY = new TerritoryProperties(4, 5,
-            new TerritoryProperties.LandPrice(2500), new TerritoryProperties.Defense(60));
+            new TerritoryProperties.Toll(0.15, 0.90),
+            new TerritoryProperties.LandPrice(2500, 0.5, 3.0, 7), new TerritoryProperties.Defense(60, 1, 1, 60),
+            new TerritoryProperties.Development(1.8, 0.49, 250, 3, 5));
 
     private final PostRepositoryPort postRepositoryPort = mock(PostRepositoryPort.class);
     private final RankingRepositoryPort rankingRepositoryPort = mock(RankingRepositoryPort.class);
