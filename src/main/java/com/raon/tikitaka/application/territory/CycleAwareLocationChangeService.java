@@ -41,6 +41,10 @@ public class CycleAwareLocationChangeService implements ApplyLocationChangeUseCa
     private final UserRepositoryPort userRepositoryPort;
     private final DongPreferenceRepositoryPort dongPreferenceRepositoryPort;
 
+    /**
+     * 현재 라운드의 종류를 보고 본진 변경을 적용할지 정한다. 라운드가 없거나 이미 처리됐으면 기본 구현에 맡기고,
+     * 땅따먹기 라운드면 적용 없이 처리 끝으로만 표시한다. 포인트 라운드면 이사 가는 유저의 희망 동을 먼저 지운다.
+     */
     @Override
     @Transactional
     public void execute() {

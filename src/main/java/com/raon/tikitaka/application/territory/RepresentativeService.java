@@ -66,6 +66,11 @@ public class RepresentativeService implements SelectRepresentativesUseCase {
         }
     }
 
+    /**
+     * 구마다 동 수만큼 주인 없는 땅을 열고, 개인 랭킹 상위 (동 수)명을 대표로 배치한다.
+     * 동 데이터가 없는 구는 건너뛰고, 후보가 없거나 모자라면 남는 땅은 주인 없이 시작한다.
+     * 후보 점수는 동결 시점의 랭킹이라 동결 이후 글은 반영되지 않는다.
+     */
     private void select(TerritoryCycle cycle, LocalDateTime now) {
         int unownedMin = properties.defense().unownedMinScore();
         int initialPrice = properties.landPrice().base();

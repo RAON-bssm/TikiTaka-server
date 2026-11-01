@@ -318,6 +318,10 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         post.updateContent(content);
     }
 
+    /**
+     * 글을 비활성화하고 그 글이 올렸던 개인·지역 점수를 되돌린다. 본인이나 관리자만 지울 수 있고, 아니면 403이다.
+     * 동결 판단은 삭제하는 현재 시각 기준이다. 랭킹이 이미 동결됐으면 차감하지 않아 동결된 랭킹이 바뀌지 않는다.
+     */
     @Override
     @Transactional
     public void deletePost(UUID postId, UUID requesterId, boolean isAdmin) {

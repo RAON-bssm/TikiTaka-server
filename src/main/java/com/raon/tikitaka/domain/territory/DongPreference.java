@@ -40,6 +40,7 @@ public class DongPreference {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    /** 희망 동은 최대 3개라 순위가 1~3을 벗어나면 IllegalArgumentException이다 */
     public static DongPreference of(Users user, int priority, Dong dong) {
         if (priority < 1 || priority > 3) {
             throw new IllegalArgumentException("희망 동 순위는 1~3입니다.");
