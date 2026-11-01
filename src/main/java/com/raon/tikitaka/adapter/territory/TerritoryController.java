@@ -19,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
+import com.raon.tikitaka.application.territory.view.RepresentativesView;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -91,5 +92,17 @@ public class TerritoryController {
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미지를 읽을 수 없습니다.");
         }
+    }
+
+    /**
+     * 대표 선발 결과. 임시 API, 프론트 확정 후 변경될 수 있음.
+     * cycleId가 없으면 현재 사이클, locationId가 없으면 보드 전체. 선발 전이면 빈 목록이다
+     */
+    @GetMapping("/representatives")
+    public ApiResponse<RepresentativesView> getRepresentatives(@AuthenticationPrincipal UUID userId,
+                                                               @RequestParam(required = false) Long cycleId,
+                                                               @RequestParam(required = false) Long locationId) {
+        return ApiResponse.of(200, "대표 선발 결과 조회 성공",
+                queryTerritoryUseCase.getRepresentatives(userId, cycleId, locationId));
     }
 }

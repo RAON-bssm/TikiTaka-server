@@ -1,0 +1,56 @@
+package com.raon.tikitaka.application.post.out;
+
+import com.raon.tikitaka.domain.post.Post;
+import com.raon.tikitaka.domain.post.PostStatus;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * 게시물 AI 심사 대기열. post 테이블의 PENDING 행을 그대로 대기열로 쓴다.
+ * 상태를 바꾸는 메서드는 updated_at(게시물 수정 일시)을 건드리지 않는다.
+ * 상태를 바꾸기 전에 PostRepositoryPort.findByIdForUpdate로 같은 트랜잭션에서 행을 잠그고 상태를 확인해야 한다.
+ */
+public interface PostReviewQueuePort {
+
+    /**
+     * 지금 선점할 수 있는 글 수. claim과 같은 조건이라 백오프 중이거나 선점돼 심사 중인 글은 세지 않는다.
+     */
+    long countClaimable(LocalDateTime now, LocalDateTime staleBefore);
+
+    /**
+     * 심사할 글을 오래된 순으로 limit개 선점한다. 선점 시각만 기록하고 시도 횟수는 올리지 않는다.
+     * 다른 트랜잭션이 잠근 행은 건너뛰고, staleBefore보다 먼저 선점된 채 끝나지 않은 글은 다시 가져간다.
+     * 돌려주는 글에는 board, match, stage가 로딩돼 있다.
+     */
+    List<Post> claim(int limit, LocalDateTime now, LocalDateTime staleBefore);
+
+    void complete(UUID postId, int score, String aiReview);
+
+    void scheduleRetry(UUID postId, int attempts, LocalDateTime nextAt);
+
+    /** FAILED, REJECTED, EXPIRED처럼 심사를 끝내는 상태로 바꾼다 */
+    void finish(UUID postId, PostStatus status, int attempts);
+
+    void release(UUID postId);
+
+    void reset(UUID postId);
+
+    /**
+     * 시즌 라운드에 속한 PENDING 글을 모두 EXPIRED로 바꾸고 바꾼 건수를 돌려준다. 시즌 확정 트랜잭션에서 쓴다.
+     */
+    int expirePendingBySeason(int season);
+
+    /**
+     * 시즌 단위 공유 잠금. 글을 PENDING으로 만드는 트랜잭션이 건다. 공유끼리는 서로 막지 않고,
+     * 시즌 확정이 쥔 배타 잠금과만 충돌한다. 트랜잭션이 끝나면 풀린다.
+     */
+    void lockSeasonShared(int season);
+
+    /**
+     * 시즌 단위 배타 잠금. 시즌 확정이 PENDING 만료부터 결과 저장까지 쥔다.
+     * 진행 중인 글 작성이 끝나길 기다리고, 이후 글 작성은 확정이 끝날 때까지 기다린다.
+     */
+    void lockSeasonExclusive(int season);
+}

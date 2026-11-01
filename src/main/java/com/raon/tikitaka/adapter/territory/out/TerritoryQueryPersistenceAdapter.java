@@ -1,11 +1,13 @@
 package com.raon.tikitaka.adapter.territory.out;
 
 import com.raon.tikitaka.application.territory.out.TerritoryQueryPort;
+import com.raon.tikitaka.domain.territory.Representative;
 import com.raon.tikitaka.domain.territory.Territory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.Optional;
 
 @Component
@@ -13,6 +15,7 @@ import java.util.Optional;
 public class TerritoryQueryPersistenceAdapter implements TerritoryQueryPort {
 
     private final TerritoryJpaRepository territoryJpaRepository;
+    private final RepresentativeJpaRepository representativeJpaRepository;
 
     @Override
     public List<Territory> findAllByCycleId(Long cycleId) {
@@ -47,5 +50,8 @@ public class TerritoryQueryPersistenceAdapter implements TerritoryQueryPort {
     @Override
     public Optional<Territory> findById(Long territoryId) {
         return territoryJpaRepository.findWithDetailsById(territoryId);
+    }
+    public List<Representative> findRepresentatives(Long cycleId, Long locationId, UUID viewerId) {
+        return representativeJpaRepository.findVisibleByCycle(cycleId, locationId, viewerId);
     }
 }

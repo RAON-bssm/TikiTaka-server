@@ -7,7 +7,6 @@ import com.raon.tikitaka.application.territory.out.RepresentativeCandidatePort.C
 import com.raon.tikitaka.application.territory.policy.AssignmentPolicy;
 import com.raon.tikitaka.application.territory.policy.AssignmentPolicy.Assignment;
 import com.raon.tikitaka.application.territory.policy.AssignmentPolicy.Candidate;
-import com.raon.tikitaka.application.territory.policy.LandPricePolicy;
 import com.raon.tikitaka.domain.enums.TerritoryEventType;
 import com.raon.tikitaka.domain.location.Location;
 import com.raon.tikitaka.domain.territory.*;
@@ -35,12 +34,12 @@ public class RepresentativeService implements SelectRepresentativesUseCase {
     private final RepresentativeCandidatePort candidatePort;
     private final TerritorySetupPort setupPort;
     private final AssignmentPolicy assignmentPolicy;
-    private final LandPricePolicy landPricePolicy;
     private final TerritoryProperties properties;
 
     /**
      * 5일차 05:40. 사이클 하나를 한 트랜잭션으로 처리한다: 중간에 실패하면 그 사이클은 통째로 롤백되고
      * representatives_selected가 false로 남아 다음 실행에서 다시 시도된다(멱등).
+     * 사이클끼리는 겹치지 않아서 선발을 기다리는 사이클은 한 번에 하나뿐이다.
      */
     @Override
     @Transactional
@@ -50,12 +49,31 @@ public class RepresentativeService implements SelectRepresentativesUseCase {
             if (now.isAfter(cycle.getPointStage().getEndedAt())) {
                 log.warn("대표 선발이 늦었습니다. 땅따먹기 라운드 시작 후 선발합니다. cycleId={}", cycle.getCycleId());
             }
+            warnPendingReviews(cycle);
             select(cycle, now);
         }
     }
 
+    /**
+     * 동결 전에 올라온 글 중 아직 심사 중인 글이 있으면 기다리지 않고 경고만 남긴다.
+     * 이 글들의 점수는 심사가 끝날 때 user_ranking에는 반영되지만 이미 뽑힌 대표 명단(Representative.score)은 바뀌지 않는다.
+     */
+    private void warnPendingReviews(TerritoryCycle cycle) {
+        long pending = candidatePort.countPendingReviews(cycle.getPointStage().getStageId(), cycle.getRankingFreezeAt());
+        if (pending > 0) {
+            log.warn("동결 전에 올라온 글 {}건이 아직 심사 중입니다. 기다리지 않고 대표를 선발합니다. cycleId={}",
+                    pending, cycle.getCycleId());
+        }
+    }
+
+    /**
+     * 구마다 동 수만큼 주인 없는 땅을 열고, 개인 랭킹 상위 (동 수)명을 대표로 배치한다.
+     * 동 데이터가 없는 구는 건너뛰고, 후보가 없거나 모자라면 남는 땅은 주인 없이 시작한다.
+     * 후보 점수는 동결 시점의 랭킹이라 동결 이후 글은 반영되지 않는다.
+     */
     private void select(TerritoryCycle cycle, LocalDateTime now) {
         int unownedMin = properties.defense().unownedMinScore();
+        int initialPrice = properties.landPrice().base();
         int representativeCount = 0;
 
         for (Location location : locationRepositoryPort.findAll()) {
@@ -67,7 +85,7 @@ public class RepresentativeService implements SelectRepresentativesUseCase {
             // 1) 동마다 주인 없는 땅을 연다. 대표가 모자라면 남는 동은 이대로 시작한다
             Map<Long, Territory> territoryByDong = new HashMap<>();
             for (Dong dong : dongs) {
-                territoryByDong.put(dong.getDongId(), Territory.open(cycle, dong, landPricePolicy.initialPrice(), unownedMin));
+                territoryByDong.put(dong.getDongId(), Territory.open(cycle, dong, initialPrice, unownedMin));
             }
 
             // 2) 이 구의 개인 랭킹 상위 (동 수)명

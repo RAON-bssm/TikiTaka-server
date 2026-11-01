@@ -51,6 +51,10 @@ public class TerritoryCycle {
     @ColumnDefault("false")
     private boolean resultFinalized;
 
+    /**
+     * 포인트 라운드와 바로 이어지는 땅따먹기 라운드를 묶고, 랭킹 동결 시각을 포인트 라운드 시작 + rankingDays로 정한다.
+     * 두 라운드가 이어지지 않거나 동결 시각이 포인트 라운드 종료를 넘으면 IllegalArgumentException이다.
+     */
     public static TerritoryCycle create(Stage pointStage, Stage battleStage, int rankingDays) {
         if (!pointStage.getEndedAt().equals(battleStage.getStartedAt())) {
             throw new IllegalArgumentException("포인트 라운드와 땅따먹기 라운드가 이어지지 않습니다.");

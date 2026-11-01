@@ -6,6 +6,7 @@ import com.raon.tikitaka.application.territory.out.TerritoryQueryPort;
 import com.raon.tikitaka.application.territory.policy.DevelopmentPolicy;
 import com.raon.tikitaka.application.territory.policy.TollPolicy;
 import com.raon.tikitaka.application.territory.view.CurrentCycleView;
+import com.raon.tikitaka.application.territory.view.RepresentativesView;
 import com.raon.tikitaka.application.territory.view.TerritoryDetailView;
 import com.raon.tikitaka.application.territory.view.TerritoryDongsView;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
@@ -96,6 +97,26 @@ public class TerritoryQueryService implements QueryTerritoryUseCase {
     /** 땅따먹기 라운드이고, 내 땅도 우리 팀 땅도 아니면 도전할 수 있다 */
     private boolean challengeable(Territory t, RoundType round, UUID userId, Long myLocationId) {
         return round == RoundType.BATTLE && t.isChallengeableBy(userId, myLocationId);
+    }
+    public RepresentativesView getRepresentatives(UUID userId, Long cycleId, Long locationId) {
+        TerritoryCycle cycle = cycleId == null
+                ? cycleRepositoryPort.findCurrent(LocalDateTime.now()).orElse(null)
+                : cycleRepositoryPort.findById(cycleId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사이클을 찾을 수 없어요."));
+        if (cycle == null) {
+            return new RepresentativesView(null, false, List.of());
+        }
+        if (!cycle.isRepresentativesSelected()) {
+            return new RepresentativesView(cycle.getCycleId(), false, List.of());
+        }
+        List<RepresentativesView.Item> items = territoryQueryPort
+                .findRepresentatives(cycle.getCycleId(), locationId, userId).stream()
+                .map(r -> new RepresentativesView.Item(r.getRank(), r.getUser().getUserId(), r.getUser().getUserName(),
+                        r.getScore(), r.getLocation().getLocationId(), r.getAssignedDong().getDongId(),
+                        r.getAssignedDong().getDongCode(), r.getAssignedDong().getDongName(), r.getAssignedBy(),
+                        r.getUser().getUserId().equals(userId)))
+                .toList();
+        return new RepresentativesView(cycle.getCycleId(), true, items);
     }
 
     private Long myLocationId(UUID userId) {

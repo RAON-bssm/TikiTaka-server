@@ -1,6 +1,7 @@
 package com.raon.tikitaka.adapter.post;
 
 import com.raon.tikitaka.application.board.in.GetBoardUseCase;
+import com.raon.tikitaka.application.post.in.CheckPostUploadLimitUseCase;
 import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
 import com.raon.tikitaka.application.post.in.GetPostDetailUseCase;
@@ -10,6 +11,7 @@ import com.raon.tikitaka.application.post.in.UnlikePostUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
 import com.raon.tikitaka.application.review.in.ReviewUseCase;
 import com.raon.tikitaka.application.storage.in.StorageUseCase;
+import com.raon.tikitaka.global.config.PostReviewProperties;
 import com.raon.tikitaka.global.guard.RequestGuard;
 import com.raon.tikitaka.global.response.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -52,7 +55,12 @@ class PostControllerGuardTest {
         controller = new PostController(mock(GetPostListUseCase.class), mock(GetPostDetailUseCase.class),
                 mock(CreatePostUseCase.class), mock(UpdatePostUseCase.class), deletePostUseCase,
                 likePostUseCase, unlikePostUseCase, mock(StorageUseCase.class), mock(ReviewUseCase.class),
-                mock(GetBoardUseCase.class), new RequestGuard());
+                mock(GetBoardUseCase.class), new RequestGuard(), syncProperties(),
+                mock(CheckPostUploadLimitUseCase.class));
+    }
+
+    private static PostReviewProperties syncProperties() {
+        return new PostReviewProperties(false, 1, 4, 5, Duration.ofMinutes(1), Duration.ofMinutes(5));
     }
 
     @Test

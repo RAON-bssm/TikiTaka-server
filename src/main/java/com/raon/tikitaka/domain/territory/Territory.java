@@ -117,6 +117,7 @@ public class Territory {
         return owner != null;
     }
 
+    /** 주인 없는 땅은 누구의 땅도 아니므로 false다 */
     public boolean isOwnedBy(UUID userId) {
         return owner != null && Objects.equals(owner.getUserId(), userId);
     }
