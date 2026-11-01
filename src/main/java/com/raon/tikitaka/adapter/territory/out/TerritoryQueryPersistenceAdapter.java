@@ -23,6 +23,11 @@ public class TerritoryQueryPersistenceAdapter implements TerritoryQueryPort {
     }
 
     @Override
+    public List<Territory> findAllOwnedBy(Long cycleId, java.util.UUID userId) {
+        return territoryJpaRepository.findAllOwnedBy(cycleId, userId);
+    }
+
+    @Override
     public List<Territory> findAllByCycleIdAndLocationId(Long cycleId, Long locationId) {
         return territoryJpaRepository.findAllByCycleIdAndLocationId(cycleId, locationId);
     }

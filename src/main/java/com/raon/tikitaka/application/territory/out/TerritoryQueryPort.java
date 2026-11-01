@@ -14,6 +14,9 @@ public interface TerritoryQueryPort {
 
     List<Territory> findAllByCycleIdAndLocationId(Long cycleId, Long locationId);
 
+    /** 사이클에서 그 유저가 가진 땅(동 코드 순) */
+    List<Territory> findAllOwnedBy(Long cycleId, java.util.UUID userId);
+
     Optional<Territory> findById(Long territoryId);
 
     Optional<Territory> findByCycleIdAndDongCode(Long cycleId, Long dongCode);
