@@ -22,6 +22,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GeminiMissionAdapter implements MissionGeneratorPort {
 
+    static final int MAX_MISSION_LENGTH = 25;
+
     private final ObjectMapper objectMapper;
     private final WebClient webClient = WebClient.builder()
             .baseUrl("https://generativelanguage.googleapis.com")
@@ -35,13 +37,13 @@ public class GeminiMissionAdapter implements MissionGeneratorPort {
 
     @Override
     public String generate(String adjective, String noun) {
-        String fallback = String.format("이번 주 미션: 우리 동네에서 '%s %s'을(를) 찾아 사진에 담아보세요!", adjective, noun);
+        String fallback = fallbackMission(adjective, noun);
 
         try {
             String prompt = String.format(
-                    "'%s'와(과) '%s'을(를) 조합해서, 동네 주민들이 일주일 동안 수행할 사진 찍기 미션을 "
-                            + "한국어 한 문장으로 만들어줘. 재미있고 친근한 말투로, 설명이나 따옴표 없이 미션 문장만 출력해.",
-                    adjective, noun);
+                    "'%s %s'을(를) 주제로, 동네 주민들이 일주일 동안 수행할 사진 찍기 미션을 한국어 한 문장으로 만들어줘. "
+                            + "귀엽고 짧게, 공백 포함 %d자 이내로, 설명이나 따옴표 없이 미션 문장만 출력해.",
+                    adjective, noun, MAX_MISSION_LENGTH);
 
             Map<String, Object> requestBody = Map.of(
                     "contents", List.of(
@@ -63,7 +65,7 @@ public class GeminiMissionAdapter implements MissionGeneratorPort {
                     .path("content").path("parts").get(0)
                     .path("text").asString().trim();
 
-            if (mission.isBlank() || mission.length() > 200) {
+            if (!isValidMission(mission)) {
                 log.warn("Gemini 미션 응답이 비정상이라 템플릿으로 대체합니다: '{}'", mission);
                 return fallback;
             }
@@ -74,5 +76,13 @@ public class GeminiMissionAdapter implements MissionGeneratorPort {
             log.warn("Gemini 미션 생성 실패. 템플릿으로 대체합니다 ({} {}): {}", adjective, noun, e.getMessage());
             return fallback;
         }
+    }
+
+    static boolean isValidMission(String mission) {
+        return mission != null && !mission.isBlank() && mission.length() <= MAX_MISSION_LENGTH * 2;
+    }
+
+    static String fallbackMission(String adjective, String noun) {
+        return String.format("'%s %s' 찾아서 찍기!", adjective, noun);
     }
 }
