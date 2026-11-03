@@ -4,10 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Gemini 미션 응답의 길이 검증과 대체 문장 생성을 확인한다.
- * WebClient 호출 자체는 대상이 아니고, 응답을 받은 뒤의 판단만 단위로 검증한다.
- */
 class GeminiMissionAdapterTest {
 
     @Test

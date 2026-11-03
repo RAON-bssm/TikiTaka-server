@@ -22,7 +22,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GeminiMissionAdapter implements MissionGeneratorPort {
 
-    /** 프롬프트로 요청하는 미션 문장의 최대 길이(공백 포함). 검증은 이 값의 두 배까지 여유를 둔다. */
     static final int MAX_MISSION_LENGTH = 25;
 
     private final ObjectMapper objectMapper;
@@ -42,13 +41,8 @@ public class GeminiMissionAdapter implements MissionGeneratorPort {
 
         try {
             String prompt = String.format(
-                    "'%s'와(과) '%s'을(를) 조합해서, 동네 주민들이 일주일 동안 수행할 사진 찍기 미션을 만들어줘. "
-                            + "말투는 세상에서 가장 귀여운 돌멩이처럼 작고 앙증맞게 해줘. "
-                            + "돌멩이는 말투를 비유한 것일 뿐이니, 키워드가 아니라면 문장에 넣지 마. "
-                            + "한국어 한 문장, 공백 포함 %d자 이내로 아주 짧게 써줘. "
-                            + "말투 예시: 몽글몽글 작은 동그라미 찾아 찍기! "
-                            + "예시는 말투만 참고하고, 예시에 나온 단어는 쓰지 마. 입력된 두 키워드만 사용해. "
-                            + "이모지, 설명, 따옴표 없이 미션 문장만 출력해.",
+                    "'%s %s'을(를) 주제로, 동네 주민들이 일주일 동안 수행할 사진 찍기 미션을 한국어 한 문장으로 만들어줘. "
+                            + "귀엽고 짧게, 공백 포함 %d자 이내로, 설명이나 따옴표 없이 미션 문장만 출력해.",
                     adjective, noun, MAX_MISSION_LENGTH);
 
             Map<String, Object> requestBody = Map.of(
@@ -84,16 +78,10 @@ public class GeminiMissionAdapter implements MissionGeneratorPort {
         }
     }
 
-    /**
-     * Gemini 응답을 미션 문장으로 쓸 수 있는지 판단한다.
-     * 비어 있거나 {@link #MAX_MISSION_LENGTH}의 두 배를 넘으면 쓸 수 없다고 본다.
-     * 모델이 요청 길이를 조금 넘기는 정도는 허용하기 위한 여유다.
-     */
     static boolean isValidMission(String mission) {
         return mission != null && !mission.isBlank() && mission.length() <= MAX_MISSION_LENGTH * 2;
     }
 
-    /** Gemini 호출이 실패했을 때 쓰는 짧은 템플릿 미션 문장을 만든다. */
     static String fallbackMission(String adjective, String noun) {
         return String.format("'%s %s' 찾아서 찍기!", adjective, noun);
     }
