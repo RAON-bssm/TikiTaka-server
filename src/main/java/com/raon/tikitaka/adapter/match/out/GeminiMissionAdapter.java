@@ -4,6 +4,7 @@ import com.raon.tikitaka.application.match.out.MissionGeneratorPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import tools.jackson.databind.JsonNode;
@@ -16,9 +17,11 @@ import java.util.Map;
 /**
  * 키워드 조합을 Gemini로 자연스러운 미션 문장으로 다듬는다.
  * 타임아웃이나 응답 이상으로 실패하면 템플릿 문장을 대신 반환하고 예외는 던지지 않는다.
+ * mission.generator=gemini 일 때만 등록된다. 기본값은 KeywordMissionAdapter다.
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "mission", name = "generator", havingValue = "gemini")
 @RequiredArgsConstructor
 public class GeminiMissionAdapter implements MissionGeneratorPort {
 
