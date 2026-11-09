@@ -22,6 +22,11 @@ public class EquipmentPersistenceAdapter implements EquipmentRepositoryPort {
     }
 
     @Override
+    public List<Equipment> findAllByUserIds(Collection<UUID> userIds) {
+        return equipmentJpaRepository.findAllByUserIdsWithProduct(userIds);
+    }
+
+    @Override
     public void deleteAllByUserIdAndProductTypes(UUID userId, Collection<ProductType> productTypes) {
         equipmentJpaRepository.deleteAllByUser_UserIdAndProduct_ProductTypeIn(userId, productTypes);
     }

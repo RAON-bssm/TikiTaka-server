@@ -20,6 +20,16 @@ public interface EquipmentJpaRepository extends JpaRepository<Equipment, Long> {
             """)
     List<Equipment> findAllByUserIdWithProduct(UUID userId);
 
+    /**
+     * 여러 유저의 착용 상품을 한 번에 읽는다. 글 목록·랭킹처럼 작성자가 여럿인 응답에서 유저마다 따로 조회하지 않기 위해서다.
+     */
+    @Query("""
+            select e from Equipment e
+            join fetch e.product
+            where e.user.userId in :userIds
+            """)
+    List<Equipment> findAllByUserIdsWithProduct(@Param("userIds") Collection<UUID> userIds);
+
     @Modifying
     @Query("""
             delete from Equipment e

@@ -22,6 +22,11 @@ public class EquippedColorPersistenceAdapter implements EquippedColorRepositoryP
     }
 
     @Override
+    public List<EquippedColor> findAllByUserIds(Collection<UUID> userIds) {
+        return equippedColorJpaRepository.findAllByUserIdsWithColor(userIds);
+    }
+
+    @Override
     public void deleteAllByUserIdAndColorGroups(UUID userId, Collection<ColorGroup> colorGroups) {
         equippedColorJpaRepository.deleteAllByUser_UserIdAndColorGroupIn(userId, colorGroups);
     }
