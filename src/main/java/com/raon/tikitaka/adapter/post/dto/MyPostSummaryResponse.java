@@ -16,6 +16,7 @@ import java.util.UUID;
 public record MyPostSummaryResponse(
         UUID postId,
         String postImage,
+        String postImageUrl,
         Integer score,
         String status,
         LocalDateTime createdAt,
@@ -40,6 +41,7 @@ public record MyPostSummaryResponse(
         return new MyPostSummaryResponse(
                 post.getPostId(),
                 post.getPostImage(),
+                summary.postImageUrl(),
                 post.getScore(),
                 post.getStatus().name(),
                 post.getCreatedAt(),

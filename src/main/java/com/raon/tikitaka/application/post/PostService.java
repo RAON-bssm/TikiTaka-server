@@ -14,6 +14,7 @@ import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
+import com.raon.tikitaka.application.storage.in.StorageUseCase;
 import com.raon.tikitaka.application.territory.in.CheckRankingFrozenUseCase;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.enums.UserStatus;
@@ -25,6 +26,7 @@ import com.raon.tikitaka.domain.post.PostLike;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.RankingProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -55,6 +58,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private final BlockRepositoryPort blockRepositoryPort;
     private final PostReviewQueuePort postReviewQueuePort;
     private final CheckRankingFrozenUseCase checkRankingFrozenUseCase;
+    private final StorageUseCase storageUseCase;
 
     /**
      * 로그인 상태면 내가 차단한 유저의 글을 뺀다. 조회할 때마다 DB 조건으로 거르므로 차단 직후 다음 조회부터 반영된다.
@@ -72,7 +76,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         List<PostSummary> summaries = new ArrayList<>();
         for (Post post : posts) {
             summaries.add(new PostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0),
-                    likedPostIds.contains(post.getPostId())));
+                    likedPostIds.contains(post.getPostId()), resolveImageUrl(post)));
         }
         return summaries;
     }
@@ -94,7 +98,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         int likeCount = countLikes(List.of(postId)).getOrDefault(postId, 0);
         boolean likedByMe = userId != null
                 && postLikeRepositoryPort.existsByPostAndUser(post, postRepositoryPort.getUser(userId));
-        return new PostDetail(post, likeCount, likedByMe);
+        return new PostDetail(post, likeCount, likedByMe, resolveImageUrl(post));
     }
 
     @Override
@@ -167,11 +171,32 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         List<MyPostSummary> summaries = new ArrayList<>();
         for (Post post : posts) {
             summaries.add(new MyPostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0),
-                    likedPostIds.contains(post.getPostId())));
+                    likedPostIds.contains(post.getPostId()), resolveImageUrl(post)));
         }
         return summaries;
     }
 
+    /**
+     * 응답에 바로 쓸 이미지 조회 URL. 앱이 카드마다 view-url을 따로 부르지 않도록 목록·상세에서 함께 내려준다.
+     * 유효 시간은 GET /api/storage/view-url과 같은 값(StorageService)을 쓴다.
+     * post_image가 비어 있으면 null이라 응답에서 필드가 빠지고, 이미 절대 URL이면 서명하지 않고 그대로 쓴다.
+     * 한 글의 발급이 실패해도 목록 전체를 실패시키지 않도록 그 글만 null로 두고 넘어간다.
+     */
+    private String resolveImageUrl(Post post) {
+        String key = post.getPostImage();
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        if (key.startsWith("http://") || key.startsWith("https://")) {
+            return key;
+        }
+        try {
+            return storageUseCase.issueViewUrl(key).toString();
+        } catch (RuntimeException e) {
+            log.warn("게시물 이미지 조회 URL 발급 실패: postId={}, key={}, error={}", post.getPostId(), key, e.toString());
+            return null;
+        }
+    }
 
 
     private Map<UUID, Integer> countLikes(List<UUID> postIds) {
