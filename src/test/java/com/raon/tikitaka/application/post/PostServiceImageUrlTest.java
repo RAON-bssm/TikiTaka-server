@@ -1,6 +1,7 @@
 package com.raon.tikitaka.application.post;
 
 import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
@@ -69,7 +70,8 @@ class PostServiceImageUrlTest {
     void setUp() {
         // 조회 경로는 점수 설정을 쓰지 않는다
         postService = new PostService(postRepositoryPort, postLikeRepositoryPort, mock(RankingRepositoryPort.class),
-                null, blockRepositoryPort, null, mock(CheckRankingFrozenUseCase.class), storageUseCase);
+                null, blockRepositoryPort, null, mock(CheckRankingFrozenUseCase.class), storageUseCase,
+                mock(GetEquippedItemsUseCase.class));
     }
 
     // ===== 목록 =====

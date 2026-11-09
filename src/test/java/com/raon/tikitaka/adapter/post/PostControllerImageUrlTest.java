@@ -3,6 +3,7 @@ package com.raon.tikitaka.adapter.post;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.raon.tikitaka.adapter.user.UserInfoController;
 import com.raon.tikitaka.application.board.in.GetBoardUseCase;
+import com.raon.tikitaka.application.equipment.EquippedItems;
 import com.raon.tikitaka.application.post.MyPostSummary;
 import com.raon.tikitaka.application.post.PostDetail;
 import com.raon.tikitaka.application.post.PostSummary;
@@ -84,8 +85,8 @@ class PostControllerImageUrlTest {
         Post post = post(PostStatus.DONE, KEY);
         Post noImage = post(PostStatus.DONE, null);
         when(getPostListUseCase.getPosts(3L, null)).thenReturn(List.of(
-                new PostSummary(post, 2, false, URL),
-                new PostSummary(noImage, 0, false, null)));
+                new PostSummary(post, 2, false, URL, EquippedItems.empty()),
+                new PostSummary(noImage, 0, false, null, EquippedItems.empty())));
 
         JsonNode posts = json(postController.getPosts(null, 3L)).get("data").get("post");
 

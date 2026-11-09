@@ -1,6 +1,8 @@
 package com.raon.tikitaka.application.post;
 
 import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
+import com.raon.tikitaka.application.equipment.EquippedItems;
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.post.in.CompletePostReviewUseCase;
 import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
@@ -59,10 +61,12 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private final PostReviewQueuePort postReviewQueuePort;
     private final CheckRankingFrozenUseCase checkRankingFrozenUseCase;
     private final StorageUseCase storageUseCase;
+    private final GetEquippedItemsUseCase getEquippedItemsUseCase;
 
     /**
      * 로그인 상태면 내가 차단한 유저의 글을 뺀다. 조회할 때마다 DB 조건으로 거르므로 차단 직후 다음 조회부터 반영된다.
      * 차단은 한 방향이라 차단당한 쪽의 목록은 그대로다.
+     * 앱이 카드마다 작성자 장비를 따로 부르지 않도록 작성자들의 착용 정보를 한 번에 읽어 같이 담는다.
      */
     @Override
     public List<PostSummary> getPosts(Long boardId, UUID userId) {
@@ -72,11 +76,17 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         List<UUID> postIds = posts.stream().map(Post::getPostId).toList();
         Map<UUID, Integer> likeCounts = countLikes(postIds);
         Set<UUID> likedPostIds = findLikedPostIds(postIds, userId);
+        Set<UUID> authorIds = new HashSet<>();
+        for (Post post : posts) {
+            authorIds.add(post.getUserId().getUserId());
+        }
+        Map<UUID, EquippedItems> equipments = getEquippedItemsUseCase.getEquippedItemsByUserIds(authorIds);
 
         List<PostSummary> summaries = new ArrayList<>();
         for (Post post : posts) {
+            EquippedItems authorEquipment = equipments.getOrDefault(post.getUserId().getUserId(), EquippedItems.empty());
             summaries.add(new PostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0),
-                    likedPostIds.contains(post.getPostId()), resolveImageUrl(post)));
+                    likedPostIds.contains(post.getPostId()), resolveImageUrl(post), authorEquipment));
         }
         return summaries;
     }

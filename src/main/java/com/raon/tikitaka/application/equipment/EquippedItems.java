@@ -12,4 +12,11 @@ import java.util.Map;
  * 색상이 없는 그룹은 colors 맵에 키 자체가 없다.
  */
 public record EquippedItems(List<Product> products, Map<ColorGroup, Color> colors) {
+
+    /**
+     * 아무것도 착용하지 않은 상태(기본 캐릭터).
+     */
+    public static EquippedItems empty() {
+        return new EquippedItems(List.of(), Map.of());
+    }
 }

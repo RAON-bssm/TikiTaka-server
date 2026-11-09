@@ -1,5 +1,6 @@
 package com.raon.tikitaka.application.ranking;
 
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
 import com.raon.tikitaka.application.match.out.StageRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
@@ -32,7 +33,7 @@ class RankingServiceFinalizeTest {
     private final PostReviewQueuePort postReviewQueuePort = mock(PostReviewQueuePort.class);
     private final RankingService rankingService = new RankingService(stageRepositoryPort, rankingRepositoryPort,
             seasonResultRepositoryPort, mock(LocationRepositoryPort.class), new SeasonProperties(7, 4, 30, 1),
-            postReviewQueuePort);
+            postReviewQueuePort, mock(GetEquippedItemsUseCase.class));
 
     @Test
     void 순위를_계산하기_전에_그_시즌의_PENDING_글을_EXPIRED로_바꾼다() {

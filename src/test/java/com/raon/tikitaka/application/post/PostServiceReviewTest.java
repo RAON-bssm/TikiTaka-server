@@ -1,6 +1,7 @@
 package com.raon.tikitaka.application.post;
 
 import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
@@ -60,7 +61,7 @@ class PostServiceReviewTest {
     void setUp() {
         postService = new PostService(postRepositoryPort, mock(PostLikeRepositoryPort.class), rankingRepositoryPort,
                 rankingProperties, mock(BlockRepositoryPort.class), queuePort, mock(CheckRankingFrozenUseCase.class),
-                mock(StorageUseCase.class));
+                mock(StorageUseCase.class), mock(GetEquippedItemsUseCase.class));
 
         home = mock(Location.class);
         lenient().when(home.getLocationId()).thenReturn(HOME_ID);

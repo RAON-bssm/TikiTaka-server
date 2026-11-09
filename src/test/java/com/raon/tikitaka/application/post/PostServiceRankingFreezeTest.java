@@ -1,6 +1,7 @@
 package com.raon.tikitaka.application.post;
 
 import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.match.out.StageRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
@@ -56,7 +57,7 @@ class PostServiceRankingFreezeTest {
             rankingRepositoryPort, new RankingProperties(67.76, 5, 7, 20), mock(BlockRepositoryPort.class),
             mock(PostReviewQueuePort.class),
             new TerritoryCycleService(mock(StageRepositoryPort.class), cycleRepositoryPort, TERRITORY),
-            mock(StorageUseCase.class));
+            mock(StorageUseCase.class), mock(GetEquippedItemsUseCase.class));
 
     private final UUID postId = UUID.randomUUID();
     private final UUID authorId = UUID.randomUUID();

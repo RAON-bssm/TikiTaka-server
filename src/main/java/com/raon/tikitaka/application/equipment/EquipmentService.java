@@ -22,8 +22,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -51,6 +57,40 @@ public class EquipmentService implements EquipItemUseCase, GetEquippedItemsUseCa
                 .collect(Collectors.toMap(EquippedColor::getColorGroup, EquippedColor::getColor));
 
         return new EquippedItems(products, colors);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, EquippedItems> getEquippedItemsByUserIds(Collection<UUID> userIds) {
+        Set<UUID> ids = new LinkedHashSet<>();
+        for (UUID userId : userIds) {
+            if (userId != null) {
+                ids.add(userId);
+            }
+        }
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+
+        // Equipment.user는 LAZY지만 프록시의 id 접근은 초기화하지 않으므로 유저 조회 쿼리가 따로 나가지 않는다
+        Map<UUID, List<Product>> productsByUser = new HashMap<>();
+        for (Equipment equipment : equipmentRepositoryPort.findAllByUserIds(ids)) {
+            productsByUser.computeIfAbsent(equipment.getUser().getUserId(), id -> new ArrayList<>())
+                    .add(equipment.getProduct());
+        }
+
+        Map<UUID, Map<ColorGroup, Color>> colorsByUser = new HashMap<>();
+        for (EquippedColor equippedColor : equippedColorRepositoryPort.findAllByUserIds(ids)) {
+            colorsByUser.computeIfAbsent(equippedColor.getUser().getUserId(), id -> new EnumMap<>(ColorGroup.class))
+                    .put(equippedColor.getColorGroup(), equippedColor.getColor());
+        }
+
+        Map<UUID, EquippedItems> result = new HashMap<>();
+        for (UUID id : ids) {
+            result.put(id, new EquippedItems(productsByUser.getOrDefault(id, List.of()),
+                    colorsByUser.getOrDefault(id, Map.of())));
+        }
+        return result;
     }
 
     @Override

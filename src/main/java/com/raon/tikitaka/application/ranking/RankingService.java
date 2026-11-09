@@ -1,5 +1,7 @@
 package com.raon.tikitaka.application.ranking;
 
+import com.raon.tikitaka.application.equipment.EquippedItems;
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.location.out.LocationRepositoryPort;
 import com.raon.tikitaka.application.match.out.StageRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
@@ -21,9 +23,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -45,6 +49,7 @@ public class RankingService implements FinalizeSeasonUseCase, GetLocationRanking
     private final LocationRepositoryPort locationRepositoryPort;
     private final SeasonProperties seasonProperties;
     private final PostReviewQueuePort postReviewQueuePort;
+    private final GetEquippedItemsUseCase getEquippedItemsUseCase;
 
     /**
      * 라운드가 roundsPerSeason 개수만큼 존재하고 마지막 라운드까지 전부 종료됐으며
@@ -137,6 +142,7 @@ public class RankingService implements FinalizeSeasonUseCase, GetLocationRanking
     /**
      * 목록에서는 내가 차단한 유저를 빼되 남은 유저의 등수는 전체 기준 그대로 둔다.
      * /api/users/rank는 인증이 필요해 userId가 사실상 항상 있지만, 없으면 필터 없이 조회한다.
+     * 앱이 행마다 장비를 따로 부르지 않도록 상위 목록과 본인 순위의 유저들 착용 정보를 한 번에 읽어 같이 담는다.
      */
     @Override
     public UserRankingResult getUserRanking(UUID userId) {
@@ -151,7 +157,16 @@ public class RankingService implements FinalizeSeasonUseCase, GetLocationRanking
         if (mine.isPresent()) {
             myRanking = mine.get();
         }
-        return new UserRankingResult(ranking, myRanking);
+
+        Set<UUID> userIds = new HashSet<>();
+        for (UserRankRow row : ranking) {
+            userIds.add(row.getUserId());
+        }
+        if (myRanking != null) {
+            userIds.add(myRanking.getUserId());
+        }
+        Map<UUID, EquippedItems> equipments = getEquippedItemsUseCase.getEquippedItemsByUserIds(userIds);
+        return new UserRankingResult(ranking, myRanking, equipments);
     }
 
     private Stage currentStage() {
