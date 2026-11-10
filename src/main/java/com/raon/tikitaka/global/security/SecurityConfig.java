@@ -59,7 +59,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/board", "/api/post/**").permitAll()
                         // 게시물의 postImage는 URL이 아니라 S3 key라서, 비로그인 조회를 허용하려면
                         // 서명 URL 발급도 같이 열려야 한다. upload-url(쓰기 권한 발급)은 계속 인증이 필요하다
-                        .requestMatchers(HttpMethod.GET, "/api/storage/view-url").permitAll()
+                        // view-urls는 같은 발급을 여러 key로 한 번에 하는 것이라 같은 이유로 연다
+                        .requestMatchers(HttpMethod.GET, "/api/storage/view-url", "/api/storage/view-urls").permitAll()
                         // 관리자 API는 JWT의 role이 ADMIN인 유저만. 필터가 ROLE_ADMIN 권한을 심어준다
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
