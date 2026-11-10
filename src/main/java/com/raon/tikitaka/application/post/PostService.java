@@ -63,6 +63,9 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private final StorageUseCase storageUseCase;
     private final GetEquippedItemsUseCase getEquippedItemsUseCase;
 
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int MAX_PAGE_SIZE = 50;
+
     /**
      * 로그인 상태면 내가 차단한 유저의 글을 뺀다. 조회할 때마다 DB 조건으로 거르므로 차단 직후 다음 조회부터 반영된다.
      * 차단은 한 방향이라 차단당한 쪽의 목록은 그대로다.
@@ -73,6 +76,37 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         List<Post> posts = userId == null
                 ? postRepositoryPort.findAllActiveByBoardId(boardId)
                 : postRepositoryPort.findAllActiveByBoardIdExcludingBlockedBy(boardId, userId);
+        return toSummaries(posts, userId);
+    }
+
+    /**
+     * 다음 페이지가 있는지는 size + 1개를 읽어 판단한다(count 쿼리 없음). 여분 한 건은 응답과 뒤따르는 조회
+     * (좋아요, 이미지 URL, 착용 정보)에서 모두 빼고, nextCursor는 이 페이지 마지막 글 기준이다.
+     * 차단·탈퇴·심사 상태 필터는 쿼리 안에서 하므로 마지막 페이지가 아니면 항상 size개가 채워진다.
+     */
+    @Override
+    public PostPage getPostPage(Long boardId, UUID userId, Integer size, String cursor) {
+        int pageSize = size != null ? size : DEFAULT_PAGE_SIZE;
+        if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "size는 1 이상 " + MAX_PAGE_SIZE + " 이하여야 합니다.");
+        }
+        PostCursor after = cursor == null || cursor.isBlank() ? null : PostCursor.decode(cursor);
+
+        List<Post> fetched = userId == null
+                ? postRepositoryPort.findActivePageByBoardId(boardId, after, pageSize + 1)
+                : postRepositoryPort.findActivePageByBoardIdExcludingBlockedBy(boardId, userId, after, pageSize + 1);
+        boolean hasNext = fetched.size() > pageSize;
+        List<Post> posts = hasNext ? fetched.subList(0, pageSize) : fetched;
+        String nextCursor = hasNext ? PostCursor.of(posts.get(posts.size() - 1)).encode() : null;
+        return new PostPage(toSummaries(posts, userId), nextCursor);
+    }
+
+    /**
+     * 목록 한 건마다 붙는 좋아요 수, 내 좋아요, 이미지 URL, 작성자 착용 정보를 채운다.
+     * 좋아요와 착용 정보는 넘겨받은 글 전체를 한 번에 조회하므로 글 수와 상관없이 쿼리 수가 같다.
+     */
+    private List<PostSummary> toSummaries(List<Post> posts, UUID userId) {
         List<UUID> postIds = posts.stream().map(Post::getPostId).toList();
         Map<UUID, Integer> likeCounts = countLikes(postIds);
         Set<UUID> likedPostIds = findLikedPostIds(postIds, userId);

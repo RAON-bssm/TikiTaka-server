@@ -88,7 +88,7 @@ class PostControllerImageUrlTest {
                 new PostSummary(post, 2, false, URL, EquippedItems.empty()),
                 new PostSummary(noImage, 0, false, null, EquippedItems.empty())));
 
-        JsonNode posts = json(postController.getPosts(null, 3L)).get("data").get("post");
+        JsonNode posts = json(postController.getPosts(null, 3L, null, null)).get("data").get("post");
 
         assertThat(posts.get(0).get("post_image").asString()).isEqualTo(KEY);
         assertThat(posts.get(0).get("post_image_url").asString()).isEqualTo(URL);

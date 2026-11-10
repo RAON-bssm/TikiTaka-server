@@ -98,7 +98,7 @@ class PostControllerEquipmentTest {
                 new PostSummary(dressedPost, 0, false, null, dressed),
                 new PostSummary(plainPost, 0, false, null, EquippedItems.empty())));
 
-        JsonNode posts = json(postController.getPosts(null, 3L)).get("data").get("post");
+        JsonNode posts = json(postController.getPosts(null, 3L, null, null)).get("data").get("post");
         JsonNode single = json(equipmentController.getEquippedItemsOf(dressedId)).get("data");
 
         JsonNode equipment = posts.get(0).get("user_equipment");
