@@ -17,7 +17,10 @@ import java.util.UUID;
         indexes = {
                 @Index(name = "idx_post_status_review_next_at", columnList = "status, review_next_at"),
                 // 사용자별 업로드 한도가 user_id로 거르고 created_at 최근 순으로 읽는다
-                @Index(name = "idx_post_user_created_at", columnList = "user_id, created_at")
+                @Index(name = "idx_post_user_created_at", columnList = "user_id, created_at"),
+                // 게시판 글 목록(전체·커서 페이지)이 board_id로 거르고 created_at desc, post_id desc로 읽는다.
+                // 오름차순 인덱스를 뒤에서부터 읽으므로(역방향 인덱스 스캔) 내림차순 정렬 단계가 없어진다
+                @Index(name = "idx_post_board_created_at", columnList = "board_id, created_at, post_id")
         })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
