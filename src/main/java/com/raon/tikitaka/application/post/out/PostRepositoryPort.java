@@ -1,5 +1,6 @@
 package com.raon.tikitaka.application.post.out;
 
+import com.raon.tikitaka.application.post.PostCursor;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.post.Post;
 import com.raon.tikitaka.domain.post.PostStatus;
@@ -19,6 +20,16 @@ public interface PostRepositoryPort {
      * 게시판의 게시물 중 viewerId가 차단한 유저의 글을 뺀 목록. viewerId는 null이면 안 된다.
      */
     List<Post> findAllActiveByBoardIdExcludingBlockedBy(Long boardId, UUID viewerId);
+
+    /**
+     * findAllActiveByBoardId와 같은 조건·순서로 after 커서보다 뒤의 글을 최대 limit개 읽는다. after가 null이면 첫 페이지다.
+     */
+    List<Post> findActivePageByBoardId(Long boardId, PostCursor after, int limit);
+
+    /**
+     * findActivePageByBoardId에서 viewerId가 차단한 유저의 글을 뺀 것. viewerId는 null이면 안 된다.
+     */
+    List<Post> findActivePageByBoardIdExcludingBlockedBy(Long boardId, UUID viewerId, PostCursor after, int limit);
 
     List<Post> findAllActiveByUserId(UUID userId);
 

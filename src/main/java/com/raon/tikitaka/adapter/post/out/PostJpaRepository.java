@@ -25,7 +25,7 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
             where p.board.boardId = :boardId and p.isActive = true
               and p.userId.status <> com.raon.tikitaka.domain.enums.UserStatus.WITHDRAWN
               and p.status = com.raon.tikitaka.domain.post.PostStatus.DONE
-            order by p.createdAt desc
+            order by p.createdAt desc, p.postId desc
             """)
     List<Post> findAllActiveByBoardId(@Param("boardId") Long boardId);
 
@@ -44,10 +44,54 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
               and not exists (select 1 from UserBlock b
                                where b.blocker.userId = :viewerId
                                  and b.blocked.userId = p.userId.userId)
-            order by p.createdAt desc
+            order by p.createdAt desc, p.postId desc
             """)
     List<Post> findAllActiveByBoardIdExcludingBlockedBy(@Param("boardId") Long boardId,
                                                         @Param("viewerId") UUID viewerId);
+
+    /**
+     * findAllActiveByBoardId의 페이지 버전(keyset). (createdAt, postId)가 커서보다 뒤인 글을 같은 순서로 limit개 읽는다.
+     * 정렬과 필터가 전체 목록과 같으므로 페이지를 이어 붙이면 전체 목록과 같은 순서가 된다.
+     * 커서 파라미터는 항상 값이 있어야 한다. null을 넘기면 위의 null UUID 타입 추론 오류가 날 수 있어
+     * 첫 페이지는 어댑터가 모든 글보다 뒤인 센티널 커서를 넘긴다.
+     */
+    @Query("""
+            select p from Post p
+            join fetch p.userId
+            join fetch p.teamLocation
+            where p.board.boardId = :boardId and p.isActive = true
+              and p.userId.status <> com.raon.tikitaka.domain.enums.UserStatus.WITHDRAWN
+              and p.status = com.raon.tikitaka.domain.post.PostStatus.DONE
+              and (p.createdAt < :cursorCreatedAt
+                   or (p.createdAt = :cursorCreatedAt and p.postId < :cursorPostId))
+            order by p.createdAt desc, p.postId desc
+            """)
+    List<Post> findActivePageByBoardId(@Param("boardId") Long boardId,
+                                       @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
+                                       @Param("cursorPostId") UUID cursorPostId, Limit limit);
+
+    /**
+     * findActivePageByBoardId에서 viewerId가 차단한 유저의 게시물을 뺀 것. 비로그인용과 나눈 이유는
+     * findAllActiveByBoardIdExcludingBlockedBy와 같다.
+     */
+    @Query("""
+            select p from Post p
+            join fetch p.userId
+            join fetch p.teamLocation
+            where p.board.boardId = :boardId and p.isActive = true
+              and p.userId.status <> com.raon.tikitaka.domain.enums.UserStatus.WITHDRAWN
+              and p.status = com.raon.tikitaka.domain.post.PostStatus.DONE
+              and not exists (select 1 from UserBlock b
+                               where b.blocker.userId = :viewerId
+                                 and b.blocked.userId = p.userId.userId)
+              and (p.createdAt < :cursorCreatedAt
+                   or (p.createdAt = :cursorCreatedAt and p.postId < :cursorPostId))
+            order by p.createdAt desc, p.postId desc
+            """)
+    List<Post> findActivePageByBoardIdExcludingBlockedBy(@Param("boardId") Long boardId,
+                                                         @Param("viewerId") UUID viewerId,
+                                                         @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
+                                                         @Param("cursorPostId") UUID cursorPostId, Limit limit);
 
     /**
      * 상세·수정·삭제·좋아요·신고가 함께 쓴다. 탈퇴한 작성자의 글은 데이터는 남기고 여기서 빈 결과가 되므로
