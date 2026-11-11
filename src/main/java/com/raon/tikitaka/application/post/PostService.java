@@ -237,7 +237,8 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         try {
             return storageUseCase.issueViewUrl(key).toString();
         } catch (RuntimeException e) {
-            log.warn("게시물 이미지 조회 URL 발급 실패: postId={}, key={}, error={}", post.getPostId(), key, e.toString());
+            // key는 "UUID-원본파일명"이라 사용자가 정한 파일명이 들어 있다. 로그에는 postId만 남기고 key는 DB에서 찾는다
+            log.warn("게시물 이미지 조회 URL 발급 실패: postId={}, error={}", post.getPostId(), e.getClass().getName());
             return null;
         }
     }
