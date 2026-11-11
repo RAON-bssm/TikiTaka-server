@@ -2,6 +2,9 @@ services:
   app:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DATABASE_NAME}
+      # 로컬은 SQL 로그를 켠다(운영 기본값은 docker-compose.yml의 false)
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-true}
+      JPA_FORMAT_SQL: ${JPA_FORMAT_SQL:-true}
     depends_on:
       db:
         condition: service_healthy

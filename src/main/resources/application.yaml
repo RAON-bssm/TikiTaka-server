@@ -10,11 +10,13 @@ spring:
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
-      
-    show-sql: true
+
+    # SQL 로그. 운영에서 모든 쿼리를 찍지 않도록 기본은 끈다.
+    # 로컬은 docker-compose.local.yml이 켜고, IDE 실행은 JPA_SHOW_SQL=true 또는 local 프로필로 켠다
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
-        format_sql: true
+        format_sql: ${JPA_FORMAT_SQL:false}
 
   jackson:
     property-naming-strategy: SNAKE_CASE

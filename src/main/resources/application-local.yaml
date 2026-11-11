@@ -1,0 +1,8 @@
+# 로컬 개발용 프로필. SPRING_PROFILES_ACTIVE=local 로 켠다.
+# SQL 로그를 기본으로 켜고, 환경 변수로 다시 끌 수 있다.
+spring:
+  jpa:
+    show-sql: ${JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        format_sql: ${JPA_FORMAT_SQL:true}
