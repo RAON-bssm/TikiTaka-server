@@ -54,6 +54,20 @@ server:
     enabled: ${SERVER_COMPRESSION_ENABLED:true}
     mime-types: application/json
     min-response-size: 1024
+  # 요청 수와 처리 시간 측정용 접근 로그. 기본은 끄고 ACCESS_LOG_ENABLED=true일 때만 표준 출력(docker logs)으로 찍는다.
+  # 형식: 시간 메서드 경로 상태코드 응답바이트 처리시간(ms)
+  # 쿼리 스트링(key, cursor 등)과 헤더(Authorization)는 찍지 않도록 %U(경로만)를 쓰고 %r, %q, %{...}i는 쓰지 않는다
+  # 처리 시간은 %{ms}T(ms)다. Tomcat 10 이후 %D는 마이크로초라 쓰지 않는다
+  tomcat:
+    accesslog:
+      enabled: ${ACCESS_LOG_ENABLED:false}
+      pattern: "%t %m %U %s %b %{ms}T"
+      directory: /dev
+      prefix: stdout
+      suffix: ""
+      file-date-format: ""
+      rotate: false
+      buffered: false
 
 cloud:
   aws:
