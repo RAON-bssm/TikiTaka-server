@@ -1,5 +1,8 @@
 package com.raon.tikitaka.application.post;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
 import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
@@ -19,6 +22,7 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -146,6 +150,30 @@ class PostServiceImageUrlTest {
         assertThat(result.get(0).post()).isSameAs(broken);
         assertThat(result.get(0).postImageUrl()).isNull();
         assertThat(result.get(1).postImageUrl()).isEqualTo("https://bucket.s3.amazonaws.com/ok.jpg?sig=1");
+    }
+
+    @Test
+    void URL_발급_실패_로그에는_postId만_남고_파일명이_들어간_key는_남지_않는다() {
+        String key = "1b2c3d4e-홍길동_여권사진.jpg";
+        Post broken = post(PostStatus.DONE, key);
+        when(postRepositoryPort.findAllActiveByBoardId(BOARD_ID)).thenReturn(List.of(broken));
+        // 예외 메시지에 key가 들어 있어도 로그로 새지 않아야 한다
+        when(storageUseCase.issueViewUrl(key)).thenThrow(new IllegalStateException("서명 실패: " + key));
+
+        Logger logger = (Logger) LoggerFactory.getLogger(PostService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            postService.getPosts(BOARD_ID, null);
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        assertThat(appender.list).hasSize(1);
+        String message = appender.list.get(0).getFormattedMessage();
+        assertThat(message).contains(broken.getPostId().toString());
+        assertThat(message).doesNotContain("홍길동").doesNotContain(key);
     }
 
     // ===== 내 게시물 =====
