@@ -48,6 +48,12 @@ spring:
         static: ${AWS_REGION}
 server:
   port: 8090
+  # JSON 응답 gzip 압축. Accept-Encoding: gzip 요청이고 1KB 이상일 때만 압축한다.
+  # 앞단 프록시가 이미 압축하면 SERVER_COMPRESSION_ENABLED=false로 끈다
+  compression:
+    enabled: ${SERVER_COMPRESSION_ENABLED:true}
+    mime-types: application/json
+    min-response-size: 1024
 
 cloud:
   aws:
