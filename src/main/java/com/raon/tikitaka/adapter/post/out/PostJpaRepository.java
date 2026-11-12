@@ -54,6 +54,8 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
      * 정렬과 필터가 전체 목록과 같으므로 페이지를 이어 붙이면 전체 목록과 같은 순서가 된다.
      * 커서 파라미터는 항상 값이 있어야 한다. null을 넘기면 위의 null UUID 타입 추론 오류가 날 수 있어
      * 첫 페이지는 어댑터가 모든 글보다 뒤인 센티널 커서를 넘긴다.
+     * createdAt <= 조건은 아래 OR 조건과 뜻이 겹치지만, OR만 있으면 PostgreSQL이 인덱스 탐색 범위로 쓰지 못해
+     * 커서보다 새 글을 처음부터 읽고 버린다(뒤 페이지일수록 느려진다). 이 조건이 있어야 인덱스를 커서 위치부터 읽는다.
      */
     @Query("""
             select p from Post p
@@ -62,6 +64,7 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
             where p.board.boardId = :boardId and p.isActive = true
               and p.userId.status <> com.raon.tikitaka.domain.enums.UserStatus.WITHDRAWN
               and p.status = com.raon.tikitaka.domain.post.PostStatus.DONE
+              and p.createdAt <= :cursorCreatedAt
               and (p.createdAt < :cursorCreatedAt
                    or (p.createdAt = :cursorCreatedAt and p.postId < :cursorPostId))
             order by p.createdAt desc, p.postId desc
@@ -84,6 +87,7 @@ public interface PostJpaRepository extends JpaRepository<Post, UUID> {
               and not exists (select 1 from UserBlock b
                                where b.blocker.userId = :viewerId
                                  and b.blocked.userId = p.userId.userId)
+              and p.createdAt <= :cursorCreatedAt
               and (p.createdAt < :cursorCreatedAt
                    or (p.createdAt = :cursorCreatedAt and p.postId < :cursorPostId))
             order by p.createdAt desc, p.postId desc
