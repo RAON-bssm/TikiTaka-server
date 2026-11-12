@@ -1,6 +1,7 @@
 package com.raon.tikitaka.application.storage;
 
 import com.raon.tikitaka.application.storage.out.StoragePort;
+import com.raon.tikitaka.application.storage.out.ThumbnailGeneratorPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -31,7 +32,7 @@ import static org.mockito.Mockito.when;
 class StorageServiceViewUrlsTest {
 
     private final StoragePort storagePort = mock(StoragePort.class);
-    private final StorageService storageService = new StorageService(storagePort);
+    private final StorageService storageService = new StorageService(storagePort, mock(ThumbnailGeneratorPort.class));
 
     @BeforeEach
     void setUp() {

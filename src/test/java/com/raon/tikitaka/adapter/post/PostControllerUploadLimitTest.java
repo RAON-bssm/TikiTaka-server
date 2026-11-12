@@ -60,10 +60,10 @@ class PostControllerUploadLimitTest {
                     assertThat(e.getReason()).isEqualTo("10분에 2번까지 올릴 수 있어요. 7분 후에 다시 올려주세요.");
                 });
         verify(getBoardUseCase).getMission(3L, authorId);
-        verify(storageUseCase, never()).uploadImage(any(), any(), any());
+        verify(storageUseCase, never()).uploadImageWithThumbnail(any(), any(), any());
         verify(reviewUseCase, never()).evaluate(any(), any(), any(), any());
-        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), anyInt(), any());
-        verify(createPostUseCase, never()).createPending(any(), any(), any(), any());
+        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), any(), anyInt(), any());
+        verify(createPostUseCase, never()).createPending(any(), any(), any(), any(), any());
     }
 
     @ParameterizedTest
@@ -76,7 +76,7 @@ class PostControllerUploadLimitTest {
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
         verify(uploadLimit, never()).checkUploadLimit(any());
-        verify(storageUseCase, never()).uploadImage(any(), any(), any());
+        verify(storageUseCase, never()).uploadImageWithThumbnail(any(), any(), any());
     }
 
     @ParameterizedTest

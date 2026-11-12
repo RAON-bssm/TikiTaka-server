@@ -1,5 +1,6 @@
 package com.raon.tikitaka.application.storage.in;
 
+import com.raon.tikitaka.application.storage.UploadedImage;
 import com.raon.tikitaka.application.storage.ViewUrl;
 
 import java.net.URL;
@@ -19,4 +20,10 @@ public interface StorageUseCase {
     List<ViewUrl> issueViewUrls(Collection<String> keys);
 
     String uploadImage(byte[] content, String fileName, String contentType);
+
+    /**
+     * 원본을 올리고 목록용 썸네일(JPEG)도 만들어 올린다. 원본 업로드가 실패하면 예외지만, 썸네일은 만들거나 올리지 못해도
+     * 예외 없이 thumbnailKey가 null이다. 썸네일 때문에 업로드가 실패하지 않게 하기 위해서다.
+     */
+    UploadedImage uploadImageWithThumbnail(byte[] content, String fileName, String contentType);
 }

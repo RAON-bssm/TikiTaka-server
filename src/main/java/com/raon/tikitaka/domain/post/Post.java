@@ -45,6 +45,13 @@ public class Post {
     @Column(name = "post_image")
     private String postImage;
 
+    /**
+     * 글 목록용 썸네일의 S3 key(thumbnails/UUID.jpg). 업로드 때 서버가 만든다.
+     * 썸네일 기능 이전의 글이나 만들지 못한 글(자바가 읽지 못하는 형식, 너무 큰 사진 등)은 null이고 목록은 원본으로 대신한다.
+     */
+    @Column(name = "post_thumbnail")
+    private String postThumbnail;
+
     @Column(name = "score")
     private Integer score;
 
@@ -139,6 +146,13 @@ public class Post {
         Post post = create(author, board, content, postImage, null, null, location, teamLocation, locationScored);
         post.status = PostStatus.PENDING;
         return post;
+    }
+
+    /**
+     * 저장하기 전에만 부른다. 저장된 글에서 바꾸면 @PreUpdate가 updated_at을 바꿔 글이 수정된 것처럼 보인다.
+     */
+    public void attachThumbnail(String thumbnailKey) {
+        this.postThumbnail = thumbnailKey;
     }
 
     public void updateContent(String content) {

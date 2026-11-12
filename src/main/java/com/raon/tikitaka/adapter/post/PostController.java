@@ -20,6 +20,7 @@ import com.raon.tikitaka.application.review.AiReviewRejectedException;
 import com.raon.tikitaka.application.review.AiReviewResult;
 import com.raon.tikitaka.application.review.AiReviewRetryableException;
 import com.raon.tikitaka.application.review.in.ReviewUseCase;
+import com.raon.tikitaka.application.storage.UploadedImage;
 import com.raon.tikitaka.application.storage.in.StorageUseCase;
 import com.raon.tikitaka.domain.post.PostStatus;
 import com.raon.tikitaka.global.config.PostReviewProperties;
@@ -150,7 +151,8 @@ public class PostController {
             // 업로드 한도는 S3 업로드 전에 본다. 거절할 요청에 업로드 비용을 쓰지 않고,
             // 작성자 키 안이라 같은 사용자의 동시 요청이 함께 통과하지 않는다
             checkPostUploadLimitUseCase.checkUploadLimit(authorId);
-            String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
+            UploadedImage uploaded = storageUseCase.uploadImageWithThumbnail(imageBytes, image.getOriginalFilename(),
+                    image.getContentType());
             AiReviewResult review = evaluate(mission, request.content(), imageBytes, image.getContentType());
             int score = review.score();
 
@@ -158,8 +160,8 @@ public class PostController {
             // 상점 구매나 뽑기까지 막지 않기 위해서다. 이 시점엔 S3 업로드와 AI 호출 비용을 이미 썼으므로
             // 겹친 구매·뽑기(수십 ms)가 끝나길 기다렸다가 등록하고, 바로 거절하지 않는다
             return requestGuard.executeWaiting(RequestGuard.pointsKey(authorId), RequestGuard.POINTS_BUSY_MESSAGE,
-                    () -> createPostUseCase.createPost(authorId, request.boardId(), request.content(), key, score,
-                            review.review()));
+                    () -> createPostUseCase.createPost(authorId, request.boardId(), request.content(), uploaded.key(),
+                            uploaded.thumbnailKey(), score, review.review()));
         });
         return ApiResponse.of(201, "게시물 생성 성공", CreatePostResponse.of(postId, PostStatus.DONE));
     }
@@ -178,8 +180,10 @@ public class PostController {
             checkPostUploadLimitUseCase.checkUploadLimit(authorId);
             // 대기열이 가득 차면 업로드 전에 거절한다. 심사가 밀린 채로 계속 쌓이지 않게 한다
             checkPostUploadLimitUseCase.checkQueueCapacity();
-            String key = storageUseCase.uploadImage(imageBytes, image.getOriginalFilename(), image.getContentType());
-            return createPostUseCase.createPending(authorId, request.boardId(), request.content(), key);
+            UploadedImage uploaded = storageUseCase.uploadImageWithThumbnail(imageBytes, image.getOriginalFilename(),
+                    image.getContentType());
+            return createPostUseCase.createPending(authorId, request.boardId(), request.content(), uploaded.key(),
+                    uploaded.thumbnailKey());
         });
         return ApiResponse.of(201, "게시물 생성 성공", CreatePostResponse.of(postId, PostStatus.PENDING));
     }

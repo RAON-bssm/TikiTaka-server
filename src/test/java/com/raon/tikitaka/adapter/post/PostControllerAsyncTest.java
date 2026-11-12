@@ -12,6 +12,7 @@ import com.raon.tikitaka.application.post.in.LikePostUseCase;
 import com.raon.tikitaka.application.post.in.UnlikePostUseCase;
 import com.raon.tikitaka.application.post.in.UpdatePostUseCase;
 import com.raon.tikitaka.application.review.in.ReviewUseCase;
+import com.raon.tikitaka.application.storage.UploadedImage;
 import com.raon.tikitaka.application.storage.in.StorageUseCase;
 import com.raon.tikitaka.global.config.PostReviewProperties;
 import com.raon.tikitaka.global.guard.RequestGuard;
@@ -57,8 +58,10 @@ class PostControllerAsyncTest {
 
     @Test
     void 접근을_검증하고_S3_업로드_후_PENDING으로_저장해_바로_응답한다() {
-        when(storageUseCase.uploadImage(any(), any(), any())).thenReturn("key-photo.jpg");
-        when(createPostUseCase.createPending(authorId, 3L, "내용", "key-photo.jpg")).thenReturn(postId);
+        when(storageUseCase.uploadImageWithThumbnail(any(), any(), any()))
+                .thenReturn(new UploadedImage("key-photo.jpg", "thumbnails/thumb.jpg"));
+        when(createPostUseCase.createPending(authorId, 3L, "내용", "key-photo.jpg", "thumbnails/thumb.jpg"))
+                .thenReturn(postId);
 
         ApiResponse<CreatePostResponse> response = controller.createPost(authorId,
                 new CreatePostRequest(3L, "내용", image));
@@ -67,7 +70,7 @@ class PostControllerAsyncTest {
         assertThat(response.data()).isEqualTo(new CreatePostResponse(postId, "PENDING"));
         verify(getBoardUseCase).getMission(3L, authorId);
         verify(reviewUseCase, never()).evaluate(any(), any(), any(), any());
-        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), anyInt(), any());
+        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), any(), anyInt(), any());
     }
 
     @Test
@@ -78,8 +81,8 @@ class PostControllerAsyncTest {
         assertThatThrownBy(() -> controller.createPost(authorId, new CreatePostRequest(3L, "내용", image)))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
-        verify(storageUseCase, never()).uploadImage(any(), any(), any());
-        verify(createPostUseCase, never()).createPending(any(), any(), any(), any());
+        verify(storageUseCase, never()).uploadImageWithThumbnail(any(), any(), any());
+        verify(createPostUseCase, never()).createPending(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -89,7 +92,7 @@ class PostControllerAsyncTest {
 
         assertThatThrownBy(() -> controller.createPost(authorId, new CreatePostRequest(3L, "내용", image)))
                 .isInstanceOf(ResponseStatusException.class);
-        verify(storageUseCase, never()).uploadImage(any(), any(), any());
-        verify(createPostUseCase, never()).createPending(any(), any(), any(), any());
+        verify(storageUseCase, never()).uploadImageWithThumbnail(any(), any(), any());
+        verify(createPostUseCase, never()).createPending(any(), any(), any(), any(), any());
     }
 }
