@@ -21,6 +21,7 @@ import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.RankingProperties;
 import com.raon.tikitaka.global.config.TerritoryProperties;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -137,11 +138,25 @@ class PostServiceRankingFreezeTest {
         when(author.isAtHome()).thenReturn(true);
         when(postRepositoryPort.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        postService.createPost(authorId, 3L, "내용", "photo.jpg", 80, "좋아요");
+        postService.createPost(authorId, 3L, "내용", "photo.jpg", null, 80, "좋아요");
 
         verify(author).earnPoint(271);
         verify(rankingRepositoryPort, never()).addUserScore(anyLong(), any(), anyLong());
         verify(rankingRepositoryPort, never()).addLocationScore(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void 동기_업로드는_썸네일_key를_함께_저장한다() {
+        cycleFrozenAt(LocalDateTime.now().minusHours(1));
+        when(author.isAtHome()).thenReturn(true);
+        when(postRepositoryPort.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        postService.createPost(authorId, 3L, "내용", "photo.jpg", "thumbnails/thumb.jpg", 80, "좋아요");
+
+        ArgumentCaptor<Post> saved = ArgumentCaptor.forClass(Post.class);
+        verify(postRepositoryPort).save(saved.capture());
+        assertThat(saved.getValue().getPostImage()).isEqualTo("photo.jpg");
+        assertThat(saved.getValue().getPostThumbnail()).isEqualTo("thumbnails/thumb.jpg");
     }
 
     @Test

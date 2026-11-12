@@ -47,6 +47,9 @@ dependencies {
 
 	//S3
 	implementation("io.awspring.cloud:spring-cloud-aws-starter-s3:4.0.2")
+
+	// 게시물 목록용 썸네일 생성(리사이즈, EXIF 회전 적용, JPEG 변환)
+	implementation("net.coobird:thumbnailator:0.4.21")
 }
 
 tasks.withType<Test> {

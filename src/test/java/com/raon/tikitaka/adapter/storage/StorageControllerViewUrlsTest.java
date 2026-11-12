@@ -2,6 +2,7 @@ package com.raon.tikitaka.adapter.storage;
 
 import com.raon.tikitaka.application.storage.StorageService;
 import com.raon.tikitaka.application.storage.out.StoragePort;
+import com.raon.tikitaka.application.storage.out.ThumbnailGeneratorPort;
 import com.raon.tikitaka.global.exception.InvalidTokenException;
 import com.raon.tikitaka.global.security.JwtAccessDeniedHandler;
 import com.raon.tikitaka.global.security.JwtAuthenticationEntryPoint;
@@ -49,6 +50,8 @@ class StorageControllerViewUrlsTest {
     @Autowired MockMvc mockMvc;
 
     @MockitoBean StoragePort storagePort;
+    // StorageService의 업로드용 의존성. 조회 URL API는 쓰지 않는다
+    @MockitoBean ThumbnailGeneratorPort thumbnailGeneratorPort;
     @MockitoBean JwtProvider jwtProvider;
 
     @BeforeEach

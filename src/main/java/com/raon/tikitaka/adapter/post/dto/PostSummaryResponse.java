@@ -10,6 +10,9 @@ import java.util.UUID;
 /**
  * 게시판 글 목록 한 건. user_equipment는 GET /api/equipment/{userId}와 같은 모양의 작성자 착용 정보이고,
  * 착용한 것이 없으면 모든 필드가 빠진 빈 객체다.
+ * post_thumbnail과 post_thumbnail_url은 목록 카드용 작은 이미지의 S3 key와 조회 URL이다. 썸네일이 없는 글은
+ * 원본(post_image, post_image_url)과 같은 값이 들어가므로 앱은 카드에서 이 둘만 쓰면 된다.
+ * 조회 URL은 요청마다 서명이 바뀌므로 앱의 이미지 캐시 키는 URL 대신 key(post_thumbnail)로 잡는다.
  */
 public record PostSummaryResponse(
         UUID postId,
@@ -18,6 +21,8 @@ public record PostSummaryResponse(
         EquipmentResponse userEquipment,
         String postImage,
         String postImageUrl,
+        String postThumbnail,
+        String postThumbnailUrl,
         Integer score,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
@@ -37,6 +42,8 @@ public record PostSummaryResponse(
                 EquipmentResponse.from(summary.authorEquipment()),
                 post.getPostImage(),
                 summary.postImageUrl(),
+                summary.postThumbnail(),
+                summary.postThumbnailUrl(),
                 post.getScore(),
                 post.getCreatedAt(),
                 post.getUpdatedAt(),

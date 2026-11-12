@@ -34,6 +34,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -95,7 +96,7 @@ class PostServiceReviewTest {
         when(author.isAtHome()).thenReturn(true);
         when(postRepositoryPort.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        postService.createPending(authorId, 3L, "내용", "photo.jpg");
+        postService.createPending(authorId, 3L, "내용", "photo.jpg", null);
 
         verify(queuePort).lockSeasonShared(1);
         ArgumentCaptor<Post> saved = ArgumentCaptor.forClass(Post.class);
@@ -110,6 +111,20 @@ class PostServiceReviewTest {
         verify(author, never()).earnPoint(anyInt());
         verify(rankingRepositoryPort, never()).addUserScore(anyLong(), any(), anyLong());
         verify(rankingRepositoryPort, never()).addLocationScore(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void 비동기_업로드는_썸네일_key를_함께_저장하고_없으면_null로_둔다() {
+        when(author.isAtHome()).thenReturn(true);
+        when(postRepositoryPort.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        postService.createPending(authorId, 3L, "내용", "photo.jpg", "thumbnails/thumb.jpg");
+        postService.createPending(authorId, 3L, "내용", "photo.jpg", null);
+
+        ArgumentCaptor<Post> saved = ArgumentCaptor.forClass(Post.class);
+        verify(postRepositoryPort, times(2)).save(saved.capture());
+        assertThat(saved.getAllValues()).extracting(Post::getPostThumbnail).containsExactly("thumbnails/thumb.jpg", null);
+        assertThat(saved.getAllValues()).extracting(Post::getPostImage).containsOnly("photo.jpg");
     }
 
     // ===== completeReview =====

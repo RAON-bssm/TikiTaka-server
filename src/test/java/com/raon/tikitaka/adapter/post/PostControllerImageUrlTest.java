@@ -85,8 +85,8 @@ class PostControllerImageUrlTest {
         Post post = post(PostStatus.DONE, KEY);
         Post noImage = post(PostStatus.DONE, null);
         when(getPostListUseCase.getPosts(3L, null)).thenReturn(List.of(
-                new PostSummary(post, 2, false, URL, EquippedItems.empty()),
-                new PostSummary(noImage, 0, false, null, EquippedItems.empty())));
+                new PostSummary(post, 2, false, URL, KEY, URL, EquippedItems.empty()),
+                new PostSummary(noImage, 0, false, null, null, null, EquippedItems.empty())));
 
         JsonNode posts = json(postController.getPosts(null, 3L, null, null)).get("data").get("post");
 
@@ -95,6 +95,27 @@ class PostControllerImageUrlTest {
         assertThat(posts.get(0).has("postImageUrl")).isFalse();
         // URL이 없으면 필드 자체가 빠진다
         assertThat(posts.get(1).has("post_image_url")).isFalse();
+    }
+
+    @Test
+    void 목록_응답에_post_thumbnail과_post_thumbnail_url이_들어가고_없으면_빠진다() {
+        String thumbnailKey = "thumbnails/9f8e.jpg";
+        String thumbnailUrl = "https://bucket.s3.ap-northeast-2.amazonaws.com/thumbnails/9f8e.jpg?X-Amz-Signature=def";
+        Post post = post(PostStatus.DONE, KEY);
+        Post noImage = post(PostStatus.DONE, null);
+        when(getPostListUseCase.getPosts(3L, null)).thenReturn(List.of(
+                new PostSummary(post, 0, false, URL, thumbnailKey, thumbnailUrl, EquippedItems.empty()),
+                new PostSummary(noImage, 0, false, null, null, null, EquippedItems.empty())));
+
+        JsonNode posts = json(postController.getPosts(null, 3L, null, null)).get("data").get("post");
+
+        assertThat(posts.get(0).get("post_thumbnail").asString()).isEqualTo(thumbnailKey);
+        assertThat(posts.get(0).get("post_thumbnail_url").asString()).isEqualTo(thumbnailUrl);
+        // 원본은 그대로 남는다
+        assertThat(posts.get(0).get("post_image").asString()).isEqualTo(KEY);
+        assertThat(posts.get(0).get("post_image_url").asString()).isEqualTo(URL);
+        assertThat(posts.get(1).has("post_thumbnail")).isFalse();
+        assertThat(posts.get(1).has("post_thumbnail_url")).isFalse();
     }
 
     @Test

@@ -120,6 +120,13 @@ post-upload-limit:
   max-pending: 2              # 한 사용자의 심사 대기(삭제하지 않은 PENDING) 글 최대 수
   max-queue-size: 50          # 전체 심사 대기열 최대 글 수. enabled와 상관없이 비동기 업로드에 적용, 0이면 제한 없음
 
+# 게시물 목록용 썸네일. 업로드 요청 안에서 원본과 함께 만들어 S3 thumbnails/에 올린다(ThumbnailProperties)
+thumbnail:
+  enabled: ${THUMBNAIL_ENABLED:true}            # false면 원본만 올리고 목록은 원본 URL을 쓴다
+  width: ${THUMBNAIL_WIDTH:720}                 # 가로 픽셀. 원본이 이보다 작으면 확대하지 않는다
+  quality: ${THUMBNAIL_QUALITY:0.8}             # JPEG 품질(0 초과 1 이하)
+  max-pixels: ${THUMBNAIL_MAX_PIXELS:25000000}  # 이보다 큰 원본은 메모리 보호를 위해 썸네일 없이 원본만 올린다
+
 season:
   round-days: 7               # 라운드 1개 길이
   rounds-per-season: 4        # 시즌당 라운드 수 → 시즌 = 28일

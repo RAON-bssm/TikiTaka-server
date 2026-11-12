@@ -103,8 +103,9 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     }
 
     /**
-     * 목록 한 건마다 붙는 좋아요 수, 내 좋아요, 이미지 URL, 작성자 착용 정보를 채운다.
+     * 목록 한 건마다 붙는 좋아요 수, 내 좋아요, 이미지 URL, 썸네일, 작성자 착용 정보를 채운다.
      * 좋아요와 착용 정보는 넘겨받은 글 전체를 한 번에 조회하므로 글 수와 상관없이 쿼리 수가 같다.
+     * 썸네일이 없거나 썸네일 URL 발급에 실패한 글은 썸네일 자리에 원본 key와 URL을 넣는다.
      */
     private List<PostSummary> toSummaries(List<Post> posts, UUID userId) {
         List<UUID> postIds = posts.stream().map(Post::getPostId).toList();
@@ -119,8 +120,16 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         List<PostSummary> summaries = new ArrayList<>();
         for (Post post : posts) {
             EquippedItems authorEquipment = equipments.getOrDefault(post.getUserId().getUserId(), EquippedItems.empty());
+            String imageUrl = resolveImageUrl(post);
+            String thumbnail = post.getPostThumbnail();
+            String thumbnailUrl = resolveUrl(post, thumbnail);
+            if (thumbnailUrl == null) {
+                // 원본도 URL이 없으면(이미지 없음, 발급 실패) key도 비워서 둘이 항상 짝이 맞게 한다
+                thumbnail = imageUrl != null ? post.getPostImage() : null;
+                thumbnailUrl = imageUrl;
+            }
             summaries.add(new PostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0),
-                    likedPostIds.contains(post.getPostId()), resolveImageUrl(post), authorEquipment));
+                    likedPostIds.contains(post.getPostId()), imageUrl, thumbnail, thumbnailUrl, authorEquipment));
         }
         return summaries;
     }
@@ -227,7 +236,11 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
      * 한 글의 발급이 실패해도 목록 전체를 실패시키지 않도록 그 글만 null로 두고 넘어간다.
      */
     private String resolveImageUrl(Post post) {
-        String key = post.getPostImage();
+        return resolveUrl(post, post.getPostImage());
+    }
+
+    /** key의 조회 URL. 비어 있으면 null, 절대 URL이면 그대로, 발급에 실패하면 null이다(resolveImageUrl 참고) */
+    private String resolveUrl(Post post, String key) {
         if (key == null || key.isBlank()) {
             return null;
         }
@@ -268,7 +281,8 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
 
     @Override
     @Transactional
-    public UUID createPost(UUID authorId, Long boardId, String content, String postImage, Integer score, String aiReview) {
+    public UUID createPost(UUID authorId, Long boardId, String content, String postImage, String postThumbnail,
+                           Integer score, String aiReview) {
         Users author = postRepositoryPort.getUser(authorId);
         Board board = postRepositoryPort.getBoard(boardId);
         Location teamLocation = resolveTeamLocation(author, board);
@@ -276,8 +290,10 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         // 본진에서 쓴 글만 지역 점수까지 올라간다. 원정 중이면 개인 점수만 쌓인다
         boolean locationScored = author.isAtHome();
 
-        Post saved = postRepositoryPort.save(Post.create(author, board, content, postImage, score, aiReview,
-                teamLocation.getLocationName(), teamLocation, locationScored));
+        Post post = Post.create(author, board, content, postImage, score, aiReview,
+                teamLocation.getLocationName(), teamLocation, locationScored);
+        post.attachThumbnail(postThumbnail);
+        Post saved = postRepositoryPort.save(post);
 
         // 게시물 작성도 활동이므로 lastActiveAt을 갱신하고 휴면이었다면 ACTIVE로 복귀한다
         author.touch();
@@ -300,7 +316,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
      */
     @Override
     @Transactional
-    public UUID createPending(UUID authorId, Long boardId, String content, String postImage) {
+    public UUID createPending(UUID authorId, Long boardId, String content, String postImage, String postThumbnail) {
         Users author = postRepositoryPort.getUser(authorId);
         Board board = postRepositoryPort.getBoard(boardId);
 
@@ -309,8 +325,10 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         Location teamLocation = resolveTeamLocation(author, board);
         boolean locationScored = author.isAtHome();
 
-        Post saved = postRepositoryPort.save(Post.createPending(author, board, content, postImage,
-                teamLocation.getLocationName(), teamLocation, locationScored));
+        Post post = Post.createPending(author, board, content, postImage,
+                teamLocation.getLocationName(), teamLocation, locationScored);
+        post.attachThumbnail(postThumbnail);
+        Post saved = postRepositoryPort.save(post);
 
         // 게시물 작성도 활동이므로 lastActiveAt을 갱신하고 휴면이었다면 ACTIVE로 복귀한다
         author.touch();

@@ -58,7 +58,7 @@ class PostControllerSyncReviewErrorTest {
                 .thenThrow(new AiReviewRetryableException("Gemini 일시 오류 status=429", null, null));
 
         assertThat(statusOf()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), anyInt(), any());
+        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), any(), anyInt(), any());
     }
 
     @Test
@@ -75,7 +75,7 @@ class PostControllerSyncReviewErrorTest {
                 .thenThrow(new AiReviewConfigException("Gemini 설정 오류 status=404", 404, null));
 
         assertThat(statusOf()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), anyInt(), any());
+        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), any(), anyInt(), any());
     }
 
     @Test
@@ -92,7 +92,7 @@ class PostControllerSyncReviewErrorTest {
                 .thenThrow(new AiReviewRejectedException("Gemini 요청 거절 status=400", 400, null));
 
         assertThat(statusOf()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), anyInt(), any());
+        verify(createPostUseCase, never()).createPost(any(), any(), any(), any(), any(), anyInt(), any());
     }
 
     private HttpStatus statusOf() {

@@ -203,7 +203,7 @@ class PostControllerPagingTest {
     }
 
     private static PostSummary summary(Post post) {
-        return new PostSummary(post, 0, false, "https://example.com/key.jpg", EquippedItems.empty());
+        return new PostSummary(post, 0, false, "https://example.com/key.jpg", null, null, EquippedItems.empty());
     }
 
     private Post post() {
