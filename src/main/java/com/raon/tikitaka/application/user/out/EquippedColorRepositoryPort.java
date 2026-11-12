@@ -11,6 +11,11 @@ public interface EquippedColorRepositoryPort {
 
     List<EquippedColor> findAllByUserId(UUID userId);
 
+    /**
+     * 여러 유저의 착용 색. 색(color)을 함께 읽고, 고른 색이 없는 유저는 결과에 없다.
+     */
+    List<EquippedColor> findAllByUserIds(Collection<UUID> userIds);
+
     void deleteAllByUserIdAndColorGroups(UUID userId, Collection<ColorGroup> colorGroups);
 
     List<EquippedColor> saveAll(List<EquippedColor> equippedColors);

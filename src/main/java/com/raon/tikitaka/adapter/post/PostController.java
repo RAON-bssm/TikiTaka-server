@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -70,11 +71,31 @@ public class PostController {
     /**
      * GET /api/post/**는 SecurityConfig에서 permitAll이라 비로그인 조회 시
      * userId는 null로 들어오고, 이 경우 각 게시물의 좋아요 여부는 항상 false다.
+     * size와 cursor가 둘 다 없으면 구버전 앱과 같게 전체 목록을 내려준다. 하나라도 있으면 커서 페이징이고
+     * 다음 페이지가 있을 때만 next_cursor가 붙는다.
+     * size를 Integer로 받으면 숫자가 아닐 때 스프링 기본 오류 형식(스택 트레이스 포함)으로 400이 나가므로,
+     * 문자열로 받아 직접 바꾸고 다른 400과 같은 응답 형식으로 맞춘다.
      */
     @GetMapping("/{boardId:\\d+}")
-    public ApiResponse<PostListResponse> getPosts(@AuthenticationPrincipal UUID userId, @PathVariable Long boardId) {
-        PostListResponse response = PostListResponse.from(getPostListUseCase.getPosts(boardId, userId));
+    public ApiResponse<PostListResponse> getPosts(@AuthenticationPrincipal UUID userId, @PathVariable Long boardId,
+                                                  @RequestParam(required = false) String size,
+                                                  @RequestParam(required = false) String cursor) {
+        PostListResponse response = size == null && cursor == null
+                ? PostListResponse.from(getPostListUseCase.getPosts(boardId, userId))
+                : PostListResponse.from(getPostListUseCase.getPostPage(boardId, userId, parsePageSize(size), cursor));
         return ApiResponse.of(200, "게시물 목록 조회 성공", response);
+    }
+
+    /** 비어 있으면 null(기본 크기)이고, 숫자가 아니면 400이다. 범위 검사는 서비스가 한다 */
+    private static Integer parsePageSize(String size) {
+        if (size == null || size.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(size.trim());
+        } catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "size는 숫자여야 합니다.");
+        }
     }
 
     /**

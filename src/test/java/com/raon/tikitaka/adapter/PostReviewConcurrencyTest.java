@@ -11,6 +11,7 @@ import com.raon.tikitaka.adapter.ranking.out.RankingPersistenceAdapter;
 import com.raon.tikitaka.adapter.ranking.out.SeasonResultPersistenceAdapter;
 import com.raon.tikitaka.adapter.review.out.GeminiAdapterTestAccess;
 import com.raon.tikitaka.adapter.territory.out.TerritoryCyclePersistenceAdapter;
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.post.PostService;
 import com.raon.tikitaka.application.post.review.ClaimedReview;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
@@ -21,6 +22,7 @@ import com.raon.tikitaka.application.ranking.out.SeasonResultRepositoryPort;
 import com.raon.tikitaka.application.review.ReviewService;
 import com.raon.tikitaka.application.review.out.AiReviewPort;
 import com.raon.tikitaka.application.storage.StoredImage;
+import com.raon.tikitaka.application.storage.in.StorageUseCase;
 import com.raon.tikitaka.application.storage.out.StoragePort;
 import com.raon.tikitaka.application.territory.TerritoryCycleService;
 import com.raon.tikitaka.domain.board.Board;
@@ -49,6 +51,7 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -99,6 +102,10 @@ class PostReviewConcurrencyTest {
     @Autowired PostReviewQueuePort postReviewQueuePort;
     @Autowired RankingService rankingService;
     @Autowired SeasonResultRepositoryPort seasonResultRepositoryPort;
+
+    // PostService·RankingService가 조회 응답용으로 의존하는 포트. 이 테스트의 심사·확정 경로는 쓰지 않는다
+    @MockitoBean StorageUseCase storageUseCase;
+    @MockitoBean GetEquippedItemsUseCase getEquippedItemsUseCase;
 
     private TransactionTemplate tx;
     private Long homeId;

@@ -1,6 +1,8 @@
 package com.raon.tikitaka.application.post;
 
 import com.raon.tikitaka.application.block.out.BlockRepositoryPort;
+import com.raon.tikitaka.application.equipment.EquippedItems;
+import com.raon.tikitaka.application.equipment.in.GetEquippedItemsUseCase;
 import com.raon.tikitaka.application.post.in.CompletePostReviewUseCase;
 import com.raon.tikitaka.application.post.in.CreatePostUseCase;
 import com.raon.tikitaka.application.post.in.DeletePostUseCase;
@@ -14,6 +16,7 @@ import com.raon.tikitaka.application.post.out.PostLikeRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.application.post.out.PostReviewQueuePort;
 import com.raon.tikitaka.application.ranking.out.RankingRepositoryPort;
+import com.raon.tikitaka.application.storage.in.StorageUseCase;
 import com.raon.tikitaka.application.territory.in.CheckRankingFrozenUseCase;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.enums.UserStatus;
@@ -25,6 +28,7 @@ import com.raon.tikitaka.domain.post.PostLike;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.RankingProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -55,24 +60,67 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
     private final BlockRepositoryPort blockRepositoryPort;
     private final PostReviewQueuePort postReviewQueuePort;
     private final CheckRankingFrozenUseCase checkRankingFrozenUseCase;
+    private final StorageUseCase storageUseCase;
+    private final GetEquippedItemsUseCase getEquippedItemsUseCase;
+
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int MAX_PAGE_SIZE = 50;
 
     /**
      * 로그인 상태면 내가 차단한 유저의 글을 뺀다. 조회할 때마다 DB 조건으로 거르므로 차단 직후 다음 조회부터 반영된다.
      * 차단은 한 방향이라 차단당한 쪽의 목록은 그대로다.
+     * 앱이 카드마다 작성자 장비를 따로 부르지 않도록 작성자들의 착용 정보를 한 번에 읽어 같이 담는다.
      */
     @Override
     public List<PostSummary> getPosts(Long boardId, UUID userId) {
         List<Post> posts = userId == null
                 ? postRepositoryPort.findAllActiveByBoardId(boardId)
                 : postRepositoryPort.findAllActiveByBoardIdExcludingBlockedBy(boardId, userId);
+        return toSummaries(posts, userId);
+    }
+
+    /**
+     * 다음 페이지가 있는지는 size + 1개를 읽어 판단한다(count 쿼리 없음). 여분 한 건은 응답과 뒤따르는 조회
+     * (좋아요, 이미지 URL, 착용 정보)에서 모두 빼고, nextCursor는 이 페이지 마지막 글 기준이다.
+     * 차단·탈퇴·심사 상태 필터는 쿼리 안에서 하므로 마지막 페이지가 아니면 항상 size개가 채워진다.
+     */
+    @Override
+    public PostPage getPostPage(Long boardId, UUID userId, Integer size, String cursor) {
+        int pageSize = size != null ? size : DEFAULT_PAGE_SIZE;
+        if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "size는 1 이상 " + MAX_PAGE_SIZE + " 이하여야 합니다.");
+        }
+        PostCursor after = cursor == null || cursor.isBlank() ? null : PostCursor.decode(cursor);
+
+        List<Post> fetched = userId == null
+                ? postRepositoryPort.findActivePageByBoardId(boardId, after, pageSize + 1)
+                : postRepositoryPort.findActivePageByBoardIdExcludingBlockedBy(boardId, userId, after, pageSize + 1);
+        boolean hasNext = fetched.size() > pageSize;
+        List<Post> posts = hasNext ? fetched.subList(0, pageSize) : fetched;
+        String nextCursor = hasNext ? PostCursor.of(posts.get(posts.size() - 1)).encode() : null;
+        return new PostPage(toSummaries(posts, userId), nextCursor);
+    }
+
+    /**
+     * 목록 한 건마다 붙는 좋아요 수, 내 좋아요, 이미지 URL, 작성자 착용 정보를 채운다.
+     * 좋아요와 착용 정보는 넘겨받은 글 전체를 한 번에 조회하므로 글 수와 상관없이 쿼리 수가 같다.
+     */
+    private List<PostSummary> toSummaries(List<Post> posts, UUID userId) {
         List<UUID> postIds = posts.stream().map(Post::getPostId).toList();
         Map<UUID, Integer> likeCounts = countLikes(postIds);
         Set<UUID> likedPostIds = findLikedPostIds(postIds, userId);
+        Set<UUID> authorIds = new HashSet<>();
+        for (Post post : posts) {
+            authorIds.add(post.getUserId().getUserId());
+        }
+        Map<UUID, EquippedItems> equipments = getEquippedItemsUseCase.getEquippedItemsByUserIds(authorIds);
 
         List<PostSummary> summaries = new ArrayList<>();
         for (Post post : posts) {
+            EquippedItems authorEquipment = equipments.getOrDefault(post.getUserId().getUserId(), EquippedItems.empty());
             summaries.add(new PostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0),
-                    likedPostIds.contains(post.getPostId())));
+                    likedPostIds.contains(post.getPostId()), resolveImageUrl(post), authorEquipment));
         }
         return summaries;
     }
@@ -94,7 +142,7 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         int likeCount = countLikes(List.of(postId)).getOrDefault(postId, 0);
         boolean likedByMe = userId != null
                 && postLikeRepositoryPort.existsByPostAndUser(post, postRepositoryPort.getUser(userId));
-        return new PostDetail(post, likeCount, likedByMe);
+        return new PostDetail(post, likeCount, likedByMe, resolveImageUrl(post));
     }
 
     @Override
@@ -167,11 +215,33 @@ public class PostService implements GetPostListUseCase, GetPostDetailUseCase, Cr
         List<MyPostSummary> summaries = new ArrayList<>();
         for (Post post : posts) {
             summaries.add(new MyPostSummary(post, likeCounts.getOrDefault(post.getPostId(), 0),
-                    likedPostIds.contains(post.getPostId())));
+                    likedPostIds.contains(post.getPostId()), resolveImageUrl(post)));
         }
         return summaries;
     }
 
+    /**
+     * 응답에 바로 쓸 이미지 조회 URL. 앱이 카드마다 view-url을 따로 부르지 않도록 목록·상세에서 함께 내려준다.
+     * 유효 시간은 GET /api/storage/view-url과 같은 값(StorageService)을 쓴다.
+     * post_image가 비어 있으면 null이라 응답에서 필드가 빠지고, 이미 절대 URL이면 서명하지 않고 그대로 쓴다.
+     * 한 글의 발급이 실패해도 목록 전체를 실패시키지 않도록 그 글만 null로 두고 넘어간다.
+     */
+    private String resolveImageUrl(Post post) {
+        String key = post.getPostImage();
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        if (key.startsWith("http://") || key.startsWith("https://")) {
+            return key;
+        }
+        try {
+            return storageUseCase.issueViewUrl(key).toString();
+        } catch (RuntimeException e) {
+            // key는 "UUID-원본파일명"이라 사용자가 정한 파일명이 들어 있다. 로그에는 postId만 남기고 key는 DB에서 찾는다
+            log.warn("게시물 이미지 조회 URL 발급 실패: postId={}, error={}", post.getPostId(), e.getClass().getName());
+            return null;
+        }
+    }
 
 
     private Map<UUID, Integer> countLikes(List<UUID> postIds) {

@@ -18,11 +18,11 @@ public record UserRankingListResponse(LocalDateTime updatedAt,
     public static UserRankingListResponse from(UserRankingResult result) {
         List<UserRankingResponse> ranking = new ArrayList<>();
         for (UserRankRow row : result.ranking()) {
-            ranking.add(UserRankingResponse.from(row));
+            ranking.add(UserRankingResponse.from(row, result.equipmentOf(row.getUserId())));
         }
         UserRankingResponse myRanking = null;
         if (result.myRanking() != null) {
-            myRanking = UserRankingResponse.from(result.myRanking());
+            myRanking = UserRankingResponse.from(result.myRanking(), result.equipmentOf(result.myRanking().getUserId()));
         }
         return new UserRankingListResponse(LocalDateTime.now(), ranking, myRanking);
     }

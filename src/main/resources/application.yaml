@@ -10,11 +10,13 @@ spring:
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
-      
-    show-sql: true
+
+    # SQL 로그. 운영에서 모든 쿼리를 찍지 않도록 기본은 끈다.
+    # 로컬은 docker-compose.local.yml이 켜고, IDE 실행은 JPA_SHOW_SQL=true 또는 local 프로필로 켠다
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
-        format_sql: true
+        format_sql: ${JPA_FORMAT_SQL:false}
 
   jackson:
     property-naming-strategy: SNAKE_CASE
@@ -46,6 +48,26 @@ spring:
         static: ${AWS_REGION}
 server:
   port: 8090
+  # JSON 응답 gzip 압축. Accept-Encoding: gzip 요청이고 1KB 이상일 때만 압축한다.
+  # 앞단 프록시가 이미 압축하면 SERVER_COMPRESSION_ENABLED=false로 끈다
+  compression:
+    enabled: ${SERVER_COMPRESSION_ENABLED:true}
+    mime-types: application/json
+    min-response-size: 1024
+  # 요청 수와 처리 시간 측정용 접근 로그. 기본은 끄고 ACCESS_LOG_ENABLED=true일 때만 표준 출력(docker logs)으로 찍는다.
+  # 형식: 시간 메서드 경로 상태코드 응답바이트 처리시간(ms)
+  # 쿼리 스트링(key, cursor 등)과 헤더(Authorization)는 찍지 않도록 %U(경로만)를 쓰고 %r, %q, %{...}i는 쓰지 않는다
+  # 처리 시간은 %{ms}T(ms)다. Tomcat 10 이후 %D는 마이크로초라 쓰지 않는다
+  tomcat:
+    accesslog:
+      enabled: ${ACCESS_LOG_ENABLED:false}
+      pattern: "%t %m %U %s %b %{ms}T"
+      directory: /dev
+      prefix: stdout
+      suffix: ""
+      file-date-format: ""
+      rotate: false
+      buffered: false
 
 cloud:
   aws:

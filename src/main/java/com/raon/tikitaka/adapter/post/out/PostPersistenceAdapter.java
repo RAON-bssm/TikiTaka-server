@@ -2,6 +2,7 @@ package com.raon.tikitaka.adapter.post.out;
 
 import com.raon.tikitaka.adapter.board.out.BoardJpaRepository;
 import com.raon.tikitaka.adapter.user.out.UserJpaRepository;
+import com.raon.tikitaka.application.post.PostCursor;
 import com.raon.tikitaka.application.post.out.PostRepositoryPort;
 import com.raon.tikitaka.domain.board.Board;
 import com.raon.tikitaka.domain.post.Post;
@@ -27,6 +28,13 @@ public class PostPersistenceAdapter implements PostRepositoryPort {
     private final BoardJpaRepository boardJpaRepository;
     private final UserJpaRepository userJpaRepository;
 
+    /**
+     * 첫 페이지용 커서. 모든 글보다 뒤라서 (createdAt < 이 값) 조건이 항상 참이 된다.
+     * 커서 파라미터에 null을 넘기면 PostgreSQL이 타입을 추론하지 못하는 경우가 있어 값이 있는 센티널을 쓴다.
+     */
+    private static final PostCursor FIRST_PAGE = new PostCursor(LocalDateTime.of(9999, 12, 31, 23, 59, 59),
+            new UUID(-1L, -1L));
+
     @Override
     public List<Post> findAllActiveByBoardId(Long boardId) {
         return postJpaRepository.findAllActiveByBoardId(boardId);
@@ -35,6 +43,19 @@ public class PostPersistenceAdapter implements PostRepositoryPort {
     @Override
     public List<Post> findAllActiveByBoardIdExcludingBlockedBy(Long boardId, UUID viewerId) {
         return postJpaRepository.findAllActiveByBoardIdExcludingBlockedBy(boardId, viewerId);
+    }
+
+    @Override
+    public List<Post> findActivePageByBoardId(Long boardId, PostCursor after, int limit) {
+        PostCursor cursor = after != null ? after : FIRST_PAGE;
+        return postJpaRepository.findActivePageByBoardId(boardId, cursor.createdAt(), cursor.postId(), Limit.of(limit));
+    }
+
+    @Override
+    public List<Post> findActivePageByBoardIdExcludingBlockedBy(Long boardId, UUID viewerId, PostCursor after, int limit) {
+        PostCursor cursor = after != null ? after : FIRST_PAGE;
+        return postJpaRepository.findActivePageByBoardIdExcludingBlockedBy(boardId, viewerId, cursor.createdAt(),
+                cursor.postId(), Limit.of(limit));
     }
 
     @Override

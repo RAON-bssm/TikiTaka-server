@@ -5,6 +5,7 @@ import com.raon.tikitaka.domain.post.Post;
 /**
  * 게시물 상세 조회 결과. likeCount/likedByMe는 post_like 집계이며 Post 자체에는 없다.
  * likedByMe는 비로그인 조회(userId == null)면 항상 false다.
+ * postImageUrl은 post_image로 발급한 조회용 presigned URL이고, 이미지가 없거나 발급에 실패하면 null이다.
  */
-public record PostDetail(Post post, int likeCount, boolean likedByMe) {
+public record PostDetail(Post post, int likeCount, boolean likedByMe, String postImageUrl) {
 }

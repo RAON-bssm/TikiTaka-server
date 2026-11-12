@@ -3,6 +3,9 @@ package com.raon.tikitaka.adapter;
 import com.raon.tikitaka.adapter.territory.out.TerritoryCyclePersistenceAdapter;
 import com.raon.tikitaka.adapter.territory.out.TerritoryQueryPersistenceAdapter;
 import com.raon.tikitaka.application.territory.TerritoryQueryService;
+import com.raon.tikitaka.application.territory.out.BlockedUserPort;
+import com.raon.tikitaka.application.territory.policy.DevelopmentPolicy;
+import com.raon.tikitaka.application.territory.policy.TollPolicy;
 import com.raon.tikitaka.application.territory.view.RepresentativesView;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
 import com.raon.tikitaka.domain.block.UserBlock;
@@ -69,6 +72,23 @@ class RepresentativeQueryDbTest {
         @Bean
         UserRepositoryPort userRepositoryPort() {
             return mock(UserRepositoryPort.class);
+        }
+
+        /** 땅 상세 조회용 의존성. 선발 결과 조회는 쓰지 않으므로 유저 포트와 같이 자리만 채운다 */
+        @Bean
+        TollPolicy tollPolicy() {
+            return mock(TollPolicy.class);
+        }
+
+        @Bean
+        DevelopmentPolicy developmentPolicy() {
+            return mock(DevelopmentPolicy.class);
+        }
+
+        /** 선발 결과의 차단 제외는 쿼리(findRepresentatives)가 하고 이 포트는 쓰지 않는다 */
+        @Bean
+        BlockedUserPort blockedUserPort() {
+            return mock(BlockedUserPort.class);
         }
     }
 
