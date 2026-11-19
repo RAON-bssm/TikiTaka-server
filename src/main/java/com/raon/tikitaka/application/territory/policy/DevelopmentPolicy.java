@@ -3,7 +3,7 @@ package com.raon.tikitaka.application.territory.policy;
 import com.raon.tikitaka.global.config.TerritoryProperties;
 import org.springframework.stereotype.Component;
 
-/** 개발비 = floor(땅값 × costRate). 성공 확률은 매번 같다(천장 없음). 성공하면 항상 같은 폭(gain) */
+/** 개발비 = floor(땅값 × costRate). 성공 확률은 매번 같다(천장 없음). 성공하면 땅값 × gainRate만큼 오른다 */
 @Component
 public class DevelopmentPolicy {
 
@@ -26,7 +26,8 @@ public class DevelopmentPolicy {
         return roll < config.probability();
     }
 
-    public int gain() {
-        return config.gain();
+    /** 성공 시 늘어나는 땅값 = floor(현재 땅값 × gainRate). 땅값이 오를수록 같은 비율로 커진다 */
+    public int gain(int landPrice) {
+        return (int) Math.floor(landPrice * config.gainRate());
     }
 }

@@ -1,6 +1,7 @@
 package com.raon.tikitaka.adapter.territory;
 
 import com.raon.tikitaka.application.territory.in.EnsureTerritoryCyclesUseCase;
+import com.raon.tikitaka.application.territory.in.PayDailyWageUseCase;
 import com.raon.tikitaka.application.territory.in.RunBattleBatchUseCase;
 import com.raon.tikitaka.application.territory.in.SelectRepresentativesUseCase;
 import com.raon.tikitaka.application.territory.in.TeamRankingUseCase;
@@ -20,6 +21,7 @@ public class TerritoryAdminController {
     private final SelectRepresentativesUseCase selectRepresentativesUseCase;
     private final RunBattleBatchUseCase runBattleBatchUseCase;
     private final TeamRankingUseCase teamRankingUseCase;
+    private final PayDailyWageUseCase payDailyWageUseCase;
 
     @PostMapping("/ensure-cycles")
     public ApiResponse<Void> ensureCycles() {
@@ -50,6 +52,13 @@ public class TerritoryAdminController {
     public ApiResponse<Void> decayDefense() {
         runBattleBatchUseCase.decayDefense();
         return ApiResponse.of(200, "방어 점수 감쇠 실행 완료", null);
+    }
+
+    /** 오늘 이미 지급했으면 아무것도 하지 않는다 */
+    @PostMapping("/pay-daily-wage")
+    public ApiResponse<Void> payDailyWage() {
+        payDailyWageUseCase.payDailyWage();
+        return ApiResponse.of(200, "일급 지급 실행 완료", null);
     }
 
     /** 땅따먹기 라운드가 끝났고 아직 확정하지 않은 사이클만 처리한다 */

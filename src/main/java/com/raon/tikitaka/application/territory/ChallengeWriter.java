@@ -62,7 +62,8 @@ public class ChallengeWriter {
         if (!t.isChallengeableBy(userId, team.getLocationId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "내 땅이나 우리 팀 땅에는 도전할 수 없어요.");
         }
-        if (territoryQueryPort.countOwnedBy(t.getCycle().getCycleId(), userId) >= properties.maxOwned()) {
+        if (properties.hasOwnedLimit()
+                && territoryQueryPort.countOwnedBy(t.getCycle().getCycleId(), userId) >= properties.maxOwned()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "땅은 최대 " + properties.maxOwned() + "개까지 가질 수 있어요.");
         }
         if (usedPhotoPort.existsByHash(photoHash)) {

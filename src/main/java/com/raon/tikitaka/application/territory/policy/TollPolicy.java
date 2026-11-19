@@ -3,7 +3,7 @@ package com.raon.tikitaka.application.territory.policy;
 import com.raon.tikitaka.global.config.TerritoryProperties;
 import org.springframework.stereotype.Component;
 
-/** 통행료 = floor(땅값 × rate). 대표 몫 = floor(통행료 × ownerShare), 나머지는 소멸 */
+/** 통행료 = floor(땅값 × rate). 대표 몫 = floor(통행료 × ownerShare), 나머지는 소멸(ownerShare 1.0이면 소멸 없음) */
 @Component
 public class TollPolicy {
 

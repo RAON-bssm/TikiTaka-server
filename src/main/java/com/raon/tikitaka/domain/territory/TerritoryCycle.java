@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -51,6 +52,10 @@ public class TerritoryCycle {
     @ColumnDefault("false")
     private boolean resultFinalized;
 
+    /** 마지막으로 일급을 지급한 날. 같은 날 두 번 지급하지 않게 막는다 */
+    @Column(name = "last_wage_paid_on")
+    private LocalDate lastWagePaidOn;
+
     /**
      * 포인트 라운드와 바로 이어지는 땅따먹기 라운드를 묶고, 랭킹 동결 시각을 포인트 라운드 시작 + rankingDays로 정한다.
      * 두 라운드가 이어지지 않거나 동결 시각이 포인트 라운드 종료를 넘으면 IllegalArgumentException이다.
@@ -80,6 +85,14 @@ public class TerritoryCycle {
 
     public void markRepresentativesSelected() {
         this.representativesSelected = true;
+    }
+
+    public boolean isWagePaidOn(LocalDate date) {
+        return date.equals(lastWagePaidOn);
+    }
+
+    public void markWagePaid(LocalDate date) {
+        this.lastWagePaidOn = date;
     }
 
     /** 시각 기준 라운드 종류. 포인트 라운드 시작 전이나 땅따먹기 라운드 종료 후면 NONE */

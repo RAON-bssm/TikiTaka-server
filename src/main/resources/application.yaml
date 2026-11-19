@@ -103,7 +103,7 @@ ranking:
   base-multiplier: 67.76      # K — 개인 점수 = round(AI점수 × K)
   min-team-size: 5            # 조정치 분모의 하한
   dormant-days: ${DORMANT_DAYS:7}   # 휴면 전환 기준 일수 (개발 환경은 DORMANT_DAYS로 크게 잡는다)
-  point-divisor: 20           # 게시물 작성 포인트 = round(AI점수 × K ÷ point-divisor)
+  point-divisor: 4            # 게시물 작성 포인트 = round(AI점수 × K ÷ point-divisor). 20 → 4 (×5)
 
 post-review:
   async: ${POST_REVIEW_ASYNC:false}   # true = 업로드는 PENDING 저장까지만, 심사는 워커가 한다. false = 기존 동기 방식
@@ -126,6 +126,9 @@ thumbnail:
   width: ${THUMBNAIL_WIDTH:720}                 # 가로 픽셀. 원본이 이보다 작으면 확대하지 않는다
   quality: ${THUMBNAIL_QUALITY:0.8}             # JPEG 품질(0 초과 1 이하)
   max-pixels: ${THUMBNAIL_MAX_PIXELS:25000000}  # 이보다 큰 원본은 메모리 보호를 위해 썸네일 없이 원본만 올린다
+
+signup:
+  bonus-point: 5000           # 가입 시 지급 포인트. 따로 알림은 보내지 않는다
 
 season:
   round-days: 7               # 라운드 1개 길이
