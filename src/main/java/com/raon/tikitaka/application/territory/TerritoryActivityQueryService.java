@@ -5,11 +5,14 @@ import com.raon.tikitaka.application.territory.out.BlockedUserPort;
 import com.raon.tikitaka.application.territory.out.LandDevelopmentPort;
 import com.raon.tikitaka.application.territory.out.TerritoryCycleRepositoryPort;
 import com.raon.tikitaka.application.territory.out.TerritoryQueryPort;
+import com.raon.tikitaka.application.territory.out.TerritoryWagePort;
 import com.raon.tikitaka.application.territory.view.DevelopmentHistoryView;
 import com.raon.tikitaka.application.territory.view.MyTerritoriesView;
+import com.raon.tikitaka.application.territory.view.WageHistoryView;
 import com.raon.tikitaka.domain.enums.RoundType;
 import com.raon.tikitaka.domain.territory.Territory;
 import com.raon.tikitaka.domain.territory.TerritoryCycle;
+import com.raon.tikitaka.domain.territory.TerritoryWage;
 import com.raon.tikitaka.global.config.TerritoryProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,11 +31,13 @@ import java.util.UUID;
 public class TerritoryActivityQueryService implements QueryTerritoryActivityUseCase {
 
     private static final int DEVELOPMENT_LIMIT = 100;
+    private static final int WAGE_LIMIT = 100;
 
     private final TerritoryCycleRepositoryPort cycleRepositoryPort;
     private final TerritoryQueryPort territoryQueryPort;
     private final LandDevelopmentPort landDevelopmentPort;
     private final BlockedUserPort blockedUserPort;
+    private final TerritoryWagePort territoryWagePort;
     private final TerritoryProperties properties;
 
     /** 사이클이 없거나 대표 선발 전이면 빈 목록이다 */
@@ -72,5 +77,18 @@ public class TerritoryActivityQueryService implements QueryTerritoryActivityUseC
                 })
                 .toList();
         return new DevelopmentHistoryView(dongCode, t.getDong().getDongName(), items);
+    }
+
+    @Override
+    public WageHistoryView getWages(UUID userId, Long cycleId) {
+        List<TerritoryWage> wages = cycleId == null
+                ? territoryWagePort.findRecentByUser(userId, WAGE_LIMIT)
+                : territoryWagePort.findRecentByUserAndCycle(userId, cycleId, WAGE_LIMIT);
+        List<WageHistoryView.Item> items = wages.stream()
+                .map(w -> new WageHistoryView.Item(w.getId(), w.getCycle().getCycleId(), w.getPaidOn(),
+                        w.getLandCount(), w.getTotalLandPrice(), w.getRate(), w.getAmount()))
+                .toList();
+        long total = items.stream().mapToLong(WageHistoryView.Item::amount).sum();
+        return new WageHistoryView(total, items);
     }
 }

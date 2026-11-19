@@ -9,6 +9,7 @@ import com.raon.tikitaka.application.territory.view.DevelopmentHistoryView;
 import com.raon.tikitaka.application.territory.view.MissionChangeView;
 import com.raon.tikitaka.application.territory.view.MyTerritoriesView;
 import com.raon.tikitaka.application.territory.view.SetupResultView;
+import com.raon.tikitaka.application.territory.view.WageHistoryView;
 import com.raon.tikitaka.global.guard.RequestGuard;
 import com.raon.tikitaka.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.util.UUID;
 
-/** 땅 주인 활동(미션 변경·대표 사진 재촬영)과 내 땅·개발 이력 조회 */
+/** 땅 주인 활동(미션 변경·대표 사진 재촬영)과 내 땅·개발 이력·일급 이력 조회 */
 @RestController
 @RequestMapping("/api/territory")
 @RequiredArgsConstructor
@@ -58,6 +59,13 @@ public class TerritoryOwnerController {
     @GetMapping("/me")
     public ApiResponse<MyTerritoriesView> getMyTerritories(@AuthenticationPrincipal UUID userId) {
         return ApiResponse.of(200, "내 땅 조회 성공", queryTerritoryActivityUseCase.getMyTerritories(userId));
+    }
+
+    /** 내 일급 지급 이력. cycleId를 주면 그 사이클만, 안 주면 모든 사이클(최신순 최대 100건) */
+    @GetMapping("/me/wages")
+    public ApiResponse<WageHistoryView> getMyWages(@AuthenticationPrincipal UUID userId,
+                                                   @RequestParam(required = false) Long cycleId) {
+        return ApiResponse.of(200, "일급 이력 조회 성공", queryTerritoryActivityUseCase.getWages(userId, cycleId));
     }
 
     @GetMapping("/dongs/{dongCode}/developments")

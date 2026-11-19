@@ -56,8 +56,8 @@ public class LandDevelopmentService implements DevelopLandUseCase {
         }
         TerritoryProperties.Development d = properties.development();
         LocalDateTime today = now.toLocalDate().atStartOfDay();
-        long usedToday = developmentPort.countByUserSince(userId, today);
-        if (usedToday >= d.dailyLimitPerUser()) {
+        long usedToday = d.hasUserDailyLimit() ? developmentPort.countByUserSince(userId, today) : 0;
+        if (d.hasUserDailyLimit() && usedToday >= d.dailyLimitPerUser()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "오늘은 더 개발할 수 없어요. 하루 " + d.dailyLimitPerUser() + "번까지예요.");
         }
         if (developmentPort.countSuccessByTerritorySince(territoryId, today) >= d.dailyGainLimitPerDong()) {
@@ -70,14 +70,15 @@ public class LandDevelopmentService implements DevelopLandUseCase {
         }
         double roll = randomPort.nextDouble();
         boolean success = developmentPolicy.isSuccess(roll);
-        int gain = success ? developmentPolicy.gain() : 0;
+        int gain = success ? developmentPolicy.gain(t.landPrice()) : 0;
         if (success) {
             t.develop(gain);
         }
         developmentPort.save(LandDevelopment.record(t, user, cost, developmentPolicy.probability(), roll, success, gain, now));
 
         return new DevelopResultView(dongCode, success, cost, developmentPolicy.probability(), gain, t.landPrice(),
-                developmentPolicy.cost(t.landPrice()), (int) (d.dailyLimitPerUser() - usedToday - 1),
+                developmentPolicy.cost(t.landPrice()),
+                d.hasUserDailyLimit() ? (int) (d.dailyLimitPerUser() - usedToday - 1) : DevelopResultView.UNLIMITED,
                 pointPort.getPoint(userId));
     }
 }

@@ -21,6 +21,7 @@ import com.raon.tikitaka.domain.product.Product;
 import com.raon.tikitaka.domain.token.Token;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.domain.userItem.Inventory;
+import com.raon.tikitaka.global.config.SignupProperties;
 import com.raon.tikitaka.global.exception.DuplicateUserNameException;
 import com.raon.tikitaka.global.exception.InvalidTokenException;
 import com.raon.tikitaka.global.security.jwt.JwtProvider;
@@ -52,6 +53,7 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
     private final InventoryRepositoryPort inventoryRepositoryPort;
     private final BlockRepositoryPort blockRepositoryPort;
     private final JwtProvider jwtProvider;
+    private final SignupProperties signupProperties;
 
     @Override
     public LoginResult login(LoginProvider provider, String providerAccessToken) {
@@ -95,7 +97,9 @@ public class AuthService implements LoginUseCase, SignupUseCase, ReissueUseCase,
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "존재하지 않는 동네입니다.");
         }
 
-        Users user = userRepositoryPort.save(Users.of(userName, provider, providerId, mainLocation.get()));
+        Users newUser = Users.of(userName, provider, providerId, mainLocation.get());
+        newUser.earnPoint(signupProperties.bonusPoint());   // 가입 축하 포인트. 따로 알림은 보내지 않는다
+        Users user = userRepositoryPort.save(newUser);
         grantStarterItems(user);
 
         String accessToken = jwtProvider.createAccessToken(user.getUserId(), user.getRole());

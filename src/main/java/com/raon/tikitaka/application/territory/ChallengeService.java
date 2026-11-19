@@ -64,7 +64,8 @@ public class ChallengeService implements ChallengeUseCase {
         if (pointPort.getPoint(userId) < tollPolicy.toll(t.landPrice())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "포인트가 부족해요.");
         }
-        if (territoryQueryPort.countOwnedBy(cycle.getCycleId(), userId) >= properties.maxOwned()) {
+        if (properties.hasOwnedLimit()
+                && territoryQueryPort.countOwnedBy(cycle.getCycleId(), userId) >= properties.maxOwned()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "땅은 최대 " + properties.maxOwned() + "개까지 가질 수 있어요.");
         }
         String hash = PhotoHasher.sha256(c.image());

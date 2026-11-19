@@ -1,6 +1,7 @@
 package com.raon.tikitaka.adapter.scheduler;
 
 import com.raon.tikitaka.application.territory.in.EnsureTerritoryCyclesUseCase;
+import com.raon.tikitaka.application.territory.in.PayDailyWageUseCase;
 import com.raon.tikitaka.application.territory.in.RunBattleBatchUseCase;
 import com.raon.tikitaka.application.territory.in.SelectRepresentativesUseCase;
 import com.raon.tikitaka.application.territory.in.TeamRankingUseCase;
@@ -20,6 +21,7 @@ public class TerritoryScheduler {
     private final SelectRepresentativesUseCase selectRepresentativesUseCase;
     private final RunBattleBatchUseCase runBattleBatchUseCase;
     private final TeamRankingUseCase teamRankingUseCase;
+    private final PayDailyWageUseCase payDailyWageUseCase;
 
     /** 미래 라운드 생성(05:05) 뒤에 돈다. 배포 직후에도 사이클이 있도록 기동 시 1회 실행한다 */
     @EventListener(ApplicationReadyEvent.class)
@@ -56,6 +58,12 @@ public class TerritoryScheduler {
     @Scheduled(cron = "0 55 5 * * *", zone = "Asia/Seoul")
     public void decayDefense() {
         run("방어 점수 감쇠", runBattleBatchUseCase::decayDefense);
+    }
+
+    /** 땅값 재계산(05:50) 뒤: 땅 주인에게 일급 지급. 하루 한 번만 처리된다 */
+    @Scheduled(cron = "0 57 5 * * *", zone = "Asia/Seoul")
+    public void payDailyWage() {
+        run("일급 지급", payDailyWageUseCase::payDailyWage);
     }
 
     /** 땅따먹기 라운드 종료 다음 날: 랭킹 스냅샷 + 사이클 종료 */

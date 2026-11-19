@@ -16,7 +16,7 @@ class TerritoryPolicyTest {
 
     static final TerritoryProperties PROPS = new TerritoryProperties(4, 5,
             new Toll(0.15, 0.90), new LandPrice(2500, 0.5, 3.0, 7),
-            new Defense(60, 1, 1, 60), new Development(1.8, 0.49, 250, 3, 5));
+            new Defense(60, 1, 1, 60), new Development(1.8, 0.49, 0.25, 3, 5), new TerritoryProperties.Wage(0.5));
 
     /** 섞지 않고 순서 그대로 두는 난수 */
     static final RandomPort FIXED = new RandomPort() {
@@ -30,6 +30,22 @@ class TerritoryPolicyTest {
         assertThat(toll.toll(4000)).isEqualTo(600);
         assertThat(toll.ownerShare(600)).isEqualTo(540);
         assertThat(toll.toll(2999)).isEqualTo(449);   // 449.85
+    }
+
+    @Test
+    void 개발_성공_증가분은_현재_땅값의_비율이고_소수점을_버린다() {
+        DevelopmentPolicy dev = new DevelopmentPolicy(PROPS);
+        assertThat(dev.gain(2500)).isEqualTo(625);
+        assertThat(dev.gain(2999)).isEqualTo(749);   // 749.75
+        assertThat(dev.gain(10000)).isEqualTo(2500);
+    }
+
+    @Test
+    void 일급은_땅값_합계의_비율이고_소수점을_버린다() {
+        WagePolicy wage = new WagePolicy(PROPS);
+        assertThat(wage.wage(2500)).isEqualTo(1250);
+        assertThat(wage.wage(2500 + 3001)).isEqualTo(2750);   // 2750.5
+        assertThat(wage.wage(0)).isZero();
     }
 
     @Test
