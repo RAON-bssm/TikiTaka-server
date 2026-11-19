@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 앱 버전 확인 API를 실제 보안 설정, 실제 서비스, 실제 설정 바인딩과 함께 HTTP로 호출해 본다.
- * 안드로이드만 설정하고 iOS는 비워 둔다(iOS 스토어 주소는 배포 담당이 넣는다).
+ * 안드로이드만 설정하고 iOS는 비워 둔다. 스토어 주소는 테스트용 가짜 값이다.
  */
 @WebMvcTest(AppVersionController.class)
 @Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class,
@@ -33,14 +33,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "app-version.android.latest=1.4.0",
         "app-version.android.min-supported=1.2.0",
-        "app-version.android.store-url=https://play.google.com/store/apps/details?id=com.tikitaka.raon",
+        "app-version.android.store-url=https://store.example.com/android/tikitaka",
         "app-version.ios.latest=",
         "app-version.ios.min-supported=",
         "app-version.ios.store-url="
 })
 class AppVersionControllerTest {
 
-    private static final String PLAY = "https://play.google.com/store/apps/details?id=com.tikitaka.raon";
+    private static final String PLAY = "https://store.example.com/android/tikitaka";
 
     @Autowired MockMvc mockMvc;
 

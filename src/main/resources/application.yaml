@@ -129,7 +129,7 @@ thumbnail:
 
 # 앱 버전 확인(GET /api/app/version, AppVersionProperties). 값이 비어 있으면 그 플랫폼은 꺼진다(항상 NONE)
 # current < min-supported 면 FORCE, current < latest 면 OPTIONAL. 형식 오류는 기동 로그 경고 후 그 플랫폼만 끈다
-# iOS store-url은 App Store 앱 ID를 넣어야 해서 기본값이 없다. 비어 있으면 업데이트가 필요해도 NONE으로 응답한다
+# store-url은 배포 담당이 플랫폼별 스토어 주소를 넣는다(기본값 없음). 비어 있으면 업데이트가 필요해도 NONE으로 응답한다
 app-version:
   ios:
     latest: ${APP_VERSION_IOS_LATEST:}
@@ -138,7 +138,7 @@ app-version:
   android:
     latest: ${APP_VERSION_ANDROID_LATEST:}
     min-supported: ${APP_VERSION_ANDROID_MIN:}
-    store-url: ${APP_VERSION_ANDROID_STORE_URL:https://play.google.com/store/apps/details?id=com.tikitaka.raon}
+    store-url: ${APP_VERSION_ANDROID_STORE_URL:}
 
 season:
   round-days: 7               # 라운드 1개 길이

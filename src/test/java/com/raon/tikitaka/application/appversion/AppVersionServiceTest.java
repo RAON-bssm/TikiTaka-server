@@ -16,8 +16,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AppVersionServiceTest {
 
-    private static final String PLAY = "https://play.google.com/store/apps/details?id=com.tikitaka.raon";
-    private static final String APP_STORE = "https://apps.apple.com/app/id0000000000";
+    private static final String PLAY = "https://store.example.com/android/tikitaka";
+    private static final String APP_STORE = "https://store.example.com/ios/tikitaka";
     private static final Platform EMPTY = new Platform(null, null, null);
 
     private static AppVersionService service(Platform ios, Platform android) {
