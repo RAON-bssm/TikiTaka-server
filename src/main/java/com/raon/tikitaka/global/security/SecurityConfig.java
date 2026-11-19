@@ -62,6 +62,8 @@ public class SecurityConfig {
                         // 여러 key를 한 번에 서명하는 view-urls는 열지 않는다(anyRequest 규칙으로 로그인 필요).
                         // 비로그인이면 한 요청으로 임의 key 50개까지 서명받을 수 있기 때문이다
                         .requestMatchers(HttpMethod.GET, "/api/storage/view-url").permitAll()
+                        // 앱 버전 확인. 앱이 로그인 전에도 부른다. 와일드카드 없이 이 경로의 GET만 연다
+                        .requestMatchers(HttpMethod.GET, "/api/app/version").permitAll()
                         // 관리자 API는 JWT의 role이 ADMIN인 유저만. 필터가 ROLE_ADMIN 권한을 심어준다
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
