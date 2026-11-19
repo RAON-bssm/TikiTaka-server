@@ -3,6 +3,7 @@ package com.raon.tikitaka.application.appversion;
 import com.raon.tikitaka.application.appversion.in.CheckAppVersionUseCase;
 import com.raon.tikitaka.application.appversion.policy.AppVersion;
 import com.raon.tikitaka.application.appversion.view.AppVersionCheckView;
+import com.raon.tikitaka.domain.enums.AppPlatform;
 import com.raon.tikitaka.global.config.AppVersionProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;

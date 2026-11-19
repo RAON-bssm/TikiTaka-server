@@ -1,4 +1,4 @@
-package com.raon.tikitaka.application.appversion;
+package com.raon.tikitaka.domain.enums;
 
 import java.util.Locale;
 import java.util.Optional;
