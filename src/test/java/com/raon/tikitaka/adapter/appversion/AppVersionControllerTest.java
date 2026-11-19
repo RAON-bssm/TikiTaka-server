@@ -1,21 +1,25 @@
 package com.raon.tikitaka.adapter.appversion;
 
 import com.raon.tikitaka.application.appversion.AppVersionService;
-import com.raon.tikitaka.global.config.AppVersionProperties;
+import com.raon.tikitaka.application.appversion.out.AppVersionSettingPort;
+import com.raon.tikitaka.domain.appversion.AppVersionSetting;
+import com.raon.tikitaka.domain.enums.AppPlatform;
 import com.raon.tikitaka.global.security.JwtAccessDeniedHandler;
 import com.raon.tikitaka.global.security.JwtAuthenticationEntryPoint;
 import com.raon.tikitaka.global.security.SecurityConfig;
 import com.raon.tikitaka.global.security.SecurityErrorWriter;
 import com.raon.tikitaka.global.security.jwt.JwtProvider;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
+
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -23,21 +27,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 앱 버전 확인 API를 실제 보안 설정, 실제 서비스, 실제 설정 바인딩과 함께 HTTP로 호출해 본다.
- * 안드로이드만 설정하고 iOS는 비워 둔다. 스토어 주소는 테스트용 가짜 값이다.
+ * 앱 버전 확인 API를 실제 보안 설정, 실제 서비스와 함께 HTTP로 호출해 본다. 설정 행(app_version)만 가짜 포트로 준다.
+ * 안드로이드만 설정하고 iOS는 값이 빈 행으로 둔다. 스토어 주소는 테스트용 가짜 값이다.
  */
 @WebMvcTest(AppVersionController.class)
 @Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class,
         SecurityErrorWriter.class, AppVersionService.class})
-@EnableConfigurationProperties(AppVersionProperties.class)
-@TestPropertySource(properties = {
-        "app-version.android.latest=1.4.0",
-        "app-version.android.min-supported=1.2.0",
-        "app-version.android.store-url=https://store.example.com/android/tikitaka",
-        "app-version.ios.latest=",
-        "app-version.ios.min-supported=",
-        "app-version.ios.store-url="
-})
 class AppVersionControllerTest {
 
     private static final String PLAY = "https://store.example.com/android/tikitaka";
@@ -46,6 +41,14 @@ class AppVersionControllerTest {
 
     // 보안 필터의 의존성. 이 API는 토큰을 보지 않는다
     @MockitoBean JwtProvider jwtProvider;
+    @MockitoBean AppVersionSettingPort appVersionSettingPort;
+
+    @BeforeEach
+    void setUp() {
+        when(appVersionSettingPort.findAll()).thenReturn(List.of(
+                AppVersionSetting.of(AppPlatform.ANDROID, "1.4.0", "1.2.0", PLAY),
+                AppVersionSetting.of(AppPlatform.IOS, null, null, null)));
+    }
 
     // ===== 인증 없이 200 =====
 
