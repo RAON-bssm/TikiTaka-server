@@ -61,10 +61,10 @@ class TerritoryTest {
 
     @Test
     void 감쇠는_하한_아래로_내려가지_않고_개발하면_땅값이_오른다() {
-        territory.setup("파란", "하늘", null, "p1", 61, now);
-        territory.decay(1, 60);
-        territory.decay(1, 60);
-        assertThat(territory.getDefenseScore()).isEqualTo(60);
+        territory.setup("파란", "하늘", null, "p1", 41, now);
+        territory.decay(2, 40);
+        territory.decay(2, 40);
+        assertThat(territory.getDefenseScore()).isEqualTo(40);
 
         territory.develop(250);
         assertThat(territory.landPrice()).isEqualTo(2750);
@@ -85,15 +85,40 @@ class TerritoryTest {
     }
 
     @Test
-    void 감쇠는_땅따먹기_시작_후_비활동일_때_하루_한_번만_된다() {
+    void 감쇠는_하한보다_낮은_점수를_올리지_않는다() {
+        territory.setup("파란", "하늘", null, "p1", 30, now);
+        territory.decay(2, 40);
+        assertThat(territory.getDefenseScore()).isEqualTo(30);
+    }
+
+    @Test
+    void 감쇠는_땅따먹기_시작_하루_뒤부터_하루_한_번만_된다() {
         LocalDateTime battleStart = now.minusDays(2);
         territory.assign(user(), location(1), now.minusDays(5));        // 세팅은 땅따먹기 전
         territory.setup("파란", "하늘", null, "p1", 80, now.minusDays(5));
 
-        assertThat(territory.decayIfIdle(battleStart.plusHours(1), battleStart, 1, 1, 60)).isFalse(); // 시작 직후는 아직
-        assertThat(territory.decayIfIdle(now, battleStart, 1, 1, 60)).isTrue();
-        assertThat(territory.decayIfIdle(now.plusHours(1), battleStart, 1, 1, 60)).isFalse();         // 같은 날 두 번째
-        assertThat(territory.getDefenseScore()).isEqualTo(79);
+        assertThat(territory.decayDaily(battleStart.plusHours(1), battleStart, 2, 40)).isFalse(); // 시작 직후는 아직
+        assertThat(territory.decayDaily(now, battleStart, 2, 40)).isTrue();
+        assertThat(territory.decayDaily(now.plusHours(1), battleStart, 2, 40)).isFalse();         // 같은 날 두 번째
+        assertThat(territory.getDefenseScore()).isEqualTo(78);
+    }
+
+    @Test
+    void 활동_중인_땅도_감쇠된다() {
+        LocalDateTime battleStart = now.minusDays(2);
+        territory.assign(user(), location(1), now.minusDays(5));
+        territory.setup("파란", "하늘", null, "p1", 80, now.minusHours(1));   // 방금 재촬영
+
+        assertThat(territory.decayDaily(now, battleStart, 2, 40)).isTrue();
+        assertThat(territory.getDefenseScore()).isEqualTo(78);
+    }
+
+    @Test
+    void 주인_없는_땅도_감쇠된다() {
+        LocalDateTime battleStart = now.minusDays(2);       // 기준 점수 60으로 열린 땅
+
+        assertThat(territory.decayDaily(now, battleStart, 2, 40)).isTrue();
+        assertThat(territory.getDefenseScore()).isEqualTo(58);
     }
 
     @Test

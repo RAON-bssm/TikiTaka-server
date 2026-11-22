@@ -40,7 +40,7 @@ class LandDevelopmentServiceLimitTest {
 
     private static TerritoryProperties props(int dailyLimitPerUser, int dailyGainLimitPerDong) {
         return new TerritoryProperties(4, 0, new Toll(0.15, 1.0), new LandPrice(2500, 0.5, 3.0, 7),
-                new Defense(60, 1, 1, 60), new Development(1.65, 0.49, 0.25, dailyLimitPerUser, dailyGainLimitPerDong),
+                new Defense(60, 2, 40), new Development(1.65, 0.49, 0.25, dailyLimitPerUser, dailyGainLimitPerDong),
                 new TerritoryProperties.Wage(0.5));
     }
 

@@ -22,7 +22,7 @@ class TerritoryActivityQueryServiceWageTest {
 
     private static final TerritoryProperties PROPS = new TerritoryProperties(4, 0,
             new Toll(0.15, 1.0), new LandPrice(2500, 0.5, 3.0, 7),
-            new Defense(60, 1, 1, 60), new Development(1.65, 0.49, 0.25, 3, 5), new TerritoryProperties.Wage(0.5));
+            new Defense(60, 2, 40), new Development(1.65, 0.49, 0.25, 3, 5), new TerritoryProperties.Wage(0.5));
     private static final UUID ME = UUID.fromString("00000000-0000-0000-0000-00000000000a");
 
     private final TerritoryWagePort wagePort = mock(TerritoryWagePort.class);

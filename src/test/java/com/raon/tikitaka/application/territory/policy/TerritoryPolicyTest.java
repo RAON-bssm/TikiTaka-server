@@ -16,7 +16,7 @@ class TerritoryPolicyTest {
 
     static final TerritoryProperties PROPS = new TerritoryProperties(4, 5,
             new Toll(0.15, 0.90), new LandPrice(2500, 0.5, 3.0, 7),
-            new Defense(60, 1, 1, 60), new Development(1.8, 0.49, 0.25, 3, 5), new TerritoryProperties.Wage(0.5));
+            new Defense(60, 2, 40), new Development(1.8, 0.49, 0.25, 3, 5), new TerritoryProperties.Wage(0.5));
 
     /** 섞지 않고 순서 그대로 두는 난수 */
     static final RandomPort FIXED = new RandomPort() {

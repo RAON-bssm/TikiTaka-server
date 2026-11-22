@@ -94,7 +94,7 @@ class RepresentativeSelectionDbTest {
         @Bean
         TerritoryProperties territoryProperties() {
             return new TerritoryProperties(4, 5, new TerritoryProperties.Toll(0.15, 0.90),
-                    new TerritoryProperties.LandPrice(2500, 0.5, 3.0, 7), new TerritoryProperties.Defense(60, 1, 1, 60),
+                    new TerritoryProperties.LandPrice(2500, 0.5, 3.0, 7), new TerritoryProperties.Defense(60, 2, 40),
                     new TerritoryProperties.Development(1.8, 0.49, 0.25, 3, 5), new TerritoryProperties.Wage(0.5));
         }
 

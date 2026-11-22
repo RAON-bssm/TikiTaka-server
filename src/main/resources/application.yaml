@@ -136,6 +136,12 @@ season:
   prefetch-days: 30           # 미래 라운드를 며칠치 미리 생성할지
   match-open-ahead-days: 1    # 매치·게시판을 라운드 시작 며칠 전에 만들지
 
+# 땅따먹기(TerritoryProperties). 방어 점수는 주인 유무와 상관없이 모든 땅이 매일 깎인다
+territory:
+  defense:
+    decay-per-day: ${TERRITORY_DEFENSE_DECAY_PER_DAY:2}   # 하루에 깎이는 방어 점수
+    decay-floor: ${TERRITORY_DEFENSE_DECAY_FLOOR:40}      # 감쇠 하한. 이 아래로는 깎이지 않는다
+
 
 report:
   admin-email: ${REPORT_ADMIN_EMAIL:raon.bssm@gmail.com}   # 신고 알림 메일 수신자
