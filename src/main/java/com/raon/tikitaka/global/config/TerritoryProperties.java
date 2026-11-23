@@ -36,11 +36,10 @@ public record TerritoryProperties(
                             @DefaultValue("7") int windowDays) {
     }
 
-    /** 주인 없는 땅 기준 점수, 방치 감쇠(하루 decayPerDay, idleDays일 비활동부터, decayFloor 아래로는 안 내려감) */
+    /** 주인 없는 땅 기준 점수, 감쇠(주인 유무와 상관없이 모든 땅을 하루 decayPerDay씩, decayFloor 아래로는 안 내려감) */
     public record Defense(@DefaultValue("60") int unownedMinScore,
-                          @DefaultValue("1") int decayPerDay,
-                          @DefaultValue("1") int idleDays,
-                          @DefaultValue("60") int decayFloor) {
+                          @DefaultValue("2") int decayPerDay,
+                          @DefaultValue("40") int decayFloor) {
     }
 
     /**

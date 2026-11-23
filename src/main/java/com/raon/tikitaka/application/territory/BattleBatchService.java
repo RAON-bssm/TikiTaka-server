@@ -98,7 +98,7 @@ public class BattleBatchService implements RunBattleBatchUseCase {
         TerritoryCycle cycle = current.get();
         TerritoryProperties.Defense d = properties.defense();
         long decayed = territoryQueryPort.findAllByCycleId(cycle.getCycleId()).stream()
-                .filter(t -> t.decayIfIdle(now, cycle.getBattleStage().getStartedAt(), d.idleDays(), d.decayPerDay(), d.decayFloor()))
+                .filter(t -> t.decayDaily(now, cycle.getBattleStage().getStartedAt(), d.decayPerDay(), d.decayFloor()))
                 .count();
         log.info("방어 점수 감쇠 완료. cycleId={}, 땅 {}개", cycle.getCycleId(), decayed);
     }

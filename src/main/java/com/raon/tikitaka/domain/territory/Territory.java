@@ -183,22 +183,20 @@ public class Territory {
         updateDefense(photoKey, score, now);
     }
 
-    /** 방치 감쇠. floor 아래로는 내리지 않는다 */
+    /** 감쇠. floor 아래로는 내리지 않고, 이미 floor보다 낮으면 그대로 둔다(올리지 않는다) */
     public void decay(int amount, int floor) {
+        if (defenseScore <= floor) {
+            return;
+        }
         this.defenseScore = Math.max(floor, defenseScore - amount);
     }
 
     /**
-     * 하루 한 번만 감쇠한다. 비활동 기준 시각은 마지막 활동과 땅따먹기 시작 중 늦은 쪽이다
-     * (5~7일차에 세팅한 대표가 8일차 첫 배치에서 바로 깎이지 않게). 깎았으면 true
+     * 주인 유무·활동 여부와 상관없이 모든 땅을 하루 한 번 감쇠한다.
+     * 땅따먹기 시작 후 하루가 지나야 첫 감쇠를 한다(1일차 시작 직후 배치에서 바로 깎이지 않게). 깎았으면 true
      */
-    public boolean decayIfIdle(LocalDateTime now, LocalDateTime battleStartedAt, int idleDays, int amount, int floor) {
-        if (owner == null || now.toLocalDate().equals(lastDecayedOn)) {
-            return false;
-        }
-        LocalDateTime base = ownerLastActiveAt == null || ownerLastActiveAt.isBefore(battleStartedAt)
-                ? battleStartedAt : ownerLastActiveAt;
-        if (base.plusDays(idleDays).isAfter(now)) {
+    public boolean decayDaily(LocalDateTime now, LocalDateTime battleStartedAt, int amount, int floor) {
+        if (now.toLocalDate().equals(lastDecayedOn) || battleStartedAt.plusDays(1).isAfter(now)) {
             return false;
         }
         decay(amount, floor);
