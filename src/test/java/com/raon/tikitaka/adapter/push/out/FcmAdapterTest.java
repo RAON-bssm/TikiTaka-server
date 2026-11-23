@@ -51,8 +51,10 @@ class FcmAdapterTest {
         FirebaseMessaging messaging = mock(FirebaseMessaging.class);
         BatchResponse batch = mock(BatchResponse.class);
         when(batch.getSuccessCount()).thenReturn(1);
-        when(batch.getResponses()).thenReturn(List.of(ok(), failed(MessagingErrorCode.UNREGISTERED),
-                failed(MessagingErrorCode.UNAVAILABLE)));
+        // ok()/failed()가 안에서 목을 스터빙하므로 when(...) 밖에서 먼저 만든다(중첩 스터빙 방지)
+        List<SendResponse> responses = List.of(ok(), failed(MessagingErrorCode.UNREGISTERED),
+                failed(MessagingErrorCode.UNAVAILABLE));
+        when(batch.getResponses()).thenReturn(responses);
         when(messaging.sendEachForMulticast(any(MulticastMessage.class))).thenReturn(batch);
 
         PushSendResult result = new FcmAdapter(messaging)
