@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,5 +29,10 @@ public class TerritoryWagePersistenceAdapter implements TerritoryWagePort {
     @Override
     public List<TerritoryWage> findRecentByUserAndCycle(UUID userId, Long cycleId, int limit) {
         return repository.findRecentByUserAndCycle(userId, cycleId, PageRequest.of(0, limit));
+    }
+
+    @Override
+    public List<UUID> findUserIdsPaidOn(LocalDate paidOn) {
+        return repository.findUserIdsByPaidOn(paidOn);
     }
 }

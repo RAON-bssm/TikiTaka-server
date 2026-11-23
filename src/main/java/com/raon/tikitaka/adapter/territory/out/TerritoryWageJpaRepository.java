@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,4 +19,7 @@ public interface TerritoryWageJpaRepository extends JpaRepository<TerritoryWage,
             "order by w.paidOn desc, w.id desc")
     List<TerritoryWage> findRecentByUserAndCycle(@Param("userId") UUID userId, @Param("cycleId") Long cycleId,
                                                  Pageable pageable);
+
+    @Query("select distinct w.user.userId from TerritoryWage w where w.paidOn = :paidOn")
+    List<UUID> findUserIdsByPaidOn(@Param("paidOn") LocalDate paidOn);
 }

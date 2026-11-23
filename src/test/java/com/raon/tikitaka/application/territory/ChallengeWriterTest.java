@@ -16,6 +16,8 @@ import com.raon.tikitaka.global.config.TerritoryProperties;
 import com.raon.tikitaka.global.config.TerritoryProperties.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -39,8 +41,9 @@ class ChallengeWriterTest {
     private final TerritoryPointPort pointPort = mock(TerritoryPointPort.class);
     private final ChallengeRepositoryPort challengePort = mock(ChallengeRepositoryPort.class);
     private final UsedPhotoPort usedPhotoPort = mock(UsedPhotoPort.class);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ChallengeWriter writer = new ChallengeWriter(territoryPort, pointPort, challengePort, usedPhotoPort,
-            new TollPolicy(PROPS), PROPS);
+            new TollPolicy(PROPS), PROPS, eventPublisher);
 
     private Territory territory;
     private Users challenger;
@@ -125,5 +128,34 @@ class ChallengeWriterTest {
         assertThatThrownBy(() -> writer.apply(1L, challenger, myTeam, "p1", "h1", null, null, 90, null))
                 .isInstanceOf(ResponseStatusException.class);
         verify(pointPort, never()).deduct(any(), anyInt());
+    }
+
+    @Test
+    void 주인_있는_땅을_점령하면_이전_주인에게_알릴_이벤트를_발행한다() {
+        ownedByRival(70);
+        when(challenger.getUserName()).thenReturn("도전자");
+
+        writer.apply(1L, challenger, myTeam, "p1", "h1", null, null, 80, null);
+
+        ArgumentCaptor<TerritoryCapturedEvent> event = ArgumentCaptor.forClass(TerritoryCapturedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertThat(event.getValue().previousOwnerId()).isEqualTo(OWNER_ID);
+        assertThat(event.getValue().challengerName()).isEqualTo("도전자");
+    }
+
+    @Test
+    void 도전에_지면_알림_이벤트를_발행하지_않는다() {
+        ownedByRival(70);
+
+        writer.apply(1L, challenger, myTeam, "p1", "h1", null, null, 69, null);
+
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void 주인_없는_땅을_차지하면_알릴_사람이_없어_이벤트를_발행하지_않는다() {
+        writer.apply(1L, challenger, myTeam, "p1", "h1", null, null, 60, null);
+
+        verifyNoInteractions(eventPublisher);
     }
 }

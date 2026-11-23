@@ -16,6 +16,7 @@ import com.raon.tikitaka.domain.territory.UsedPhoto;
 import com.raon.tikitaka.domain.user.Users;
 import com.raon.tikitaka.global.config.TerritoryProperties;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ import java.util.UUID;
  * 3) 통행료 차감 + 대표에게 90% 입금. 유저 행은 user_id 순서로 잠가 교착을 피한다
  * 4) 판정 → 점령이면 주인 교체 + 이력
  * 5) 도전 기록·사용한 사진 저장
+ * 6) 주인 있는 땅을 점령했으면 TerritoryCapturedEvent 발행 → 커밋 뒤 이전 주인에게 푸시(TerritoryCapturedPushListener)
  */
 @Component
 @RequiredArgsConstructor
@@ -44,6 +46,7 @@ public class ChallengeWriter {
     private final UsedPhotoPort usedPhotoPort;
     private final TollPolicy tollPolicy;
     private final TerritoryProperties properties;
+    private final ApplicationEventPublisher eventPublisher;
 
     public record Outcome(Challenge challenge, int myPoint) {
     }
@@ -82,6 +85,11 @@ public class ChallengeWriter {
             t.capture(challenger, team, photoKey, score, now);
             challengeRepositoryPort.saveHistory(TerritoryHistory.of(t.getTerritoryId(), from, userId, score,
                     from == null ? TerritoryEventType.CLAIMED : TerritoryEventType.CAPTURED, now));
+            if (from != null) {
+                // 리스너는 커밋 뒤에만 돈다. 여기서 롤백되면 알림도 나가지 않는다
+                eventPublisher.publishEvent(new TerritoryCapturedEvent(from, challenger.getUserName(),
+                        t.getDong().getDongCode(), t.getDong().getDongName()));
+            }
         }
 
         Challenge saved = challengeRepositoryPort.save(Challenge.record(t, challenger, team, photoKey, photoHash,

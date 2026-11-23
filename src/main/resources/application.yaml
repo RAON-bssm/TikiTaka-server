@@ -143,6 +143,19 @@ territory:
     decay-floor: ${TERRITORY_DEFENSE_DECAY_FLOOR:40}      # 감쇠 하한. 이 아래로는 깎이지 않는다
 
 
+# FCM 푸시 알림(FcmAdapter). Firebase 서비스 계정 JSON을 base64로 인코딩한 값을 넣는다(base64 -i key.json).
+# 비어 있으면 기동은 되고 발송만 건너뛴다. 키 파일·값을 저장소에 올리지 말 것
+firebase:
+  credentials-base64: ${FIREBASE_CREDENTIALS_BASE64:}
+
+# 푸시 알림 문구(PushProperties). 비어 있으면 코드의 기본 문구를 쓴다. 바꾸면 docker compose up -d로 컨테이너를 다시 만들어야 반영된다
+# 땅 뺏김 문구 자리표시자: {challenger} = 도전자 닉네임, {dong} = 동 이름. 형식이 틀리면 기동이 실패한다
+push:
+  title: ${PUSH_TITLE:}                                                         # 기본: 티키타카
+  daily-wage-body: ${PUSH_DAILY_WAGE_BODY:}                                     # 기본: 출석 보상이 기다리는 중입니다!!
+  territory-captured-body: ${PUSH_TERRITORY_CAPTURED_BODY:}                     # 기본: {challenger}에게 {dong} 땅을 뺏겼습니다!!
+  territory-captured-body-no-dong: ${PUSH_TERRITORY_CAPTURED_BODY_NO_DONG:}     # 기본: {challenger}에게 땅을 뺏겼습니다!!
+
 report:
   admin-email: ${REPORT_ADMIN_EMAIL:raon.bssm@gmail.com}   # 신고 알림 메일 수신자
 
