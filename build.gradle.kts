@@ -50,6 +50,9 @@ dependencies {
 
 	// 게시물 목록용 썸네일 생성(리사이즈, EXIF 회전 적용, JPEG 변환)
 	implementation("net.coobird:thumbnailator:0.4.21")
+
+	// FCM 푸시 알림(HTTP v1). 서비스 계정 키는 FIREBASE_CREDENTIALS_BASE64로 주입
+	implementation("com.google.firebase:firebase-admin:9.4.3")
 }
 
 tasks.withType<Test> {
