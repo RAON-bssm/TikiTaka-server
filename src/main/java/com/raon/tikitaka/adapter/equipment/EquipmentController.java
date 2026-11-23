@@ -35,8 +35,8 @@ public class EquipmentController {
     /**
      * 랭킹 화면 등에서 다른 유저가 장착 중인 캐릭터 파츠(프로필 이미지 합성용)를 조회한다.
      * 인증 주체(@AuthenticationPrincipal)가 아니라 경로의 userId를 그대로 조회하므로
-     * 본인 여부와 무관하게 어떤 유저의 장비든 볼 수 있다. 인증 자체는 SecurityConfig의
-     * anyRequest().authenticated() 기본 정책을 그대로 따른다(로그인은 필요).
+     * 본인 여부와 무관하게 어떤 유저의 장비든 볼 수 있다. SecurityConfig에서 GET만 permitAll로
+     * 열어두었으므로 로그인하지 않아도 호출할 수 있다.
      */
     @GetMapping("/{userId}")
     public ApiResponse<EquipmentResponse> getEquippedItemsOf(@PathVariable UUID userId) {
