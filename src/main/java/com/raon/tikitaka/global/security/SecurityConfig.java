@@ -64,6 +64,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/storage/view-url").permitAll()
                         // 앱 버전 확인. 앱이 로그인 전에도 부른다. 와일드카드 없이 이 경로의 GET만 연다
                         .requestMatchers(HttpMethod.GET, "/api/app/version").permitAll()
+                        // 다른 유저의 장착 장비 조회(프로필 캐릭터 합성용). 경로의 userId만 쓰고 principal을 쓰지 않는다
+                        // "/api/equipment/*"는 한 단계 경로만 매칭하므로 본인 장비 조회(GET /api/equipment)와
+                        // 장비 착용(PATCH /api/equipment)은 계속 인증이 필요하다
+                        .requestMatchers(HttpMethod.GET, "/api/equipment/*").permitAll()
                         // 관리자 API는 JWT의 role이 ADMIN인 유저만. 필터가 ROLE_ADMIN 권한을 심어준다
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
