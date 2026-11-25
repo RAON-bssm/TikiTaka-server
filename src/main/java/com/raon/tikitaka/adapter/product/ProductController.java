@@ -2,10 +2,12 @@ package com.raon.tikitaka.adapter.product;
 
 import com.raon.tikitaka.adapter.product.dto.GashaponDrawRequest;
 import com.raon.tikitaka.adapter.product.dto.GashaponDrawResponse;
+import com.raon.tikitaka.adapter.product.dto.GashaponListResponse;
 import com.raon.tikitaka.adapter.product.dto.ProductListResponse;
 import com.raon.tikitaka.adapter.product.dto.PurchaseProductRequest;
 import com.raon.tikitaka.application.gashapon.GashaponDrawResult;
 import com.raon.tikitaka.application.gashapon.in.DrawGashaponUseCase;
+import com.raon.tikitaka.application.gashapon.in.GetGashaponListUseCase;
 import com.raon.tikitaka.application.product.in.GetProductListUseCase;
 import com.raon.tikitaka.application.product.in.PurchaseProductUseCase;
 import com.raon.tikitaka.global.guard.RequestGuard;
@@ -31,6 +33,7 @@ public class ProductController {
     private final GetProductListUseCase getProductListUseCase;
     private final PurchaseProductUseCase purchaseProductUseCase;
     private final DrawGashaponUseCase drawGashaponUseCase;
+    private final GetGashaponListUseCase getGashaponListUseCase;
     private final RequestGuard requestGuard;
 
     @GetMapping
@@ -46,6 +49,12 @@ public class ProductController {
         requestGuard.execute(RequestGuard.pointsKey(userId), RequestGuard.POINTS_BUSY_MESSAGE,
                 () -> purchaseProductUseCase.purchase(userId, request.productId()));
         return ApiResponse.of(201, "상품 구매 성공", null);
+    }
+
+    @GetMapping("/gashapon")
+    public ApiResponse<GashaponListResponse> getGashapons() {
+        GashaponListResponse response = GashaponListResponse.from(getGashaponListUseCase.getGashapons());
+        return ApiResponse.of(200, "가샤폰 목록 조회 성공", response);
     }
 
     @PatchMapping("/gashapon")
