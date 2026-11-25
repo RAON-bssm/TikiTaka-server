@@ -1,6 +1,7 @@
 package com.raon.tikitaka.application.gashapon;
 
 import com.raon.tikitaka.application.gashapon.in.DrawGashaponUseCase;
+import com.raon.tikitaka.application.gashapon.in.GetGashaponListUseCase;
 import com.raon.tikitaka.application.inventory.out.InventoryRepositoryPort;
 import com.raon.tikitaka.application.product.out.ProductRepositoryPort;
 import com.raon.tikitaka.application.user.out.UserRepositoryPort;
@@ -24,7 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class GashaponService implements DrawGashaponUseCase {
+public class GashaponService implements DrawGashaponUseCase, GetGashaponListUseCase {
 
     // 가샤폰 상품 ID → 1회 구매당 뽑는 횟수.
     // 종류가 늘어나면 여기에 한 줄만 추가하면 된다.
@@ -36,6 +37,21 @@ public class GashaponService implements DrawGashaponUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final ProductRepositoryPort productRepositoryPort;
     private final InventoryRepositoryPort inventoryRepositoryPort;
+
+    /**
+     * 판매 중인 가샤폰 상품 목록(가격 + 뽑는 횟수). 뽑는 횟수 오름차순.
+     * DRAW_COUNT_BY_PRODUCT_ID에 있지만 비활성/미등록인 상품은 뽑기도 불가능하므로 목록에서 뺀다.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<GashaponProduct> getGashapons() {
+        return DRAW_COUNT_BY_PRODUCT_ID.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .flatMap(entry -> productRepositoryPort.findActiveById(entry.getKey())
+                        .map(product -> new GashaponProduct(product, entry.getValue()))
+                        .stream())
+                .toList();
+    }
 
     @Override
     public List<GashaponDrawResult> draw(UUID userId, String gashaponProductId) {
